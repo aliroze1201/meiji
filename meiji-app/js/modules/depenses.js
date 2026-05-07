@@ -62,9 +62,9 @@ const Recettes = {
     return {
       id: this._draftSeq++,
       date: Data.today(),
-      s: { esp:'', chq:'', mob:'', cred:'' },
-      b: { esp:'', chq:'', mob:'', cred:'' },
-      c: { esp:'', chq:'', mob:'', cred:'' },
+      s: { verif:'', esp:'', chq:'', mob:'', cred:'' },
+      b: { verif:'', esp:'', chq:'', mob:'', cred:'' },
+      c: { verif:'', esp:'', chq:'', mob:'', cred:'' },
     };
   },
 
@@ -87,6 +87,21 @@ const Recettes = {
     const d = this.drafts.find(x => x.id === id);
     if (!d) return;
     d[caisse][mode] = value;
+    // Auto-calcul des espèces si verif/chq/mob/cred change :
+    //   espèces = total verif − chèque − mobile − crédit
+    if (mode !== 'esp') {
+      const v  = parseFloat(d[caisse].verif) || 0;
+      const ch = parseFloat(d[caisse].chq)   || 0;
+      const mb = parseFloat(d[caisse].mob)   || 0;
+      const cr = parseFloat(d[caisse].cred)  || 0;
+      const esp = v - ch - mb - cr;
+      d[caisse].esp = esp ? esp : '';
+      const espInput = document.querySelector(`[data-rec-draft="${id}"] tr.${caisse==='s'?'sushi':caisse==='b'?'bar':'chicha'} input[data-mode="esp"]`);
+      if (espInput) {
+        espInput.value = d[caisse].esp;
+        espInput.classList.toggle('neg', esp < 0);
+      }
+    }
     this.persistDrafts();
     this._refreshTotals(id);
     this._refreshHeader();
@@ -115,7 +130,7 @@ const Recettes = {
       const el = card.querySelector(`.row-total[data-k="${k}"]`);
       if (el) el.textContent = Data.fmts(total);
     });
-    ['esp','chq','mob','cred'].forEach(m => {
+    ['verif','esp','chq','mob','cred'].forEach(m => {
       const total = ['s','b','c'].reduce((s, k) => s + (parseFloat(d[k][m]) || 0), 0);
       const el = card.querySelector(`.col-total[data-m="${m}"]`);
       if (el) el.textContent = Data.fmts(total);
@@ -144,26 +159,33 @@ const Recettes = {
     }
 
     list.innerHTML = this.drafts.map(d => {
-      const tS = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.s[m])||0), 0);
-      const tB = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.b[m])||0), 0);
-      const tC = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.c[m])||0), 0);
+      const sum = (k) => (parseFloat(d[k].esp)||0) + (parseFloat(d[k].chq)||0) + (parseFloat(d[k].mob)||0) + (parseFloat(d[k].cred)||0);
+      const tS = sum('s'), tB = sum('b'), tC = sum('c');
+      const tVer  = (parseFloat(d.s.verif)||0)+(parseFloat(d.b.verif)||0)+(parseFloat(d.c.verif)||0);
       const tEsp  = (parseFloat(d.s.esp)||0)+(parseFloat(d.b.esp)||0)+(parseFloat(d.c.esp)||0);
       const tChq  = (parseFloat(d.s.chq)||0)+(parseFloat(d.b.chq)||0)+(parseFloat(d.c.chq)||0);
       const tMob  = (parseFloat(d.s.mob)||0)+(parseFloat(d.b.mob)||0)+(parseFloat(d.c.mob)||0);
       const tCred = (parseFloat(d.s.cred)||0)+(parseFloat(d.b.cred)||0)+(parseFloat(d.c.cred)||0);
       const grand = tS + tB + tC;
 
-      const cell = (k, m, v) => `<td><input type="number" min="0" step="100" placeholder="0"
-        value="${this._esc(v)}"
+      const editable = (k, m, v) => `<td><input type="number" min="0" step="100" placeholder="0"
+        data-mode="${m}" value="${this._esc(v)}"
         oninput="Recettes.updateDraft(${d.id},'${k}','${m}',this.value)"></td>`;
+      const lockedEsp = (k, v) => {
+        const n = parseFloat(v);
+        const cls = (n < 0) ? 'esp-locked neg' : 'esp-locked';
+        return `<td><div class="esp-wrap"><i class="ti ti-lock"></i><input type="number" readonly tabindex="-1"
+          data-mode="esp" class="${cls}" placeholder="0" value="${this._esc(v)}"></div></td>`;
+      };
       const dataMap = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
       const row = (k) => `
         <tr class="${k==='s'?'sushi':k==='b'?'bar':'chicha'}">
           <td><span class="caisse-label"><span class="dot"></span>${dataMap[k]}</span></td>
-          ${cell(k,'esp', d[k].esp)}
-          ${cell(k,'chq', d[k].chq)}
-          ${cell(k,'mob', d[k].mob)}
-          ${cell(k,'cred',d[k].cred)}
+          ${editable(k,'verif', d[k].verif)}
+          ${editable(k,'chq',   d[k].chq)}
+          ${editable(k,'mob',   d[k].mob)}
+          ${editable(k,'cred',  d[k].cred)}
+          ${lockedEsp(k,        d[k].esp)}
           <td class="row-total" data-k="${k}">${Data.fmts(k==='s'?tS:k==='b'?tB:tC)}</td>
         </tr>`;
 
@@ -177,15 +199,20 @@ const Recettes = {
           <button class="btn-ghost" title="Supprimer la journée"
                   onclick="Recettes.removeDraft(${d.id})"><i class="ti ti-trash"></i></button>
         </div>
+        <div style="font-size:11.5px;color:var(--c-muted);margin-bottom:8px">
+          <i class="ti ti-info-circle"></i> Saisissez le <b>Total vérif</b> (montant total compté de la caisse), puis Chèque / Mobile / Crédit.
+          La colonne <b>Espèces</b> <i class="ti ti-lock" style="font-size:11px"></i> se calcule automatiquement : <code style="font-family:var(--font-mono);background:var(--c-bg-2);padding:1px 5px;border-radius:4px">Espèces = Vérif − Chèque − Mobile − Crédit</code>.
+        </div>
         <div style="overflow-x:auto">
           <table class="rec-draft-table">
             <thead>
               <tr>
                 <th>Caisse</th>
-                <th>Espèces</th>
+                <th>Total vérif</th>
                 <th>Chèque</th>
                 <th>Mobile</th>
                 <th>Crédit</th>
+                <th>Espèces <i class="ti ti-lock" style="font-size:11px"></i></th>
                 <th>Total</th>
               </tr>
             </thead>
@@ -195,10 +222,11 @@ const Recettes = {
               ${row('c')}
               <tr class="totals">
                 <td>Total</td>
-                <td class="col-total" data-m="esp">${Data.fmts(tEsp)}</td>
+                <td class="col-total" data-m="verif">${Data.fmts(tVer)}</td>
                 <td class="col-total" data-m="chq">${Data.fmts(tChq)}</td>
                 <td class="col-total" data-m="mob">${Data.fmts(tMob)}</td>
                 <td class="col-total" data-m="cred">${Data.fmts(tCred)}</td>
+                <td class="col-total" data-m="esp">${Data.fmts(tEsp)}</td>
                 <td class="col-total" data-m="all">${Data.fmts(grand)}</td>
               </tr>
             </tbody>

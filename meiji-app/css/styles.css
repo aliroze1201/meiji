@@ -1198,6 +1198,30 @@ input::placeholder { color: var(--c-muted); }
   border-color: var(--c-bar);
   box-shadow: 0 0 0 2px var(--c-bar-soft);
 }
+.rec-draft-table .esp-wrap {
+  position: relative;
+}
+.rec-draft-table .esp-wrap i.ti-lock {
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--c-muted);
+  pointer-events: none;
+}
+.rec-draft-table input.esp-locked {
+  background: var(--c-bg-2);
+  color: var(--c-text);
+  font-weight: 800;
+  cursor: not-allowed;
+  padding-left: 22px;
+  border-color: var(--c-border-2);
+}
+.rec-draft-table input.esp-locked.neg {
+  color: var(--c-red);
+  background: var(--c-red-soft);
+}
 .rec-draft-table .row-total,
 .rec-draft-table .col-total {
   font-weight: 800;
