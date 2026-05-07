@@ -211,7 +211,8 @@
     <!-- DEPENSES -->
     <div class="page" id="page-depenses">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-trending-down"></i> Dépenses</span>
-        <button class="btn btn-primary" id="btn-new-dep"><i class="ti ti-plus"></i> Nouvelle dépense</button>
+        <button class="btn btn-primary" id="btn-new-dep"><i class="ti ti-plus"></i> + Ligne</button>
+        <button class="btn btn-success" id="btn-commit-dep" title="Valider toutes les lignes saisies"><i class="ti ti-check"></i> Valider la saisie</button>
         <button class="btn" id="btn-export-dep" title="Télécharger toutes les dépenses au format Excel"><i class="ti ti-file-spreadsheet"></i> Export Excel</button>
         <button class="btn" id="btn-import-dep" title="Importer un fichier Excel précédemment exporté"><i class="ti ti-upload"></i> Import Excel</button>
         <input type="file" id="dep-file-input" accept=".xlsx,.xls,.csv" style="display:none">
@@ -223,13 +224,55 @@
         </div>
       </div>
       <div class="content">
+
+        <!-- ZONE DE SAISIE (DRAFT) -->
+        <div class="card draft-card" id="draft-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ti ti-edit"></i> Saisie en cours <span id="draft-count" style="font-weight:500;color:var(--c-muted);font-size:12px"></span></span>
+            <span id="draft-total" style="font-family:var(--font-display);font-size:16px;font-weight:800;color:var(--c-red)"></span>
+          </div>
+          <datalist id="draft-cat-list"></datalist>
+          <div style="overflow-x:auto">
+            <table class="draft-table">
+              <thead>
+                <tr>
+                  <th style="width:120px">Date</th>
+                  <th style="width:90px">Caisse</th>
+                  <th style="width:160px">Catégorie</th>
+                  <th>Désignation</th>
+                  <th class="text-right" style="width:60px">Qté</th>
+                  <th class="text-right" style="width:110px">P.U.</th>
+                  <th class="text-right" style="width:130px">Montant</th>
+                  <th>Observation</th>
+                  <th style="width:34px"></th>
+                </tr>
+              </thead>
+              <tbody id="draft-tbody"></tbody>
+            </table>
+          </div>
+          <div id="draft-empty" class="empty" style="padding:18px">Aucune ligne en cours. Cliquez <b>+ Ligne</b> pour commencer.</div>
+        </div>
+
+        <!-- KPIs -->
         <div class="g4">
           <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red" id="dep-tot">0</div></div>
           <div class="mc blue"><div class="mc-label blue">SUSHI</div><div class="mc-val blue" id="dep-s">0</div></div>
           <div class="mc green"><div class="mc-label green">BAR</div><div class="mc-val green" id="dep-b">0</div></div>
           <div class="mc amber"><div class="mc-label amber">CHICHA</div><div class="mc-val amber" id="dep-c">0</div></div>
         </div>
-        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Date</th><th>Catégorie</th><th>Désignation</th><th class="text-right">Qté</th><th class="text-right">P.U.</th><th class="text-right">Montant</th><th>Dept</th><th>Observation</th><th></th></tr></thead><tbody id="dep-table"></tbody></table></div>
+
+        <!-- TABLEAU HISTORIQUE -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)">
+            <span class="card-title"><i class="ti ti-history"></i> Dépenses validées</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr><th>Date</th><th>Catégorie</th><th>Désignation</th><th class="text-right">Qté</th><th class="text-right">P.U.</th><th class="text-right">Montant</th><th>Dept</th><th>Observation</th><th></th></tr></thead>
+              <tbody id="dep-table"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 

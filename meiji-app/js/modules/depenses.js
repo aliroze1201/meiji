@@ -47,7 +47,25 @@ const Recettes = {
 
 // ===================== DEPENSES =====================
 const Depenses = {
+  drafts: [],            // saisies en cours (non validées)
+  _draftSeq: 1,          // id local des brouillons
+
+  // Render globale appelée par App.renderAll()
   renderTable() {
+    this.renderHistory();
+    this.renderDrafts();
+    this.refreshCatList();
+  },
+
+  refreshCatList() {
+    const list = document.getElementById('draft-cat-list');
+    if (!list) return;
+    const cats = Data.categories.filter(c => c.type === 'dep').map(c => c.nom);
+    list.innerHTML = cats.map(n => `<option value="${this._escape(n)}"></option>`).join('');
+  },
+
+  // ===================== TABLE HISTORIQUE =====================
+  renderHistory() {
     const filter = App.filters.dep;
     const all = Data.getAllDeps();
     const catColors = Data.getCatColors();
@@ -94,106 +112,148 @@ const Depenses = {
     return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   },
 
-  openModal() {
-    const cats = Data.categories.filter(c => c.type === 'dep');
-    const today = Data.today();
-    const opts = cats.map(c => `<option value="${this._escape(c.nom)}"></option>`).join('');
-    const html = `
-      <div class="modal-overlay show" onclick="if(event.target===this)App.closeModal()">
-        <div class="modal modal-lg">
-          <div class="modal-title"><i class="ti ti-plus"></i> Nouvelle dépense</div>
-
-          <div class="fr">
-            <div class="fg"><label class="fl">Date</label>
-              <input type="date" id="dep-form-date" value="${today}">
-            </div>
-            <div class="fg"><label class="fl">Département</label>
-              <select id="dep-form-dept">
-                <option value="SUSHI">SUSHI</option>
-                <option value="BAR">BAR</option>
-                <option value="CHICHA">CHICHA</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="fg">
-            <label class="fl">Catégorie <span style="color:var(--c-muted);font-weight:500;text-transform:none">(tapez pour rechercher)</span></label>
-            <input type="text" id="dep-form-cat" list="dep-form-catlist" placeholder="Ex : Boissons, Matières premières...">
-            <datalist id="dep-form-catlist">${opts}</datalist>
-          </div>
-
-          <div class="fg">
-            <label class="fl">Désignation</label>
-            <input type="text" id="dep-form-label" placeholder="Nom de l'article ou service">
-          </div>
-
-          <div class="fr3">
-            <div class="fg"><label class="fl">Quantité</label>
-              <input type="number" id="dep-form-qte" value="1" min="0" step="1" oninput="Depenses._compute()">
-            </div>
-            <div class="fg"><label class="fl">Prix unitaire (FCFA)</label>
-              <input type="number" id="dep-form-prix" min="0" step="100" oninput="Depenses._compute()" placeholder="0">
-            </div>
-            <div class="fg"><label class="fl">Montant total (FCFA)</label>
-              <input type="number" id="dep-form-montant" min="0" step="1" placeholder="0"
-                     style="font-weight:700;color:var(--c-red);background:var(--c-red-soft)">
-            </div>
-          </div>
-          <div style="font-size:11px;color:var(--c-muted);margin:-6px 0 12px">
-            Le montant se calcule automatiquement (Qté × Prix). Vous pouvez aussi le saisir directement.
-          </div>
-
-          <div class="fg">
-            <label class="fl">Observation (optionnel)</label>
-            <textarea id="dep-form-obs" rows="2" placeholder="Précisions, fournisseur, n° de facture, etc."></textarea>
-          </div>
-
-          <div class="modal-actions">
-            <button class="btn" onclick="App.closeModal()">Annuler</button>
-            <button class="btn btn-primary" onclick="Depenses.save()"><i class="ti ti-check"></i> Enregistrer</button>
-          </div>
-        </div>
-      </div>`;
-    App.showModal(html);
-    setTimeout(() => document.getElementById('dep-form-cat')?.focus(), 50);
+  // ===================== BROUILLONS (saisie en cours) =====================
+  newDraft() {
+    return {
+      id: this._draftSeq++,
+      date: Data.today(),
+      dept: 'SUSHI',
+      cat:  '',
+      label: '',
+      qte:  '',
+      prix: '',
+      montant: '',
+      obs: '',
+    };
   },
 
-  _compute() {
-    const q = parseFloat(document.getElementById('dep-form-qte')?.value) || 0;
-    const p = parseFloat(document.getElementById('dep-form-prix')?.value) || 0;
-    const m = document.getElementById('dep-form-montant');
-    if (m && (q || p)) m.value = Math.round(q * p);
+  addDraftRow() {
+    this.drafts.push(this.newDraft());
+    this.persistDrafts();
+    this.renderDrafts();
+    // focus sur la catégorie de la nouvelle ligne
+    setTimeout(() => {
+      const rows = document.querySelectorAll('#draft-tbody tr');
+      const last = rows[rows.length - 1];
+      last?.querySelector('input.fld-cat')?.focus();
+    }, 30);
   },
 
-  save() {
-    const date = document.getElementById('dep-form-date').value;
-    const dept = document.getElementById('dep-form-dept').value;
-    const cat  = document.getElementById('dep-form-cat').value.trim();
-    const label = document.getElementById('dep-form-label').value.trim();
-    const qte  = parseFloat(document.getElementById('dep-form-qte').value) || 0;
-    const prix = parseFloat(document.getElementById('dep-form-prix').value) || 0;
-    const mnt  = parseFloat(document.getElementById('dep-form-montant').value) || 0;
-    const obs  = document.getElementById('dep-form-obs').value.trim();
+  removeDraftRow(id) {
+    this.drafts = this.drafts.filter(d => d.id !== id);
+    this.persistDrafts();
+    this.renderDrafts();
+  },
 
-    if (!date) return alert('Date requise');
-    if (!cat)  return alert('Catégorie requise');
-    if (!mnt)  return alert('Montant requis');
+  updateDraft(id, field, value) {
+    const d = this.drafts.find(x => x.id === id);
+    if (!d) return;
+    d[field] = value;
+    // recalcul auto du montant si l'utilisateur n'a pas écrit dedans
+    if (field === 'qte' || field === 'prix') {
+      const q = parseFloat(d.qte) || 0;
+      const p = parseFloat(d.prix) || 0;
+      if (q && p) d.montant = Math.round(q * p);
+      const tr = document.querySelector(`#draft-tbody tr[data-draft-id="${id}"]`);
+      const inp = tr?.querySelector('input.fld-montant');
+      if (inp) inp.value = d.montant || '';
+    }
+    this.persistDrafts();
+    this._refreshDraftSummary();
+  },
 
-    const id = Data.newId();
-    Data.histDep.push({
-      userId: id,
-      date,
-      dept,
-      label: label || cat,
-      groupe: cat,
-      qte: qte || null,
-      prix: prix || null,
-      montant: mnt,
-      observation: obs || null,
+  _refreshDraftSummary() {
+    const c = document.getElementById('draft-count');
+    const t = document.getElementById('draft-total');
+    const total = this.drafts.reduce((s,d) => s + (parseFloat(d.montant) || 0), 0);
+    if (c) c.textContent = `· ${this.drafts.length} ligne${this.drafts.length > 1 ? 's' : ''}`;
+    if (t) t.textContent = total ? `Total brouillon : ${Data.fmt(total)}` : '';
+  },
+
+  renderDrafts() {
+    const tb = document.getElementById('draft-tbody');
+    const empty = document.getElementById('draft-empty');
+    if (!tb) return;
+
+    if (!this.drafts.length) {
+      tb.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      this._refreshDraftSummary();
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+
+    tb.innerHTML = this.drafts.map(d => `
+      <tr data-draft-id="${d.id}">
+        <td><input type="date"   class="fld-date"    value="${this._escape(d.date)}"
+              onchange="Depenses.updateDraft(${d.id},'date',this.value)"></td>
+        <td><select class="fld-dept"
+              onchange="Depenses.updateDraft(${d.id},'dept',this.value)">
+              <option value="SUSHI"  ${d.dept==='SUSHI'?'selected':''}>SUSHI</option>
+              <option value="BAR"    ${d.dept==='BAR'?'selected':''}>BAR</option>
+              <option value="CHICHA" ${d.dept==='CHICHA'?'selected':''}>CHICHA</option>
+            </select></td>
+        <td><input type="text" class="fld-cat" list="draft-cat-list" placeholder="Catégorie"
+              value="${this._escape(d.cat)}"
+              oninput="Depenses.updateDraft(${d.id},'cat',this.value)"></td>
+        <td><input type="text" class="fld-label" placeholder="Désignation"
+              value="${this._escape(d.label)}"
+              oninput="Depenses.updateDraft(${d.id},'label',this.value)"></td>
+        <td><input type="number" class="fld-qte" min="0" step="1" placeholder="0"
+              value="${this._escape(d.qte)}"
+              oninput="Depenses.updateDraft(${d.id},'qte',this.value)"></td>
+        <td><input type="number" class="fld-prix" min="0" step="100" placeholder="0"
+              value="${this._escape(d.prix)}"
+              oninput="Depenses.updateDraft(${d.id},'prix',this.value)"></td>
+        <td><input type="number" class="fld-montant montant" min="0" step="1" placeholder="0"
+              value="${this._escape(d.montant)}"
+              oninput="Depenses.updateDraft(${d.id},'montant',this.value)"></td>
+        <td><input type="text" class="fld-obs" placeholder="Observation"
+              value="${this._escape(d.obs)}"
+              oninput="Depenses.updateDraft(${d.id},'obs',this.value)"></td>
+        <td><button class="draft-del" title="Supprimer la ligne"
+              onclick="Depenses.removeDraftRow(${d.id})"><i class="ti ti-trash"></i></button></td>
+      </tr>`).join('');
+    this._refreshDraftSummary();
+  },
+
+  commitDrafts() {
+    if (!this.drafts.length) return alert('Aucune ligne à valider.');
+
+    // Validation
+    const invalid = [];
+    this.drafts.forEach((d, i) => {
+      const err = [];
+      if (!d.date) err.push('date');
+      if (!d.cat)  err.push('catégorie');
+      if (!parseFloat(d.montant)) err.push('montant');
+      if (err.length) invalid.push(`Ligne ${i+1} : ${err.join(', ')} manquant`);
+    });
+    if (invalid.length) {
+      alert('Certaines lignes sont incomplètes :\n\n' + invalid.join('\n'));
+      return;
+    }
+
+    if (!confirm(`Valider ${this.drafts.length} dépense(s) ? Elles seront ajoutées à l'historique.`)) return;
+
+    this.drafts.forEach(d => {
+      const id = Data.newId();
+      Data.histDep.push({
+        userId: id,
+        date:   d.date,
+        dept:   d.dept,
+        label:  d.label || d.cat,
+        groupe: d.cat,
+        qte:    parseFloat(d.qte)  || null,
+        prix:   parseFloat(d.prix) || null,
+        montant: parseFloat(d.montant),
+        observation: d.obs || null,
+      });
     });
 
+    this.drafts = [];
+    this.persistDrafts();
     this.persist();
-    App.closeModal();
     App.renderAll();
   },
 
@@ -209,30 +269,46 @@ const Depenses = {
 
   // ===================== PERSISTANCE LOCALE =====================
   STORAGE_KEY: 'meiji-user-deps',
+  DRAFT_KEY:   'meiji-dep-drafts',
 
   persist() {
     try {
       const userDeps = Data.histDep.filter(d => d.userId);
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userDeps));
-    } catch (e) {
-      console.warn('localStorage indisponible', e);
-    }
+    } catch (e) { console.warn('localStorage indisponible', e); }
+  },
+
+  persistDrafts() {
+    try {
+      localStorage.setItem(this.DRAFT_KEY, JSON.stringify({
+        seq: this._draftSeq,
+        drafts: this.drafts,
+      }));
+    } catch (e) { console.warn('localStorage indisponible', e); }
   },
 
   restore() {
     try {
       const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const userDeps = JSON.parse(raw);
-      if (!Array.isArray(userDeps)) return;
-      // Ne pas dupliquer si déjà présents
-      const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
-      userDeps.forEach(d => {
-        if (!existingIds.has(d.userId)) Data.histDep.push(d);
-      });
-    } catch (e) {
-      console.warn('Erreur restauration', e);
-    }
+      if (raw) {
+        const userDeps = JSON.parse(raw);
+        if (Array.isArray(userDeps)) {
+          const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
+          userDeps.forEach(d => { if (!existingIds.has(d.userId)) Data.histDep.push(d); });
+        }
+      }
+    } catch (e) { console.warn('Erreur restauration', e); }
+
+    try {
+      const rawD = localStorage.getItem(this.DRAFT_KEY);
+      if (rawD) {
+        const obj = JSON.parse(rawD);
+        if (obj && Array.isArray(obj.drafts)) {
+          this.drafts = obj.drafts;
+          this._draftSeq = obj.seq || (this.drafts.reduce((m,d) => Math.max(m, d.id || 0), 0) + 1);
+        }
+      }
+    } catch (e) { console.warn('Erreur restauration drafts', e); }
   },
 
   // ===================== EXPORT / IMPORT EXCEL =====================

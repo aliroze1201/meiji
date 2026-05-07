@@ -1024,6 +1024,48 @@ input::placeholder { color: var(--c-muted); }
 .mvt-btn.active.in  { background: var(--c-bar-soft); box-shadow: 0 0 0 2px var(--c-bar); }
 .mvt-btn.active.out { background: var(--c-red-soft); box-shadow: 0 0 0 2px var(--c-red); }
 
+/* =====================  DRAFT TABLE (saisie dépenses)  ===================== */
+.draft-card {
+  border: 1px dashed var(--c-chicha);
+  background: linear-gradient(180deg, var(--c-chicha-soft) 0%, var(--c-surface) 60%);
+}
+.draft-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 12.5px; }
+.draft-table th { background: transparent; border: none; padding: 6px 8px; }
+.draft-table td { padding: 4px 6px; border: none; }
+.draft-table tbody tr {
+  background: var(--c-surface);
+  border-radius: var(--r-sm);
+  box-shadow: var(--sh-xs);
+}
+.draft-table tbody tr:hover { box-shadow: var(--sh-sm); }
+.draft-table input, .draft-table select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  border: 1px solid var(--c-border-2);
+  border-radius: var(--r-xs);
+  background: var(--c-surface);
+}
+.draft-table input:focus, .draft-table select:focus {
+  border-color: var(--c-sushi);
+  box-shadow: 0 0 0 2px var(--c-sushi-soft);
+}
+.draft-table input.montant {
+  font-weight: 700;
+  color: var(--c-red);
+  background: var(--c-red-soft);
+  text-align: right;
+}
+.draft-table input[type=number] { text-align: right; font-variant-numeric: tabular-nums; }
+.draft-table .draft-del {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: var(--r-xs);
+  color: var(--c-muted);
+  transition: var(--t-fast);
+}
+.draft-table .draft-del:hover { background: var(--c-red-soft); color: var(--c-red); }
+
 /* =====================  CATEGORIES  ===================== */
 .cat-item {
   display: flex;
