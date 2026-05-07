@@ -200,15 +200,15 @@ const Recettes = {
                   onclick="Recettes.removeDraft(${d.id})"><i class="ti ti-trash"></i></button>
         </div>
         <div style="font-size:11.5px;color:var(--c-muted);margin-bottom:8px">
-          <i class="ti ti-info-circle"></i> Saisissez le <b>Total vérif</b> (montant total compté de la caisse), puis Chèque / Mobile / Crédit.
-          La colonne <b>Espèces</b> <i class="ti ti-lock" style="font-size:11px"></i> se calcule automatiquement : <code style="font-family:var(--font-mono);background:var(--c-bg-2);padding:1px 5px;border-radius:4px">Espèces = Vérif − Chèque − Mobile − Crédit</code>.
+          <i class="ti ti-info-circle"></i> Saisissez le <b>C.A. cible</b> (objectif/comptage de la caisse), puis Chèque / Mobile / Crédit.
+          La colonne <b>Espèces</b> <i class="ti ti-lock" style="font-size:11px"></i> se calcule automatiquement : <code style="font-family:var(--font-mono);background:var(--c-bg-2);padding:1px 5px;border-radius:4px">Espèces = C.A. cible − Chèque − Mobile − Crédit</code>.
         </div>
         <div style="overflow-x:auto">
           <table class="rec-draft-table">
             <thead>
               <tr>
                 <th>Caisse</th>
-                <th>Total vérif</th>
+                <th>C.A. cible</th>
                 <th>Chèque</th>
                 <th>Mobile</th>
                 <th>Crédit</th>
