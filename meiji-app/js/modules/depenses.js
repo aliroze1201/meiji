@@ -113,11 +113,11 @@ const Depenses = {
   },
 
   // ===================== BROUILLONS (saisie en cours) =====================
-  newDraft() {
+  newDraft(dept) {
     return {
       id: this._draftSeq++,
       date: Data.today(),
-      dept: 'SUSHI',
+      dept: dept || 'SUSHI',
       cat:  '',
       qte:  '',
       prix: '',
@@ -126,8 +126,8 @@ const Depenses = {
     };
   },
 
-  addDraftRow() {
-    this.drafts.push(this.newDraft());
+  addDraftRow(dept) {
+    this.drafts.push(this.newDraft(dept));
     this.persistDrafts();
     this.renderDrafts();
     // focus sur la catégorie de la nouvelle ligne

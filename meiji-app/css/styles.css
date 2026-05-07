@@ -1024,6 +1024,17 @@ input::placeholder { color: var(--c-muted); }
 .mvt-btn.active.in  { background: var(--c-bar-soft); box-shadow: 0 0 0 2px var(--c-bar); }
 .mvt-btn.active.out { background: var(--c-red-soft); box-shadow: 0 0 0 2px var(--c-red); }
 
+/* =====================  BOUTONS AJOUT DÉPENSE (par caisse)  ===================== */
+.dep-add {
+  border-color: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+.dep-add-sushi  { background: var(--grad-sushi);  box-shadow: var(--sh-glow-sushi); }
+.dep-add-bar    { background: var(--grad-bar);    box-shadow: var(--sh-glow-bar); }
+.dep-add-chicha { background: var(--grad-chicha); box-shadow: var(--sh-glow-chicha); }
+.dep-add:hover  { transform: translateY(-1px); filter: brightness(1.05); color: #fff; }
+
 /* =====================  DRAFT TABLE (saisie dépenses)  ===================== */
 .draft-card {
   border: 1px dashed var(--c-chicha);

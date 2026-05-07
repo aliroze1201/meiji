@@ -199,7 +199,9 @@ const App = {
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
 
     // Buttons
-    document.getElementById('btn-new-dep')?.addEventListener('click', () => Depenses.addDraftRow());
+    document.querySelectorAll('.dep-add').forEach(btn => {
+      btn.addEventListener('click', () => Depenses.addDraftRow(btn.dataset.dept));
+    });
     document.getElementById('btn-commit-dep')?.addEventListener('click', () => Depenses.commitDrafts());
     document.getElementById('btn-export-dep')?.addEventListener('click', () => Depenses.exportExcel());
     document.getElementById('btn-import-dep')?.addEventListener('click', () => document.getElementById('dep-file-input')?.click());
