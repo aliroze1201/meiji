@@ -4,7 +4,17 @@
 
 // ===================== RECETTES =====================
 const Recettes = {
+  drafts: [],
+  _draftSeq: 1,
+  STORAGE_KEY: 'meiji-rec-drafts',
+  USER_KEY:    'meiji-user-recs',  // journées validées par l'utilisateur
+
   render() {
+    this.renderHistory();
+    this.renderDrafts();
+  },
+
+  renderHistory() {
     const jj = Data.journees;
     const tS = jj.reduce((s,j) => s + Data.caisse(j,'s'), 0);
     const tB = jj.reduce((s,j) => s + Data.caisse(j,'b'), 0);
@@ -24,7 +34,7 @@ const Recettes = {
     if (!tb) return;
     if (!jj.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Aucune recette</td></tr>'; return; }
 
-    tb.innerHTML = jj.map(j => {
+    tb.innerHTML = jj.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => {
       const total = Data.caTotal(j);
       const pays = [];
       const allPays = { esp: j.s.esp+j.b.esp+j.c.esp, chq: j.s.chq+j.b.chq+j.c.chq, mob: j.s.mob+j.b.mob+j.c.mob, cred: j.s.cred+j.b.cred+j.c.cred };
@@ -36,12 +46,304 @@ const Recettes = {
         <td>${Data.fmtD(j.date)}</td>
         <td class="text-right text-blue">${Data.fmts(Data.caisse(j,'s'))}</td>
         <td class="text-right text-green">${Data.fmts(Data.caisse(j,'b'))}</td>
-        <td class="text-right" style="color:#BA7517">${Data.fmts(Data.caisse(j,'c'))}</td>
+        <td class="text-right" style="color:var(--c-chicha)">${Data.fmts(Data.caisse(j,'c'))}</td>
         <td class="text-right fw-bold">${Data.fmts(total)}</td>
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">${pays.join('')}</div></td>
       </tr>`;
     }).join('');
   },
+
+  // ===================== BROUILLONS =====================
+  newDraft() {
+    return {
+      id: this._draftSeq++,
+      date: Data.today(),
+      s: { esp:'', chq:'', mob:'', cred:'' },
+      b: { esp:'', chq:'', mob:'', cred:'' },
+      c: { esp:'', chq:'', mob:'', cred:'' },
+    };
+  },
+
+  addDraft() {
+    this.drafts.push(this.newDraft());
+    this.persistDrafts();
+    this.renderDrafts();
+  },
+
+  removeDraft(id) {
+    if (!confirm('Supprimer cette journée en cours ?')) return;
+    this.drafts = this.drafts.filter(d => d.id !== id);
+    this.persistDrafts();
+    this.renderDrafts();
+  },
+
+  updateDraft(id, caisse, mode, value) {
+    const d = this.drafts.find(x => x.id === id);
+    if (!d) return;
+    d[caisse][mode] = value;
+    this.persistDrafts();
+    this._refreshTotals(id);
+    this._refreshHeader();
+  },
+
+  updateDate(id, date) {
+    const d = this.drafts.find(x => x.id === id);
+    if (!d) return;
+    d.date = date;
+    this.persistDrafts();
+  },
+
+  _draftTotal(d) {
+    return ['s','b','c'].reduce((sum, k) => {
+      return sum + ['esp','chq','mob','cred'].reduce((s2, m) => s2 + (parseFloat(d[k][m]) || 0), 0);
+    }, 0);
+  },
+
+  _refreshTotals(id) {
+    const d = this.drafts.find(x => x.id === id);
+    if (!d) return;
+    const card = document.querySelector(`[data-rec-draft="${id}"]`);
+    if (!card) return;
+    ['s','b','c'].forEach(k => {
+      const total = ['esp','chq','mob','cred'].reduce((s, m) => s + (parseFloat(d[k][m]) || 0), 0);
+      const el = card.querySelector(`.row-total[data-k="${k}"]`);
+      if (el) el.textContent = Data.fmts(total);
+    });
+    ['esp','chq','mob','cred'].forEach(m => {
+      const total = ['s','b','c'].reduce((s, k) => s + (parseFloat(d[k][m]) || 0), 0);
+      const el = card.querySelector(`.col-total[data-m="${m}"]`);
+      if (el) el.textContent = Data.fmts(total);
+    });
+    const grand = card.querySelector('.rec-draft-total');
+    if (grand) grand.textContent = `Total CA : ${Data.fmt(this._draftTotal(d))}`;
+    const allTotal = card.querySelector('.col-total[data-m="all"]');
+    if (allTotal) allTotal.textContent = Data.fmts(this._draftTotal(d));
+  },
+
+  _refreshHeader() {
+    const c = document.getElementById('rec-draft-count');
+    const t = document.getElementById('rec-draft-total');
+    const total = this.drafts.reduce((s, d) => s + this._draftTotal(d), 0);
+    if (c) c.textContent = `· ${this.drafts.length} journée${this.drafts.length > 1 ? 's' : ''}`;
+    if (t) t.textContent = total ? `Total brouillon : ${Data.fmt(total)}` : '';
+  },
+
+  renderDrafts() {
+    const list = document.getElementById('rec-draft-list');
+    const empty = document.getElementById('rec-draft-empty');
+    if (!list) return;
+    if (!this.drafts.length) {
+      list.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      this._refreshHeader();
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+
+    list.innerHTML = this.drafts.map(d => {
+      const tS = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.s[m])||0), 0);
+      const tB = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.b[m])||0), 0);
+      const tC = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.c[m])||0), 0);
+      const tEsp  = (parseFloat(d.s.esp)||0)+(parseFloat(d.b.esp)||0)+(parseFloat(d.c.esp)||0);
+      const tChq  = (parseFloat(d.s.chq)||0)+(parseFloat(d.b.chq)||0)+(parseFloat(d.c.chq)||0);
+      const tMob  = (parseFloat(d.s.mob)||0)+(parseFloat(d.b.mob)||0)+(parseFloat(d.c.mob)||0);
+      const tCred = (parseFloat(d.s.cred)||0)+(parseFloat(d.b.cred)||0)+(parseFloat(d.c.cred)||0);
+      const grand = tS + tB + tC;
+
+      const cell = (k, m, v) => `<td><input type="number" min="0" step="100" placeholder="0"
+        value="${this._esc(v)}"
+        oninput="Recettes.updateDraft(${d.id},'${k}','${m}',this.value)"></td>`;
+      const dataMap = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      const row = (k) => `
+        <tr class="${k==='s'?'sushi':k==='b'?'bar':'chicha'}">
+          <td><span class="caisse-label"><span class="dot"></span>${dataMap[k]}</span></td>
+          ${cell(k,'esp', d[k].esp)}
+          ${cell(k,'chq', d[k].chq)}
+          ${cell(k,'mob', d[k].mob)}
+          ${cell(k,'cred',d[k].cred)}
+          <td class="row-total" data-k="${k}">${Data.fmts(k==='s'?tS:k==='b'?tB:tC)}</td>
+        </tr>`;
+
+      return `
+      <div class="rec-draft" data-rec-draft="${d.id}">
+        <div class="rec-draft-head">
+          <span style="font-size:12px;color:var(--c-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em">Date :</span>
+          <input type="date" class="rec-draft-date" value="${this._esc(d.date)}"
+                 onchange="Recettes.updateDate(${d.id}, this.value)">
+          <span class="rec-draft-total">Total CA : ${Data.fmt(grand)}</span>
+          <button class="btn-ghost" title="Supprimer la journée"
+                  onclick="Recettes.removeDraft(${d.id})"><i class="ti ti-trash"></i></button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="rec-draft-table">
+            <thead>
+              <tr>
+                <th>Caisse</th>
+                <th>Espèces</th>
+                <th>Chèque</th>
+                <th>Mobile</th>
+                <th>Crédit</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${row('s')}
+              ${row('b')}
+              ${row('c')}
+              <tr class="totals">
+                <td>Total</td>
+                <td class="col-total" data-m="esp">${Data.fmts(tEsp)}</td>
+                <td class="col-total" data-m="chq">${Data.fmts(tChq)}</td>
+                <td class="col-total" data-m="mob">${Data.fmts(tMob)}</td>
+                <td class="col-total" data-m="cred">${Data.fmts(tCred)}</td>
+                <td class="col-total" data-m="all">${Data.fmts(grand)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+    this._refreshHeader();
+  },
+
+  commitDrafts() {
+    if (!this.drafts.length) return alert('Aucune saisie à valider.');
+
+    const invalid = this.drafts.filter(d => !d.date || !this._draftTotal(d)).length;
+    if (invalid) {
+      if (!confirm(`${invalid} journée(s) sans date ou sans montant. Continuer quand même (ces lignes seront ignorées) ?`)) return;
+    } else if (!confirm(`Valider ${this.drafts.length} journée(s) ? Elles seront ajoutées à l'historique.`)) {
+      return;
+    }
+
+    let added = 0;
+    this.drafts.forEach(d => {
+      if (!d.date || !this._draftTotal(d)) return;
+      const obj = {
+        id: Data.newId(),
+        userRec: true,
+        date: d.date,
+        s: { esp:+d.s.esp||0, chq:+d.s.chq||0, mob:+d.s.mob||0, cred:+d.s.cred||0 },
+        b: { esp:+d.b.esp||0, chq:+d.b.chq||0, mob:+d.b.mob||0, cred:+d.b.cred||0 },
+        c: { esp:+d.c.esp||0, chq:+d.c.chq||0, mob:+d.c.mob||0, cred:+d.c.cred||0 },
+        ds: 0, db: 0, dc: 0,
+        cs: 0, cb: 0, cc: 0,
+        deps: { s:[], b:[], c:[] },
+      };
+      Data.journees.push(obj);
+      added++;
+    });
+
+    Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+
+    this.drafts = [];
+    this.persistDrafts();
+    this.persistUser();
+    App.renderAll();
+    if (added) alert(`✅ ${added} journée(s) validée(s).`);
+  },
+
+  // ===================== PERSISTANCE =====================
+  persistDrafts() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+        seq: this._draftSeq,
+        drafts: this.drafts,
+      }));
+    } catch (e) {}
+  },
+
+  persistUser() {
+    try {
+      const userJ = Data.journees.filter(j => j.userRec);
+      localStorage.setItem(this.USER_KEY, JSON.stringify(userJ));
+    } catch (e) {}
+  },
+
+  restore() {
+    try {
+      const rawU = localStorage.getItem(this.USER_KEY);
+      if (rawU) {
+        const arr = JSON.parse(rawU);
+        if (Array.isArray(arr)) {
+          const existingDates = new Set(Data.journees.filter(j => j.userRec).map(j => j.date));
+          arr.forEach(j => { if (!existingDates.has(j.date)) Data.journees.push(j); });
+          Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+        }
+      }
+    } catch (e) {}
+    try {
+      const rawD = localStorage.getItem(this.STORAGE_KEY);
+      if (rawD) {
+        const obj = JSON.parse(rawD);
+        if (obj && Array.isArray(obj.drafts)) {
+          this.drafts = obj.drafts;
+          this._draftSeq = obj.seq || (this.drafts.reduce((m,d) => Math.max(m, d.id||0), 0) + 1);
+        }
+      }
+    } catch (e) {}
+  },
+
+  // ===================== EXPORT / IMPORT EXCEL =====================
+  exportExcel() {
+    if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
+    const rows = Data.journees.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => ({
+      'Date':         j.date,
+      'SUSHI Espèces': j.s.esp, 'SUSHI Chèque': j.s.chq, 'SUSHI Mobile': j.s.mob, 'SUSHI Crédit': j.s.cred,
+      'BAR Espèces':   j.b.esp, 'BAR Chèque':   j.b.chq, 'BAR Mobile':   j.b.mob, 'BAR Crédit':   j.b.cred,
+      'CHICHA Espèces':j.c.esp, 'CHICHA Chèque':j.c.chq, 'CHICHA Mobile':j.c.mob, 'CHICHA Crédit':j.c.cred,
+      'Total CA':      Data.caTotal(j),
+      'Saisie utilisateur': j.userRec ? '1' : '',
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 12 }, ...Array(13).fill({ wch: 14 }), { wch: 14 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Recettes');
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `meiji-recettes-${today}.xlsx`);
+  },
+
+  importExcel(file) {
+    if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: 0 });
+        const imported = [];
+        rows.forEach(r => {
+          if (!r['Saisie utilisateur']) return;
+          imported.push({
+            id: Data.newId(),
+            userRec: true,
+            date: String(r['Date'] || '').slice(0, 10),
+            s: { esp:+r['SUSHI Espèces']||0, chq:+r['SUSHI Chèque']||0, mob:+r['SUSHI Mobile']||0, cred:+r['SUSHI Crédit']||0 },
+            b: { esp:+r['BAR Espèces']  ||0, chq:+r['BAR Chèque']  ||0, mob:+r['BAR Mobile']  ||0, cred:+r['BAR Crédit']  ||0 },
+            c: { esp:+r['CHICHA Espèces']||0,chq:+r['CHICHA Chèque']||0,mob:+r['CHICHA Mobile']||0,cred:+r['CHICHA Crédit']||0 },
+            ds:0, db:0, dc:0, cs:0, cb:0, cc:0,
+            deps: { s:[], b:[], c:[] },
+          });
+        });
+        if (!imported.length) {
+          alert("Aucune ligne 'Saisie utilisateur' trouvée à importer.");
+          return;
+        }
+        if (!confirm(`Importer ${imported.length} journée(s) ? Les saisies utilisateur actuelles seront remplacées.`)) return;
+        Data.journees = Data.journees.filter(j => !j.userRec);
+        imported.forEach(j => Data.journees.push(j));
+        Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+        this.persistUser();
+        App.renderAll();
+        alert(`✅ ${imported.length} journée(s) importée(s).`);
+      } catch (err) {
+        alert('Erreur lors de la lecture du fichier : ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
+  _esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
   _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
 };
 

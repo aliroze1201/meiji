@@ -192,8 +192,25 @@
 
     <!-- RECETTES -->
     <div class="page" id="page-recettes">
-      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-trending-up"></i> Recettes CA</span></div>
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-trending-up"></i> Recettes CA</span>
+        <button class="btn btn-primary" id="btn-new-rec"><i class="ti ti-plus"></i> Nouvelle saisie</button>
+        <button class="btn btn-success" id="btn-commit-rec" title="Valider toutes les journées saisies"><i class="ti ti-check"></i> Valider la saisie</button>
+        <button class="btn" id="btn-export-rec" title="Télécharger toutes les recettes au format Excel"><i class="ti ti-file-spreadsheet"></i> Export Excel</button>
+        <button class="btn" id="btn-import-rec" title="Importer un fichier Excel précédemment exporté"><i class="ti ti-upload"></i> Import Excel</button>
+        <input type="file" id="rec-file-input" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
       <div class="content">
+
+        <!-- ZONE DE SAISIE (DRAFT) -->
+        <div class="card draft-card" id="rec-draft-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ti ti-edit"></i> Saisie en cours <span id="rec-draft-count" style="font-weight:500;color:var(--c-muted);font-size:12px"></span></span>
+            <span id="rec-draft-total" style="font-family:var(--font-display);font-size:16px;font-weight:800;color:var(--c-bar)"></span>
+          </div>
+          <div id="rec-draft-list"></div>
+          <div id="rec-draft-empty" class="empty" style="padding:18px">Aucune journée en cours. Cliquez <b>+ Nouvelle saisie</b> pour démarrer.</div>
+        </div>
+
         <div class="g3">
           <div class="mc blue"><div class="mc-label blue"><i class="ti ti-fish"></i> CA SUSHI</div><div class="mc-val blue" id="r-s">0</div></div>
           <div class="mc green"><div class="mc-label green"><i class="ti ti-glass-cocktail"></i> CA BAR</div><div class="mc-val green" id="r-b">0</div></div>
@@ -204,7 +221,12 @@
           <div class="mc"><div class="mc-label"><i class="ti ti-checkbook"></i> Chèques</div><div class="mc-val" id="r-chq">0</div></div>
           <div class="mc"><div class="mc-label"><i class="ti ti-device-mobile"></i> Mobile + Crédit</div><div class="mc-val" id="r-mob">0</div></div>
         </div>
-        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Date</th><th style="text-align:right">SUSHI</th><th style="text-align:right">BAR</th><th style="text-align:right">CHICHA</th><th style="text-align:right">CA Total</th><th>Paiements</th></tr></thead><tbody id="rec-table"></tbody></table></div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)">
+            <span class="card-title"><i class="ti ti-history"></i> Recettes validées</span>
+          </div>
+          <table><thead><tr><th>Date</th><th class="text-right">SUSHI</th><th class="text-right">BAR</th><th class="text-right">CHICHA</th><th class="text-right">CA Total</th><th>Paiements</th></tr></thead><tbody id="rec-table"></tbody></table>
+        </div>
       </div>
     </div>
 

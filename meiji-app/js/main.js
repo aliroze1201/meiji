@@ -227,6 +227,17 @@ const App = {
     });
 
     document.getElementById('btn-commit-dep')?.addEventListener('click', () => Depenses.commitDrafts());
+
+    // Recettes — saisie journées
+    document.getElementById('btn-new-rec')?.addEventListener('click', () => Recettes.addDraft());
+    document.getElementById('btn-commit-rec')?.addEventListener('click', () => Recettes.commitDrafts());
+    document.getElementById('btn-export-rec')?.addEventListener('click', () => Recettes.exportExcel());
+    document.getElementById('btn-import-rec')?.addEventListener('click', () => document.getElementById('rec-file-input')?.click());
+    document.getElementById('rec-file-input')?.addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (f) Recettes.importExcel(f);
+      e.target.value = '';
+    });
     document.getElementById('btn-export-dep')?.addEventListener('click', () => Depenses.exportExcel());
     document.getElementById('btn-import-dep')?.addEventListener('click', () => document.getElementById('dep-file-input')?.click());
     document.getElementById('dep-file-input')?.addEventListener('change', (e) => {
@@ -246,8 +257,9 @@ const App = {
     // Theme
     this.initTheme();
 
-    // Restaurer les dépenses sauvegardées localement
+    // Restaurer les saisies sauvegardées localement
     Depenses.restore();
+    Recettes.restore();
 
     // Initial render
     this.renderAll();

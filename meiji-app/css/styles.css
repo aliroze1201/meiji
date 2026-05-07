@@ -1116,6 +1116,102 @@ input::placeholder { color: var(--c-muted); }
 }
 .draft-table .draft-del:hover { background: var(--c-red-soft); color: var(--c-red); }
 
+/* =====================  RECETTES — SAISIE JOURNÉE  ===================== */
+.rec-draft {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+  margin-bottom: var(--s-3);
+  box-shadow: var(--sh-xs);
+  position: relative;
+}
+.rec-draft-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+  flex-wrap: wrap;
+}
+.rec-draft-head .rec-draft-date {
+  width: auto;
+  padding: 7px 11px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+}
+.rec-draft-total {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--c-bar);
+  margin-left: auto;
+  letter-spacing: -0.01em;
+}
+.rec-draft-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rec-draft-table th {
+  text-align: right;
+  padding: 6px 10px;
+  background: var(--c-surface-2);
+  color: var(--c-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  border-bottom: 1px solid var(--c-border-2);
+  font-weight: 700;
+}
+.rec-draft-table th:first-child { text-align: left; }
+.rec-draft-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--c-line);
+  vertical-align: middle;
+}
+.rec-draft-table tr:last-child td { border-bottom: none; }
+.rec-draft-table .caisse-label {
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rec-draft-table .caisse-label .dot { width: 9px; height: 9px; border-radius: 50%; }
+.rec-draft-table tr.sushi  .caisse-label { color: var(--c-sushi); }
+.rec-draft-table tr.bar    .caisse-label { color: var(--c-bar); }
+.rec-draft-table tr.chicha .caisse-label { color: var(--c-chicha); }
+.rec-draft-table tr.sushi  .caisse-label .dot { background: var(--c-sushi); }
+.rec-draft-table tr.bar    .caisse-label .dot { background: var(--c-bar); }
+.rec-draft-table tr.chicha .caisse-label .dot { background: var(--c-chicha); }
+.rec-draft-table input {
+  width: 100%;
+  padding: 6px 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: right;
+  border: 1px solid var(--c-border-2);
+  border-radius: var(--r-xs);
+  background: var(--c-surface);
+  font-variant-numeric: tabular-nums;
+}
+.rec-draft-table input:focus {
+  border-color: var(--c-bar);
+  box-shadow: 0 0 0 2px var(--c-bar-soft);
+}
+.rec-draft-table .row-total,
+.rec-draft-table .col-total {
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+}
+.rec-draft-table tr.totals td {
+  background: var(--c-bg-2);
+  border-top: 2px solid var(--c-border);
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
 /* =====================  CATEGORIES  ===================== */
 .cat-item {
   display: flex;
