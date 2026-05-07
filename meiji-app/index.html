@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563EB">
+  <title>MEIJI — Gestion Restaurant</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-mark"><i class="ti ti-fish"></i></div>
+      <div class="sb-logo-text">
+        <div class="sb-logo-name">MEIJI</div>
+        <div class="sb-logo-sub">Sushi · Bar · Chicha</div>
+      </div>
+    </div>
+
+    <div class="sb-section">Principal</div>
+    <div class="nav-item active" data-page="dashboard"><i class="ti ti-layout-dashboard"></i><span class="label">Tableau de bord</span></div>
+    <div class="nav-item" data-page="journee"><i class="ti ti-calendar-event"></i><span class="label">Journées</span></div>
+
+    <div class="sb-section">Finances</div>
+    <div class="nav-item" data-page="recettes"><i class="ti ti-trending-up"></i><span class="label">Recettes CA</span></div>
+    <div class="nav-item" data-page="depenses"><i class="ti ti-trending-down"></i><span class="label">Dépenses</span></div>
+    <div class="nav-item" data-page="analyse"><i class="ti ti-chart-pie"></i><span class="label">Analyse charges</span></div>
+    <div class="nav-item" data-page="banque"><i class="ti ti-building-bank"></i><span class="label">Banque</span></div>
+    <div class="nav-item" data-page="mobile"><i class="ti ti-device-mobile"></i><span class="label">Mobile Money</span></div>
+
+    <div class="sb-section">Gestion</div>
+    <div class="nav-item" data-page="categories"><i class="ti ti-tags"></i><span class="label">Catégories</span></div>
+    <div class="nav-item" data-page="employes"><i class="ti ti-users"></i><span class="label">Employés</span></div>
+    <div class="nav-item" data-page="comptes-emp"><i class="ti ti-user-dollar"></i><span class="label">Comptes employés</span></div>
+    <div class="nav-item" data-page="credits"><i class="ti ti-receipt-2"></i><span class="label">Crédits clients</span></div>
+    <div class="nav-item" data-page="fournisseurs"><i class="ti ti-truck-delivery"></i><span class="label">Fournisseurs</span></div>
+    <div class="nav-item" data-page="bilan"><i class="ti ti-report-analytics"></i><span class="label">Bilan</span></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div>
+        <div class="tb-title" id="tb-title">Tableau de bord</div>
+      </div>
+      <div class="tb-search">
+        <i class="ti ti-search"></i>
+        <input type="text" placeholder="Rechercher journée, client, fournisseur..." id="tb-search-input">
+      </div>
+      <div class="tb-actions">
+        <button class="icon-btn theme-toggle" id="theme-toggle" title="Changer de thème">
+          <i class="ti ti-moon"></i>
+          <i class="ti ti-sun"></i>
+        </button>
+        <button class="icon-btn" title="Notifications"><i class="ti ti-bell"></i><span class="dot"></span></button>
+        <button class="icon-btn" title="Paramètres"><i class="ti ti-settings"></i></button>
+        <div class="tb-avatar" title="Mon compte">M</div>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="period-bar">
+        <span class="period-bar-title"><i class="ti ti-sparkles"></i> Tableau de bord</span>
+        <div class="seg" id="period-seg">
+          <button class="seg-btn" data-period="jour">Jour</button>
+          <button class="seg-btn active" data-period="mois">Mois</button>
+          <button class="seg-btn" data-period="annee">Année</button>
+          <button class="seg-btn" data-period="tout">Tout</button>
+        </div>
+        <div class="period-inputs" id="period-inputs"></div>
+        <span class="period-label" id="period-label"></span>
+      </div>
+
+      <div class="content">
+        <!-- KPIs -->
+        <div class="g4">
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-trending-up"></i> CA Total</div><div class="mc-val blue" id="d-ca">0 FCFA</div><div class="mc-sub" id="d-ca-nb"></div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-trending-down"></i> Charges</div><div class="mc-val red" id="d-charges">0 FCFA</div><div class="mc-sub">exploitation</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-coin"></i> Résultat net</div><div class="mc-val green" id="d-net">0 FCFA</div><div class="mc-sub">CA - charges</div></div>
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-receipt-2"></i> Crédits ouverts</div><div class="mc-val amber" id="d-cred">0 FCFA</div><div class="mc-sub" id="d-cred-nb"></div></div>
+        </div>
+
+        <!-- CAISSES -->
+        <div class="g-caisse">
+          <div class="cc-card sushi">
+            <div class="cc-tag sushi"><i class="ti ti-fish"></i> Caisse SUSHI</div>
+            <div class="cc-amount sushi" id="dash-cs">0 FCFA</div>
+            <div class="cc-rows">
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-cash"></i> Espèces</span><span class="cc-row-val" id="dash-cs-esp">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-checkbook"></i> Chèque</span><span class="cc-row-val" id="dash-cs-chq">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-device-mobile"></i> Mobile</span><span class="cc-row-val" id="dash-cs-mob">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-bookmark"></i> Crédit</span><span class="cc-row-val" id="dash-cs-cred">0 FCFA</span></div>
+              <div class="cc-divider"></div>
+              <div class="cc-row"><span class="cc-row-key" style="font-weight:700;color:var(--c-text)">Caisse restante</span><span class="cc-row-val" id="dash-cs-reste">0 FCFA</span></div>
+            </div>
+          </div>
+          <div class="cc-card bar">
+            <div class="cc-tag bar"><i class="ti ti-glass-cocktail"></i> Caisse BAR</div>
+            <div class="cc-amount bar" id="dash-cb">0 FCFA</div>
+            <div class="cc-rows">
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-cash"></i> Espèces</span><span class="cc-row-val" id="dash-cb-esp">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-checkbook"></i> Chèque</span><span class="cc-row-val" id="dash-cb-chq">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-device-mobile"></i> Mobile</span><span class="cc-row-val" id="dash-cb-mob">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-bookmark"></i> Crédit</span><span class="cc-row-val" id="dash-cb-cred">0 FCFA</span></div>
+              <div class="cc-divider"></div>
+              <div class="cc-row"><span class="cc-row-key" style="font-weight:700;color:var(--c-text)">Caisse restante</span><span class="cc-row-val" id="dash-cb-reste">0 FCFA</span></div>
+            </div>
+          </div>
+          <div class="cc-card chicha">
+            <div class="cc-tag chicha"><i class="ti ti-flame"></i> Caisse CHICHA</div>
+            <div class="cc-amount chicha" id="dash-cc">0 FCFA</div>
+            <div class="cc-rows">
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-cash"></i> Espèces</span><span class="cc-row-val" id="dash-cc-esp">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-checkbook"></i> Chèque</span><span class="cc-row-val" id="dash-cc-chq">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-device-mobile"></i> Mobile</span><span class="cc-row-val" id="dash-cc-mob">0 FCFA</span></div>
+              <div class="cc-row"><span class="cc-row-key"><i class="ti ti-bookmark"></i> Crédit</span><span class="cc-row-val" id="dash-cc-cred">0 FCFA</span></div>
+              <div class="cc-divider"></div>
+              <div class="cc-row"><span class="cc-row-key" style="font-weight:700;color:var(--c-text)">Caisse restante</span><span class="cc-row-val" id="dash-cc-reste">0 FCFA</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Soldes -->
+        <div class="g2">
+          <div class="mc blue" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+            <div><div class="mc-label blue"><i class="ti ti-building-bank"></i> Solde Bancaire</div><div class="mc-val blue" id="d-banque">0 FCFA</div><div class="mc-sub" id="d-banque-date">Non renseigné</div></div>
+            <button class="btn btn-sm" onclick="App.nav('banque')">Gérer <i class="ti ti-arrow-right"></i></button>
+          </div>
+          <div class="mc purple" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+            <div><div class="mc-label purple"><i class="ti ti-device-mobile"></i> Mobile Money</div><div class="mc-val" style="color:var(--c-purple)" id="d-mobile">0 FCFA</div><div class="mc-sub" id="d-mobile-date">Non renseigné</div></div>
+            <button class="btn btn-sm" onclick="App.nav('mobile')">Gérer <i class="ti ti-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <!-- Graphiques -->
+        <div class="g2">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="ti ti-chart-bar"></i> CA par journée</span></div>
+            <div class="chart-legend">
+              <span><span class="legend-dot" style="background:var(--c-sushi)"></span>SUSHI</span>
+              <span><span class="legend-dot" style="background:var(--c-bar)"></span>BAR</span>
+              <span><span class="legend-dot" style="background:var(--c-chicha)"></span>CHICHA</span>
+            </div>
+            <div class="chart-container" id="bar-chart"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="ti ti-chart-donut"></i> Répartition CA par caisse</span></div>
+            <div class="donut-wrap">
+              <div class="donut-canvas-wrap">
+                <canvas id="donut-ca" width="280" height="280"></canvas>
+                <div class="donut-center"><div><div class="v" id="donut-ca-v">0</div><div class="l">Total CA</div></div></div>
+              </div>
+              <div class="donut-legend" id="donut-ca-legend"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="g2">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="ti ti-chart-arrows"></i> CA vs Charges</span></div>
+            <div class="chart-legend">
+              <span><span class="legend-dot" style="background:var(--c-sushi)"></span>CA</span>
+              <span><span class="legend-dot" style="background:var(--c-red)"></span>Charges</span>
+            </div>
+            <div class="chart-container" id="compare-chart"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="ti ti-credit-card"></i> Modes de paiement</span></div>
+            <div class="donut-wrap">
+              <div class="donut-canvas-wrap">
+                <canvas id="donut-pay" width="280" height="280"></canvas>
+                <div class="donut-center"><div><div class="v" id="donut-pay-v">0</div><div class="l">Total</div></div></div>
+              </div>
+              <div class="donut-legend" id="donut-pay-legend"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title"><i class="ti ti-chart-bar-popular"></i> Top catégories de charges</span></div>
+          <div id="charges-bars"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOURNEES -->
+    <div class="page" id="page-journee">
+      <div class="period-bar">
+        <span class="period-bar-title"><i class="ti ti-calendar-event"></i> Journées</span>
+        <button class="btn btn-primary" id="btn-new-jour"><i class="ti ti-plus"></i> Nouvelle journée</button>
+        <div class="tabs ml-auto" id="jour-tabs">
+          <button class="tab active" data-filter="all">Tout</button>
+          <button class="tab" data-filter="2026-04">Avril 2026</button>
+          <button class="tab" data-filter="2026-05">Mai 2026</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th colspan="4" style="text-align:center;color:var(--c-sushi)">SUSHI</th>
+                  <th colspan="4" style="text-align:center;color:var(--c-bar)">BAR</th>
+                  <th colspan="4" style="text-align:center;color:var(--c-chicha)">CHICHA</th>
+                  <th style="text-align:right">Charges</th>
+                  <th style="text-align:right">CA Total</th>
+                  <th>Actions</th>
+                </tr>
+                <tr class="thead-sub">
+                  <th></th>
+                  <th style="text-align:right">Esp.</th><th style="text-align:right">Chq</th><th style="text-align:right">Mob</th><th style="text-align:right">Créd</th>
+                  <th style="text-align:right">Esp.</th><th style="text-align:right">Chq</th><th style="text-align:right">Mob</th><th style="text-align:right">Créd</th>
+                  <th style="text-align:right">Esp.</th><th style="text-align:right">Chq</th><th style="text-align:right">Mob</th><th style="text-align:right">Créd</th>
+                  <th></th><th></th><th></th>
+                </tr>
+              </thead>
+              <tbody id="jour-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECETTES -->
+    <div class="page" id="page-recettes">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-trending-up"></i> Recettes CA</span></div>
+      <div class="content">
+        <div class="g3">
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-fish"></i> CA SUSHI</div><div class="mc-val blue" id="r-s">0</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-glass-cocktail"></i> CA BAR</div><div class="mc-val green" id="r-b">0</div></div>
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-flame"></i> CA CHICHA</div><div class="mc-val amber" id="r-c">0</div></div>
+        </div>
+        <div class="g3">
+          <div class="mc"><div class="mc-label"><i class="ti ti-cash"></i> Espèces</div><div class="mc-val" id="r-esp">0</div></div>
+          <div class="mc"><div class="mc-label"><i class="ti ti-checkbook"></i> Chèques</div><div class="mc-val" id="r-chq">0</div></div>
+          <div class="mc"><div class="mc-label"><i class="ti ti-device-mobile"></i> Mobile + Crédit</div><div class="mc-val" id="r-mob">0</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Date</th><th style="text-align:right">SUSHI</th><th style="text-align:right">BAR</th><th style="text-align:right">CHICHA</th><th style="text-align:right">CA Total</th><th>Paiements</th></tr></thead><tbody id="rec-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- DEPENSES -->
+    <div class="page" id="page-depenses">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-trending-down"></i> Dépenses</span>
+        <div class="tabs ml-auto" id="dep-tabs">
+          <button class="tab active" data-filter="all">Tout</button>
+          <button class="tab" data-filter="SUSHI">SUSHI</button>
+          <button class="tab" data-filter="BAR">BAR</button>
+          <button class="tab" data-filter="CHICHA">CHICHA</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="g4">
+          <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red" id="dep-tot">0</div></div>
+          <div class="mc blue"><div class="mc-label blue">SUSHI</div><div class="mc-val blue" id="dep-s">0</div></div>
+          <div class="mc green"><div class="mc-label green">BAR</div><div class="mc-val green" id="dep-b">0</div></div>
+          <div class="mc amber"><div class="mc-label amber">CHICHA</div><div class="mc-val amber" id="dep-c">0</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Date</th><th>Désignation</th><th>Catégorie</th><th>Département</th><th style="text-align:right">Montant</th></tr></thead><tbody id="dep-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ANALYSE -->
+    <div class="page" id="page-analyse">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-chart-pie"></i> Analyse charges</span>
+        <div class="tabs ml-auto" id="an-tabs">
+          <button class="tab active" data-filter="all">Tous</button>
+          <button class="tab" data-filter="SUSHI">SUSHI</button>
+          <button class="tab" data-filter="BAR">BAR</button>
+          <button class="tab" data-filter="CHICHA">CHICHA</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="g3" id="an-metrics"></div>
+        <div id="an-groups"></div>
+      </div>
+    </div>
+
+    <!-- BANQUE -->
+    <div class="page" id="page-banque">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-building-bank"></i> Compte Bancaire</span>
+        <button class="btn btn-primary" id="btn-new-mvt-banque"><i class="ti ti-plus"></i> Nouveau mouvement</button>
+      </div>
+      <div class="content">
+        <div class="solde-header banque">
+          <div class="solde-tag" style="color:var(--c-sushi)">Solde actuel</div>
+          <div class="solde-big" id="banque-solde" style="color:var(--c-sushi)">0 FCFA</div>
+          <div class="solde-update" id="banque-update">Non renseigné</div>
+          <div class="solde-form">
+            <input type="number" id="inp-banque" placeholder="Saisir le solde actuel (FCFA)...">
+            <button class="btn btn-primary" id="btn-save-banque"><i class="ti ti-check"></i> Mettre à jour</button>
+          </div>
+        </div>
+        <div class="g3">
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-arrow-up-right"></i> Total entrées</div><div class="mc-val green" id="banque-in">0 FCFA</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-arrow-down-right"></i> Total sorties</div><div class="mc-val red" id="banque-out">0 FCFA</div></div>
+          <div class="mc"><div class="mc-label"><i class="ti ti-list"></i> Nb mouvements</div><div class="mc-val" id="banque-nb">0</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)"><span class="card-title">Historique</span></div>
+          <table><thead><tr><th>Date</th><th>Libellé</th><th>Référence</th><th style="text-align:right">Entrée</th><th style="text-align:right">Sortie</th><th style="text-align:right">Solde</th></tr></thead><tbody id="banque-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOBILE -->
+    <div class="page" id="page-mobile">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-device-mobile"></i> Mobile Money</span>
+        <button class="btn btn-primary" id="btn-new-mvt-mobile"><i class="ti ti-plus"></i> Nouveau mouvement</button>
+      </div>
+      <div class="content">
+        <div class="solde-header mobile">
+          <div class="solde-tag" style="color:var(--c-purple)">Solde actuel</div>
+          <div class="solde-big" id="mobile-solde" style="color:var(--c-purple)">0 FCFA</div>
+          <div class="solde-update" id="mobile-update">Non renseigné</div>
+          <div class="solde-form">
+            <input type="number" id="inp-mobile" placeholder="Saisir le solde actuel (FCFA)...">
+            <button class="btn btn-primary" id="btn-save-mobile"><i class="ti ti-check"></i> Mettre à jour</button>
+          </div>
+        </div>
+        <div class="g3">
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-arrow-up-right"></i> Total entrées</div><div class="mc-val green" id="mobile-in">0 FCFA</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-arrow-down-right"></i> Total sorties</div><div class="mc-val red" id="mobile-out">0 FCFA</div></div>
+          <div class="mc"><div class="mc-label"><i class="ti ti-list"></i> Nb mouvements</div><div class="mc-val" id="mobile-nb">0</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)"><span class="card-title">Historique</span></div>
+          <table><thead><tr><th>Date</th><th>Libellé</th><th>Opérateur</th><th style="text-align:right">Entrée</th><th style="text-align:right">Sortie</th><th style="text-align:right">Solde</th></tr></thead><tbody id="mobile-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="page" id="page-categories">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-tags"></i> Catégories</span>
+        <button class="btn btn-primary" id="btn-new-cat"><i class="ti ti-plus"></i> Nouvelle catégorie</button>
+      </div>
+      <div class="content">
+        <div class="g2">
+          <div class="card"><div class="card-header"><span class="card-title" style="color:var(--c-bar)"><i class="ti ti-arrow-down"></i> Recettes</span></div><div id="cat-rec"></div></div>
+          <div class="card"><div class="card-header"><span class="card-title" style="color:var(--c-red)"><i class="ti ti-arrow-up"></i> Dépenses</span></div><div id="cat-dep"></div></div>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">Toutes les catégories</span><span class="text-muted" id="cat-count"></span></div>
+          <table><thead><tr><th>Nom</th><th>Type</th><th>Couleur</th><th>Département</th><th>Actions</th></tr></thead><tbody id="cat-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPLOYES -->
+    <div class="page" id="page-employes">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-users"></i> Employés — Avril 2026</span>
+        <div class="tabs ml-auto" id="emp-tabs">
+          <button class="tab active" data-filter="all">Tous</button>
+          <button class="tab" data-filter="BAR">BAR</button>
+          <button class="tab" data-filter="RESTAURANT">RESTAURANT</button>
+          <button class="tab" data-filter="CHICHA">CHICHA</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="g3">
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-user-check"></i> Effectif</div><div class="mc-val blue">21</div></div>
+          <div class="mc"><div class="mc-label"><i class="ti ti-cash"></i> Masse brute</div><div class="mc-val">7 305 000 FCFA</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-arrow-down"></i> Avances</div><div class="mc-val red">2 240 000 FCFA</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Nom</th><th>Poste</th><th>Dept</th><th style="text-align:right">Brut</th><th style="text-align:right">Prime</th><th style="text-align:right">Avance</th><th style="text-align:right">Net</th></tr></thead><tbody id="emp-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- COMPTES EMP -->
+    <div class="page" id="page-comptes-emp">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-user-dollar"></i> Comptes employés</span>
+        <button class="btn btn-primary" id="btn-new-cemp"><i class="ti ti-plus"></i> Écriture</button>
+        <div class="tabs ml-auto" id="cemp-tabs">
+          <button class="tab active" data-filter="all">Tous</button>
+          <button class="tab" data-filter="CHRIST">CHRIST</button>
+          <button class="tab" data-filter="FRANCIS">FRANCIS</button>
+          <button class="tab" data-filter="KING">KING</button>
+        </div>
+      </div>
+      <div class="content"><div id="cemp-cards"></div></div>
+    </div>
+
+    <!-- CREDITS -->
+    <div class="page" id="page-credits">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-receipt-2"></i> Crédits clients</span>
+        <button class="btn btn-primary" id="btn-new-cred"><i class="ti ti-plus"></i> Nouveau crédit</button>
+        <div class="tabs ml-auto" id="cred-tabs">
+          <button class="tab active" data-filter="all">Tous</button>
+          <button class="tab" data-filter="ouvert">En cours</button>
+          <button class="tab" data-filter="regle">Réglés</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="g3">
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-clock"></i> Ouverts</div><div class="mc-val red" id="cr-total">0</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-check"></i> Réglés</div><div class="mc-val green" id="cr-regle">0</div></div>
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-users"></i> Nb clients</div><div class="mc-val blue" id="cr-nb">0</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Date</th><th>Ticket</th><th>Client</th><th>Dept</th><th style="text-align:right">Montant</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cred-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- FOURNISSEURS -->
+    <div class="page" id="page-fournisseurs">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-truck-delivery"></i> Fournisseurs</span>
+        <button class="btn btn-primary" id="btn-new-fourn"><i class="ti ti-plus"></i> Facture</button>
+      </div>
+      <div class="content">
+        <div class="g4">
+          <div class="mc blue"><div class="mc-label blue">BATIMAT</div><div class="mc-val blue" id="f-bat">0</div></div>
+          <div class="mc blue"><div class="mc-label blue">REGAL</div><div class="mc-val blue" id="f-reg">0</div></div>
+          <div class="mc blue"><div class="mc-label blue">ORCA</div><div class="mc-val blue" id="f-orc">0</div></div>
+          <div class="mc blue"><div class="mc-label blue">HUSS NEHME</div><div class="mc-val blue" id="f-hus">0</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Date</th><th>Fournisseur</th><th>N° Facture</th><th>Désignation</th><th style="text-align:right">Débit</th><th style="text-align:right">Crédit</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody id="fourn-table"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- BILAN -->
+    <div class="page" id="page-bilan">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-report-analytics"></i> Bilan — MEIJI</span></div>
+      <div class="content">
+        <div class="g2">
+          <div class="card"><div class="card-header"><span class="card-title" style="color:var(--c-bar)"><i class="ti ti-circle-plus"></i> ACTIF</span></div>
+            <table>
+              <tr><td class="text-muted">Caisse SUSHI</td><td style="text-align:right;font-weight:600" id="bi-ts">0</td></tr>
+              <tr><td class="text-muted">Caisse BAR</td><td style="text-align:right;font-weight:600" id="bi-tb">0</td></tr>
+              <tr><td class="text-muted">Caisse CHICHA</td><td style="text-align:right;font-weight:600" id="bi-tc">0</td></tr>
+              <tr><td class="text-muted">Solde bancaire</td><td style="text-align:right;font-weight:600;color:var(--c-sushi)" id="bi-banque">0</td></tr>
+              <tr><td class="text-muted">Solde mobile</td><td style="text-align:right;font-weight:600;color:var(--c-purple)" id="bi-mobile">0</td></tr>
+              <tr><td class="text-muted">Crédits clients</td><td style="text-align:right;font-weight:600;color:var(--c-chicha)" id="bi-cred">0</td></tr>
+              <tr class="total-row"><td><b>Total Actif</b></td><td style="text-align:right;font-weight:700;font-size:15px" id="bi-ta">0</td></tr>
+            </table>
+          </div>
+          <div class="card"><div class="card-header"><span class="card-title" style="color:var(--c-red)"><i class="ti ti-circle-minus"></i> CHARGES</span></div>
+            <table>
+              <tr><td class="text-muted">Charges exploitation</td><td style="text-align:right;font-weight:600" id="bi-de">0</td></tr>
+              <tr><td class="text-muted">Masse salariale</td><td style="text-align:right;font-weight:600">6 150 000 FCFA</td></tr>
+              <tr class="total-row"><td><b>Résultat net</b></td><td style="text-align:right;font-weight:700;font-size:15px" id="bi-rn">0</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end app -->
+
+<!-- MODALS (injectés par JS) -->
+<div id="modal-container"></div>
+
+<script src="js/data.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/modules/dashboard.js"></script>
+<script src="js/modules/journee.js"></script>
+<script src="js/modules/depenses.js"></script>
+<script src="js/modules/banque.js"></script>
+<script src="js/modules/mobile.js"></script>
+<script src="js/modules/categories.js"></script>
+<script src="js/modules/employes.js"></script>
+<script src="js/modules/credits.js"></script>
+<script src="js/modules/fournisseurs.js"></script>
+<script src="js/modules/bilan.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
