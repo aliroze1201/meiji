@@ -83,13 +83,14 @@ const Depenses = {
 
     const tb = document.getElementById('dep-table');
     if (!tb) return;
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Aucune dépense</td></tr>'; return; }
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Aucune dépense</td></tr>'; return; }
 
     const dash = '<span style="color:var(--c-muted)">—</span>';
     tb.innerHTML = list.map(d => {
       const col = catColors[d.groupe || 'Autres'] || '#94A3B8';
-      const obs = d.observation ? this._escape(d.observation) : '';
-      const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
+      const obsRaw = d.observation || d.label || '';
+      const obs = obsRaw ? this._escape(obsRaw) : '';
+      const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
       const deleteBtn = d.userId
         ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
         : '';
@@ -97,7 +98,6 @@ const Depenses = {
       <tr>
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
         <td><span style="font-size:11px;padding:3px 9px;border-radius:999px;background:${col}22;color:${col};font-weight:700">${d.groupe || 'Autres'}</span></td>
-        <td>${this._escape(d.label || '')}</td>
         <td class="text-right">${d.qte != null ? d.qte : dash}</td>
         <td class="text-right">${d.prix != null ? Data.fmts(d.prix) : dash}</td>
         <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
@@ -119,7 +119,6 @@ const Depenses = {
       date: Data.today(),
       dept: 'SUSHI',
       cat:  '',
-      label: '',
       qte:  '',
       prix: '',
       montant: '',
@@ -196,9 +195,6 @@ const Depenses = {
         <td><input type="text" class="fld-cat" list="draft-cat-list" placeholder="Catégorie"
               value="${this._escape(d.cat)}"
               oninput="Depenses.updateDraft(${d.id},'cat',this.value)"></td>
-        <td><input type="text" class="fld-label" placeholder="Désignation"
-              value="${this._escape(d.label)}"
-              oninput="Depenses.updateDraft(${d.id},'label',this.value)"></td>
         <td><input type="number" class="fld-qte" min="0" step="1" placeholder="0"
               value="${this._escape(d.qte)}"
               oninput="Depenses.updateDraft(${d.id},'qte',this.value)"></td>
@@ -242,7 +238,7 @@ const Depenses = {
         userId: id,
         date:   d.date,
         dept:   d.dept,
-        label:  d.label || d.cat,
+        label:  d.cat,
         groupe: d.cat,
         qte:    parseFloat(d.qte)  || null,
         prix:   parseFloat(d.prix) || null,
@@ -319,11 +315,10 @@ const Depenses = {
       'Date':         d.date,
       'Département':  d.dept,
       'Catégorie':    d.groupe || '',
-      'Désignation':  d.label || '',
       'Quantité':     d.qte != null ? d.qte : '',
       'Prix unitaire': d.prix != null ? d.prix : '',
       'Montant':      d.montant,
-      'Observation':  d.observation || '',
+      'Observation':  d.observation || d.label || '',
       'ID':           d.userId || '',
     }));
 
@@ -332,8 +327,8 @@ const Depenses = {
 
     // Largeurs de colonnes
     ws['!cols'] = [
-      { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 32 },
-      { wch: 9 },  { wch: 13 }, { wch: 14 }, { wch: 36 }, { wch: 8 },
+      { wch: 12 }, { wch: 12 }, { wch: 22 },
+      { wch: 9 },  { wch: 13 }, { wch: 14 }, { wch: 40 }, { wch: 8 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Dépenses');
@@ -355,12 +350,13 @@ const Depenses = {
         rows.forEach(r => {
           const id = parseInt(r['ID']);
           if (!id) return;
+          const cat = String(r['Catégorie'] || 'Autres');
           imported.push({
             userId: id,
             date:   String(r['Date'] || '').slice(0, 10),
             dept:   String(r['Département'] || 'SUSHI').toUpperCase(),
-            label:  String(r['Désignation'] || ''),
-            groupe: String(r['Catégorie'] || 'Autres'),
+            label:  cat,
+            groupe: cat,
             qte:    r['Quantité']      !== '' ? Number(r['Quantité'])      : null,
             prix:   r['Prix unitaire'] !== '' ? Number(r['Prix unitaire']) : null,
             montant: Number(r['Montant']) || 0,
