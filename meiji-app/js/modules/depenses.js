@@ -65,17 +65,146 @@ const Depenses = {
 
     const tb = document.getElementById('dep-table');
     if (!tb) return;
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Aucune dépense</td></tr>'; return; }
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Aucune dépense</td></tr>'; return; }
 
-    tb.innerHTML = list.map(d => `
+    const dash = '<span style="color:var(--c-muted)">—</span>';
+    tb.innerHTML = list.map(d => {
+      const col = catColors[d.groupe || 'Autres'] || '#94A3B8';
+      const obs = d.observation ? this._escape(d.observation) : '';
+      const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
+      const deleteBtn = d.userId
+        ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
+        : '';
+      return `
       <tr>
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
-        <td>${d.label}</td>
-        <td><span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${catColors[d.groupe||'Autres']||'#888'}22;color:${catColors[d.groupe||'Autres']||'#888'};font-weight:600">${d.groupe || 'Autres'}</span></td>
-        <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
+        <td><span style="font-size:11px;padding:3px 9px;border-radius:999px;background:${col}22;color:${col};font-weight:700">${d.groupe || 'Autres'}</span></td>
+        <td>${this._escape(d.label || '')}</td>
+        <td class="text-right">${d.qte != null ? d.qte : dash}</td>
+        <td class="text-right">${d.prix != null ? Data.fmts(d.prix) : dash}</td>
         <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
-      </tr>`).join('');
+        <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
+        <td>${obsCell}</td>
+        <td>${deleteBtn}</td>
+      </tr>`;
+    }).join('');
   },
+
+  _escape(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  },
+
+  openModal() {
+    const cats = Data.categories.filter(c => c.type === 'dep');
+    const today = Data.today();
+    const opts = cats.map(c => `<option value="${this._escape(c.nom)}"></option>`).join('');
+    const html = `
+      <div class="modal-overlay show" onclick="if(event.target===this)App.closeModal()">
+        <div class="modal modal-lg">
+          <div class="modal-title"><i class="ti ti-plus"></i> Nouvelle dépense</div>
+
+          <div class="fr">
+            <div class="fg"><label class="fl">Date</label>
+              <input type="date" id="dep-form-date" value="${today}">
+            </div>
+            <div class="fg"><label class="fl">Département</label>
+              <select id="dep-form-dept">
+                <option value="SUSHI">SUSHI</option>
+                <option value="BAR">BAR</option>
+                <option value="CHICHA">CHICHA</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fg">
+            <label class="fl">Catégorie <span style="color:var(--c-muted);font-weight:500;text-transform:none">(tapez pour rechercher)</span></label>
+            <input type="text" id="dep-form-cat" list="dep-form-catlist" placeholder="Ex : Boissons, Matières premières...">
+            <datalist id="dep-form-catlist">${opts}</datalist>
+          </div>
+
+          <div class="fg">
+            <label class="fl">Désignation</label>
+            <input type="text" id="dep-form-label" placeholder="Nom de l'article ou service">
+          </div>
+
+          <div class="fr3">
+            <div class="fg"><label class="fl">Quantité</label>
+              <input type="number" id="dep-form-qte" value="1" min="0" step="1" oninput="Depenses._compute()">
+            </div>
+            <div class="fg"><label class="fl">Prix unitaire (FCFA)</label>
+              <input type="number" id="dep-form-prix" min="0" step="100" oninput="Depenses._compute()" placeholder="0">
+            </div>
+            <div class="fg"><label class="fl">Montant total (FCFA)</label>
+              <input type="number" id="dep-form-montant" min="0" step="1" placeholder="0"
+                     style="font-weight:700;color:var(--c-red);background:var(--c-red-soft)">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--c-muted);margin:-6px 0 12px">
+            Le montant se calcule automatiquement (Qté × Prix). Vous pouvez aussi le saisir directement.
+          </div>
+
+          <div class="fg">
+            <label class="fl">Observation (optionnel)</label>
+            <textarea id="dep-form-obs" rows="2" placeholder="Précisions, fournisseur, n° de facture, etc."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Depenses.save()"><i class="ti ti-check"></i> Enregistrer</button>
+          </div>
+        </div>
+      </div>`;
+    App.showModal(html);
+    setTimeout(() => document.getElementById('dep-form-cat')?.focus(), 50);
+  },
+
+  _compute() {
+    const q = parseFloat(document.getElementById('dep-form-qte')?.value) || 0;
+    const p = parseFloat(document.getElementById('dep-form-prix')?.value) || 0;
+    const m = document.getElementById('dep-form-montant');
+    if (m && (q || p)) m.value = Math.round(q * p);
+  },
+
+  save() {
+    const date = document.getElementById('dep-form-date').value;
+    const dept = document.getElementById('dep-form-dept').value;
+    const cat  = document.getElementById('dep-form-cat').value.trim();
+    const label = document.getElementById('dep-form-label').value.trim();
+    const qte  = parseFloat(document.getElementById('dep-form-qte').value) || 0;
+    const prix = parseFloat(document.getElementById('dep-form-prix').value) || 0;
+    const mnt  = parseFloat(document.getElementById('dep-form-montant').value) || 0;
+    const obs  = document.getElementById('dep-form-obs').value.trim();
+
+    if (!date) return alert('Date requise');
+    if (!cat)  return alert('Catégorie requise');
+    if (!mnt)  return alert('Montant requis');
+
+    const id = Data.newId();
+    Data.histDep.push({
+      userId: id,
+      date,
+      dept,
+      label: label || cat,
+      groupe: cat,
+      qte: qte || null,
+      prix: prix || null,
+      montant: mnt,
+      observation: obs || null,
+    });
+
+    App.closeModal();
+    App.renderAll();
+  },
+
+  remove(userId) {
+    if (!confirm('Supprimer cette dépense ?')) return;
+    const idx = Data.histDep.findIndex(d => d.userId === userId);
+    if (idx >= 0) {
+      Data.histDep.splice(idx, 1);
+      App.renderAll();
+    }
+  },
+
   _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
 };
 

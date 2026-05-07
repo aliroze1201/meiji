@@ -199,6 +199,7 @@ const App = {
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
 
     // Buttons
+    document.getElementById('btn-new-dep')?.addEventListener('click', () => Depenses.openModal());
     document.getElementById('btn-new-cat')?.addEventListener('click', () => Categories.openModal(null));
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
