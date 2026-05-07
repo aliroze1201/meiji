@@ -200,6 +200,13 @@ const App = {
 
     // Buttons
     document.getElementById('btn-new-dep')?.addEventListener('click', () => Depenses.openModal());
+    document.getElementById('btn-export-dep')?.addEventListener('click', () => Depenses.exportExcel());
+    document.getElementById('btn-import-dep')?.addEventListener('click', () => document.getElementById('dep-file-input')?.click());
+    document.getElementById('dep-file-input')?.addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (f) Depenses.importExcel(f);
+      e.target.value = '';
+    });
     document.getElementById('btn-new-cat')?.addEventListener('click', () => Categories.openModal(null));
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
@@ -211,6 +218,9 @@ const App = {
 
     // Theme
     this.initTheme();
+
+    // Restaurer les dépenses sauvegardées localement
+    Depenses.restore();
 
     // Initial render
     this.renderAll();

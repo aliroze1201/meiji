@@ -7,6 +7,7 @@
   <title>MEIJI — Gestion Restaurant</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -211,6 +212,9 @@
     <div class="page" id="page-depenses">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-trending-down"></i> Dépenses</span>
         <button class="btn btn-primary" id="btn-new-dep"><i class="ti ti-plus"></i> Nouvelle dépense</button>
+        <button class="btn" id="btn-export-dep" title="Télécharger toutes les dépenses au format Excel"><i class="ti ti-file-spreadsheet"></i> Export Excel</button>
+        <button class="btn" id="btn-import-dep" title="Importer un fichier Excel précédemment exporté"><i class="ti ti-upload"></i> Import Excel</button>
+        <input type="file" id="dep-file-input" accept=".xlsx,.xls,.csv" style="display:none">
         <div class="tabs ml-auto" id="dep-tabs">
           <button class="tab active" data-filter="all">Tout</button>
           <button class="tab" data-filter="SUSHI">SUSHI</button>

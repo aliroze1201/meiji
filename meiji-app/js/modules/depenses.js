@@ -192,6 +192,7 @@ const Depenses = {
       observation: obs || null,
     });
 
+    this.persist();
     App.closeModal();
     App.renderAll();
   },
@@ -201,8 +202,118 @@ const Depenses = {
     const idx = Data.histDep.findIndex(d => d.userId === userId);
     if (idx >= 0) {
       Data.histDep.splice(idx, 1);
+      this.persist();
       App.renderAll();
     }
+  },
+
+  // ===================== PERSISTANCE LOCALE =====================
+  STORAGE_KEY: 'meiji-user-deps',
+
+  persist() {
+    try {
+      const userDeps = Data.histDep.filter(d => d.userId);
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userDeps));
+    } catch (e) {
+      console.warn('localStorage indisponible', e);
+    }
+  },
+
+  restore() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const userDeps = JSON.parse(raw);
+      if (!Array.isArray(userDeps)) return;
+      // Ne pas dupliquer si déjà présents
+      const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
+      userDeps.forEach(d => {
+        if (!existingIds.has(d.userId)) Data.histDep.push(d);
+      });
+    } catch (e) {
+      console.warn('Erreur restauration', e);
+    }
+  },
+
+  // ===================== EXPORT / IMPORT EXCEL =====================
+  exportExcel() {
+    if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
+    const all = Data.getAllDeps().slice().sort((a,b) => b.date.localeCompare(a.date));
+    const rows = all.map(d => ({
+      'Date':         d.date,
+      'Département':  d.dept,
+      'Catégorie':    d.groupe || '',
+      'Désignation':  d.label || '',
+      'Quantité':     d.qte != null ? d.qte : '',
+      'Prix unitaire': d.prix != null ? d.prix : '',
+      'Montant':      d.montant,
+      'Observation':  d.observation || '',
+      'ID':           d.userId || '',
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Largeurs de colonnes
+    ws['!cols'] = [
+      { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 32 },
+      { wch: 9 },  { wch: 13 }, { wch: 14 }, { wch: 36 }, { wch: 8 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Dépenses');
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `meiji-depenses-${today}.xlsx`);
+  },
+
+  importExcel(file) {
+    if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        // On ne ré-importe que les lignes avec un ID (= entrées créées par l'utilisateur)
+        const imported = [];
+        rows.forEach(r => {
+          const id = parseInt(r['ID']);
+          if (!id) return;
+          imported.push({
+            userId: id,
+            date:   String(r['Date'] || '').slice(0, 10),
+            dept:   String(r['Département'] || 'SUSHI').toUpperCase(),
+            label:  String(r['Désignation'] || ''),
+            groupe: String(r['Catégorie'] || 'Autres'),
+            qte:    r['Quantité']      !== '' ? Number(r['Quantité'])      : null,
+            prix:   r['Prix unitaire'] !== '' ? Number(r['Prix unitaire']) : null,
+            montant: Number(r['Montant']) || 0,
+            observation: String(r['Observation'] || '') || null,
+          });
+        });
+
+        if (!imported.length) {
+          alert('Aucune ligne importable trouvée (colonne ID manquante ou vide).');
+          return;
+        }
+
+        if (!confirm(`Importer ${imported.length} dépense(s) ? Les dépenses utilisateur actuelles seront remplacées.`)) return;
+
+        // Supprimer les dépenses utilisateur actuelles, garder l'historique
+        Data.histDep = Data.histDep.filter(d => !d.userId);
+        imported.forEach(d => Data.histDep.push(d));
+        // Mettre à jour le compteur d'ID
+        const maxId = Math.max(...imported.map(d => d.userId), Data.nextId - 1);
+        Data.nextId = maxId + 1;
+
+        this.persist();
+        App.renderAll();
+        alert(`✅ ${imported.length} dépense(s) importée(s).`);
+      } catch (err) {
+        alert('Erreur lors de la lecture du fichier : ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
   },
 
   _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
