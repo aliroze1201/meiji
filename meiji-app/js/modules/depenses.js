@@ -11,6 +11,10 @@ const Recettes = {
 
   render() {
     this.renderHistory();
+    // Toujours montrer au moins un tableau prêt à remplir
+    if (!this.drafts.length) {
+      this.drafts.push(this.newDraft());
+    }
     this.renderDrafts();
   },
 
@@ -73,6 +77,8 @@ const Recettes = {
   removeDraft(id) {
     if (!confirm('Supprimer cette journée en cours ?')) return;
     this.drafts = this.drafts.filter(d => d.id !== id);
+    // Toujours laisser au moins une ligne prête à remplir
+    if (!this.drafts.length) this.drafts.push(this.newDraft());
     this.persistDrafts();
     this.renderDrafts();
   },
@@ -130,15 +136,12 @@ const Recettes = {
 
   renderDrafts() {
     const list = document.getElementById('rec-draft-list');
-    const empty = document.getElementById('rec-draft-empty');
     if (!list) return;
     if (!this.drafts.length) {
       list.innerHTML = '';
-      if (empty) empty.style.display = 'block';
       this._refreshHeader();
       return;
     }
-    if (empty) empty.style.display = 'none';
 
     list.innerHTML = this.drafts.map(d => {
       const tS = ['esp','chq','mob','cred'].reduce((s,m) => s + (parseFloat(d.s[m])||0), 0);
