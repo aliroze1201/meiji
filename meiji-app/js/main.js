@@ -198,10 +198,34 @@ const App = {
     this.initTabs('cemp-tabs', f => { this.filters.cemp = f; CEmployes.render(); });
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
 
-    // Buttons
-    document.querySelectorAll('.dep-add').forEach(btn => {
-      btn.addEventListener('click', () => Depenses.addDraftRow(btn.dataset.dept));
+    // Dropdown "Nouvelle ligne"
+    const dd = document.getElementById('dep-dd');
+    document.getElementById('dep-dd-toggle')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dd?.classList.toggle('open');
     });
+    document.querySelectorAll('.dep-dd-item').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Depenses.addDraftRow(btn.dataset.dept);
+        dd?.classList.remove('open');
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+    });
+
+    // Entrée dans la zone de saisie -> nouvelle ligne avec la même caisse
+    document.getElementById('draft-tbody')?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const row = e.target.closest('tr[data-draft-id]');
+      if (!row) return;
+      const sel = row.querySelector('select.fld-dept');
+      const dept = sel ? sel.value : 'SUSHI';
+      e.preventDefault();
+      Depenses.addDraftRow(dept);
+    });
+
     document.getElementById('btn-commit-dep')?.addEventListener('click', () => Depenses.commitDrafts());
     document.getElementById('btn-export-dep')?.addEventListener('click', () => Depenses.exportExcel());
     document.getElementById('btn-import-dep')?.addEventListener('click', () => document.getElementById('dep-file-input')?.click());

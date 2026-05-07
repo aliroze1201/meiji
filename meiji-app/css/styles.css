@@ -1024,16 +1024,55 @@ input::placeholder { color: var(--c-muted); }
 .mvt-btn.active.in  { background: var(--c-bar-soft); box-shadow: 0 0 0 2px var(--c-bar); }
 .mvt-btn.active.out { background: var(--c-red-soft); box-shadow: 0 0 0 2px var(--c-red); }
 
-/* =====================  BOUTONS AJOUT DÉPENSE (par caisse)  ===================== */
-.dep-add {
-  border-color: transparent;
-  color: #fff;
-  font-weight: 700;
+/* =====================  DROPDOWN AJOUT DÉPENSE  ===================== */
+.dep-dd { position: relative; display: inline-block; }
+.dep-dd #dep-dd-toggle i.ti-chevron-down { font-size: 14px; opacity: .8; transition: transform var(--t-fast); }
+.dep-dd.open #dep-dd-toggle i.ti-chevron-down { transform: rotate(180deg); }
+
+.dep-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-lg);
+  padding: 6px;
+  z-index: 50;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  animation: ddIn .15s var(--ease);
 }
-.dep-add-sushi  { background: var(--grad-sushi);  box-shadow: var(--sh-glow-sushi); }
-.dep-add-bar    { background: var(--grad-bar);    box-shadow: var(--sh-glow-bar); }
-.dep-add-chicha { background: var(--grad-chicha); box-shadow: var(--sh-glow-chicha); }
-.dep-add:hover  { transform: translateY(-1px); filter: brightness(1.05); color: #fff; }
+.dep-dd.open .dep-dd-menu { display: flex; }
+@keyframes ddIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dep-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--c-text);
+  border-radius: var(--r-sm);
+  text-align: left;
+  transition: var(--t-fast);
+}
+.dep-dd-item:hover { background: var(--c-bg-2); }
+.dep-dd-bullet {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.dep-dd-sushi  .dep-dd-bullet { background: var(--c-sushi); }
+.dep-dd-bar    .dep-dd-bullet { background: var(--c-bar); }
+.dep-dd-chicha .dep-dd-bullet { background: var(--c-chicha); }
 
 /* =====================  DRAFT TABLE (saisie dépenses)  ===================== */
 .draft-card {
