@@ -8,7 +8,6 @@ const App = {
   currentPage: 'dashboard',
   period: 'mois',
   filters: {
-    jour: 'all',
     dep: 'all',
     emp: 'all',
     cred: 'all',
@@ -36,7 +35,6 @@ const App = {
   updateTopbarTitle(pageId) {
     const titles = {
       dashboard: 'Tableau de bord',
-      journee: 'Journées',
       recettes: 'Recettes CA',
       depenses: 'Dépenses',
       analyse: 'Analyse charges',
@@ -170,7 +168,6 @@ const App = {
   // ===================== RENDER ALL =====================
   renderAll() {
     Dashboard.render();
-    Journee.renderTable();
     Recettes.render();
     Depenses.renderTable();
     Analyse.render();
@@ -195,7 +192,6 @@ const App = {
     this.initPeriodBar();
 
     // Tabs
-    this.initTabs('jour-tabs', f => { this.filters.jour = f; Journee.renderTable(); });
     this.initTabs('dep-tabs', f => { this.filters.dep = f; Depenses.renderTable(); });
     this.initTabs('emp-tabs', f => { this.filters.emp = f; Employes.render(); });
     this.initTabs('cred-tabs', f => { this.filters.cred = f; Credits.render(); });
@@ -203,7 +199,6 @@ const App = {
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
 
     // Buttons
-    document.getElementById('btn-new-jour')?.addEventListener('click', () => Journee.openModal(null));
     document.getElementById('btn-new-cat')?.addEventListener('click', () => Categories.openModal(null));
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
