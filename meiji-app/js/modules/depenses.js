@@ -297,8 +297,11 @@ const Recettes = {
       if (rawU) {
         const arr = JSON.parse(rawU);
         if (Array.isArray(arr)) {
-          const existingDates = new Set(Data.journees.filter(j => j.userRec).map(j => j.date));
-          arr.forEach(j => { if (!existingDates.has(j.date)) Data.journees.push(j); });
+          arr.forEach(uj => {
+            const idx = Data.journees.findIndex(j => j.date === uj.date);
+            if (idx >= 0) Data.journees[idx] = uj;  // remplace la journée du seed/existante
+            else Data.journees.push(uj);
+          });
           Data.journees.sort((a,b) => a.date.localeCompare(b.date));
         }
       }

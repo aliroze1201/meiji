@@ -258,6 +258,7 @@ const App = {
     this.initTheme();
 
     // Restaurer les saisies sauvegardées localement
+    Credits.restore();   // doit précéder Recettes.restore (les journées peuvent porter des règlements)
     Depenses.restore();
     Recettes.restore();
 
