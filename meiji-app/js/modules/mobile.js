@@ -63,24 +63,25 @@ const Mobile = {
   },
 
   render() {
-    const totalIn = Data.mvtsMobile.filter(m => m.type === 'in').reduce((s,m) => s + m.mnt, 0);
-    const totalOut = Data.mvtsMobile.filter(m => m.type === 'out').reduce((s,m) => s + m.mnt, 0);
+    const list = App.filterByDate(Data.mvtsMobile);
+    const totalIn = list.filter(m => m.type === 'in').reduce((s,m) => s + m.mnt, 0);
+    const totalOut = list.filter(m => m.type === 'out').reduce((s,m) => s + m.mnt, 0);
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     set('mobile-solde', Data.fmt(Data.soldes.mobile.montant));
     set('mobile-update', Data.soldes.mobile.date ? 'Mis à jour le ' + Data.soldes.mobile.date : 'Non renseigné');
     set('mobile-in', Data.fmt(totalIn));
     set('mobile-out', Data.fmt(totalOut));
-    set('mobile-nb', Data.mvtsMobile.length);
+    set('mobile-nb', list.length);
 
     const tb = document.getElementById('mobile-table');
     if (!tb) return;
-    if (!Data.mvtsMobile.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun mouvement.<br>Saisissez votre solde actuel et ajoutez vos transactions.</td></tr>';
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun mouvement sur cette période.</td></tr>';
       return;
     }
     let solde = Data.soldes.mobile.montant;
-    tb.innerHTML = Data.mvtsMobile.map(m => {
+    tb.innerHTML = list.map(m => {
       const s = solde;
       solde -= (m.type === 'in' ? m.mnt : -m.mnt);
       return `<tr>

@@ -133,9 +133,10 @@ const Suivi = {
   // ===================== RENDER =====================
   render() {
     if (!Array.isArray(Data.cheques)) Data.cheques = [];
+    const periodList = App.filterByDate(Data.cheques);
 
-    const sumBy = (st) => Data.cheques.filter(c => c.statut === st).reduce((s,c) => s + (c.montant||0), 0);
-    const nbBy  = (st) => Data.cheques.filter(c => c.statut === st).length;
+    const sumBy = (st) => periodList.filter(c => c.statut === st).reduce((s,c) => s + (c.montant||0), 0);
+    const nbBy  = (st) => periodList.filter(c => c.statut === st).length;
 
     this._set('chq-attente',  Data.fmt(sumBy('attente')));
     this._set('chq-depose',   Data.fmt(sumBy('depose')));
@@ -149,7 +150,7 @@ const Suivi = {
     const tb = document.getElementById('chq-table');
     if (!tb) return;
 
-    let list = this.filter === 'all' ? Data.cheques : Data.cheques.filter(c => c.statut === this.filter);
+    let list = this.filter === 'all' ? periodList : periodList.filter(c => c.statut === this.filter);
     list = list.slice().sort((a,b) => (b.date || '').localeCompare(a.date || ''));
 
     if (!list.length) {

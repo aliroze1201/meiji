@@ -63,24 +63,25 @@ const Banque = {
   },
 
   render() {
-    const totalIn = Data.mvtsBanque.filter(m => m.type === 'in').reduce((s,m) => s + m.mnt, 0);
-    const totalOut = Data.mvtsBanque.filter(m => m.type === 'out').reduce((s,m) => s + m.mnt, 0);
+    const list = App.filterByDate(Data.mvtsBanque);
+    const totalIn = list.filter(m => m.type === 'in').reduce((s,m) => s + m.mnt, 0);
+    const totalOut = list.filter(m => m.type === 'out').reduce((s,m) => s + m.mnt, 0);
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     set('banque-solde', Data.fmt(Data.soldes.banque.montant));
     set('banque-update', Data.soldes.banque.date ? 'Mis à jour le ' + Data.soldes.banque.date : 'Non renseigné');
     set('banque-in', Data.fmt(totalIn));
     set('banque-out', Data.fmt(totalOut));
-    set('banque-nb', Data.mvtsBanque.length);
+    set('banque-nb', list.length);
 
     const tb = document.getElementById('banque-table');
     if (!tb) return;
-    if (!Data.mvtsBanque.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun mouvement.<br>Saisissez votre solde actuel et ajoutez vos mouvements.</td></tr>';
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun mouvement sur cette période.</td></tr>';
       return;
     }
     let solde = Data.soldes.banque.montant;
-    tb.innerHTML = Data.mvtsBanque.map(m => {
+    tb.innerHTML = list.map(m => {
       const s = solde;
       solde -= (m.type === 'in' ? m.mnt : -m.mnt);
       return `<tr>

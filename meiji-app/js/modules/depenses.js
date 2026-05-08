@@ -19,7 +19,7 @@ const Recettes = {
   },
 
   renderHistory() {
-    const jj = Data.journees;
+    const jj = App.filterByDate(Data.journees);
     const tS = jj.reduce((s,j) => s + Data.caisse(j,'s'), 0);
     const tB = jj.reduce((s,j) => s + Data.caisse(j,'b'), 0);
     const tC = jj.reduce((s,j) => s + Data.caisse(j,'c'), 0);
@@ -403,7 +403,7 @@ const Depenses = {
   // ===================== TABLE HISTORIQUE =====================
   renderHistory() {
     const filter = App.filters.dep;
-    const all = Data.getAllDeps();
+    const all = App.filterByDate(Data.getAllDeps());
     const catColors = Data.getCatColors();
     const totS = all.filter(d => d.dept === 'SUSHI').reduce((s,d) => s + d.montant, 0);
     const totB = all.filter(d => d.dept === 'BAR').reduce((s,d) => s + d.montant, 0);
@@ -731,7 +731,7 @@ const Depenses = {
 const Analyse = {
   render() {
     const filter = App.filters.an;
-    const all = Data.getAllDeps();
+    const all = App.filterByDate(Data.getAllDeps());
     const fil = filter === 'all' ? all : all.filter(d => d.dept === filter);
     const tot = fil.reduce((s,d) => s + d.montant, 0);
     const catColors = Data.getCatColors();

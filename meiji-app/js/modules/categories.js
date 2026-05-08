@@ -377,10 +377,11 @@ const Credits = {
 
   render() {
     const filter = App.filters.cred;
-    const list = filter === 'all' ? Data.credits : Data.credits.filter(c => c.statut === filter);
-    const open = Data.credits.filter(c => c.statut === 'ouvert').reduce((s,c) => s + c.montant, 0);
-    const regle = Data.credits.filter(c => c.statut === 'regle').reduce((s,c) => s + c.montant, 0);
-    const clients = [...new Set(Data.credits.map(c => c.client))].length;
+    const periodList = App.filterByDate(Data.credits);
+    const list = filter === 'all' ? periodList : periodList.filter(c => c.statut === filter);
+    const open = periodList.filter(c => c.statut === 'ouvert').reduce((s,c) => s + c.montant, 0);
+    const regle = periodList.filter(c => c.statut === 'regle').reduce((s,c) => s + c.montant, 0);
+    const clients = [...new Set(periodList.map(c => c.client))].length;
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     set('cr-total', Data.fmt(open));
@@ -462,8 +463,9 @@ const Fournisseurs = {
   },
 
   render() {
+    const list = App.filterByDate(Data.fournisseurs);
     const b = { BATIMAT: 0, REGAL: 0, ORCA: 0, 'HUSS NEHME': 0 };
-    Data.fournisseurs.forEach(f => { if (b[f.four] !== undefined) b[f.four] += (f.deb - f.cred); });
+    list.forEach(f => { if (b[f.four] !== undefined) b[f.four] += (f.deb - f.cred); });
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     set('f-bat', Data.fmt(b['BATIMAT']));
     set('f-reg', Data.fmt(b['REGAL']));
@@ -472,9 +474,9 @@ const Fournisseurs = {
 
     const tb = document.getElementById('fourn-table');
     if (!tb) return;
-    if (!Data.fournisseurs.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Aucune facture fournisseur</td></tr>'; return; }
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Aucune facture sur cette période</td></tr>'; return; }
 
-    tb.innerHTML = Data.fournisseurs.map(f => `
+    tb.innerHTML = list.map(f => `
       <tr>
         <td class="nowrap">${Data.fmtDs(f.date)}</td>
         <td class="fw-bold">${f.four}</td>
@@ -491,11 +493,12 @@ const Fournisseurs = {
 // ===================== BILAN =====================
 const Bilan = {
   render() {
-    const last = Data.journees[0] || { cs: 0, cb: 0, cc: 0 };
-    const allDeps = Data.getAllDeps();
+    const journees = App.filterByDate(Data.journees);
+    const last = journees[0] || Data.journees[0] || { cs: 0, cb: 0, cc: 0 };
+    const allDeps = App.filterByDate(Data.getAllDeps());
     const totDep = allDeps.reduce((s,d) => s + d.montant, 0);
-    const totCA = Data.journees.reduce((s,j) => s + Data.caTotal(j), 0);
-    const credO = Data.credits.filter(c => c.statut === 'ouvert').reduce((s,c) => s + c.montant, 0);
+    const totCA = journees.reduce((s,j) => s + Data.caTotal(j), 0);
+    const credO = App.filterByDate(Data.credits).filter(c => c.statut === 'ouvert').reduce((s,c) => s + c.montant, 0);
     const actif = last.cs + last.cb + last.cc + Data.soldes.banque.montant + Data.soldes.mobile.montant + credO;
     const rn = totCA - totDep;
 

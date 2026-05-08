@@ -6,7 +6,7 @@
 const App = {
 
   currentPage: 'dashboard',
-  period: 'mois',
+  period: 'tout',
   filters: {
     dep: 'all',
     emp: 'all',
@@ -79,10 +79,37 @@ const App = {
         seg.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.buildPeriodInputs();
-        Dashboard.render();
+        // Re-rendre tous les modules pour appliquer le filtre période partout
+        this.renderAll();
       });
     });
     this.buildPeriodInputs();
+  },
+
+  // Vérifie si une date (string AAAA-MM-JJ) est dans la période active
+  inPeriod(dateStr) {
+    if (!dateStr) return true;
+    if (this.period === 'tout') return true;
+    if (this.period === 'jour') {
+      const s = document.getElementById('sel-jour');
+      return s ? dateStr === s.value : true;
+    }
+    if (this.period === 'mois') {
+      const m = document.getElementById('sel-mois');
+      const y = document.getElementById('sel-annee');
+      if (!m || !y) return true;
+      return dateStr.startsWith(y.value + '-' + m.value.padStart(2, '0'));
+    }
+    if (this.period === 'annee') {
+      const y = document.getElementById('sel-annee2');
+      return y ? dateStr.startsWith(y.value) : true;
+    }
+    return true;
+  },
+
+  // Filtre un tableau d'objets ayant un champ date
+  filterByDate(items, dateField = 'date') {
+    return items.filter(x => this.inPeriod(x[dateField]));
   },
 
   buildPeriodInputs() {

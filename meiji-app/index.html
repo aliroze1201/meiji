@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563EB">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260507f">
+  <link rel="stylesheet" href="css/styles.css?v=20260507g">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -65,18 +65,23 @@
       </div>
     </header>
 
+    <!-- BARRE PÉRIODE GLOBALE (s'applique à tous les onglets) -->
+    <div class="global-period">
+      <span class="gp-label"><i class="ti ti-calendar"></i> Période :</span>
+      <div class="seg" id="period-seg">
+        <button class="seg-btn" data-period="jour">Jour</button>
+        <button class="seg-btn" data-period="mois">Mois</button>
+        <button class="seg-btn" data-period="annee">Année</button>
+        <button class="seg-btn active" data-period="tout">Tout</button>
+      </div>
+      <div class="period-inputs" id="period-inputs"></div>
+      <span class="period-label" id="period-label"></span>
+    </div>
+
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="period-bar">
         <span class="period-bar-title"><i class="ti ti-sparkles"></i> Tableau de bord</span>
-        <div class="seg" id="period-seg">
-          <button class="seg-btn" data-period="jour">Jour</button>
-          <button class="seg-btn active" data-period="mois">Mois</button>
-          <button class="seg-btn" data-period="annee">Année</button>
-          <button class="seg-btn" data-period="tout">Tout</button>
-        </div>
-        <div class="period-inputs" id="period-inputs"></div>
-        <span class="period-label" id="period-label"></span>
       </div>
 
       <div class="content">
@@ -538,18 +543,18 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/data.js?v=20260507f"></script>
-<script src="js/charts.js?v=20260507f"></script>
-<script src="js/modules/dashboard.js?v=20260507f"></script>
-<script src="js/modules/depenses.js?v=20260507f"></script>
-<script src="js/modules/banque.js?v=20260507f"></script>
-<script src="js/modules/mobile.js?v=20260507f"></script>
-<script src="js/modules/categories.js?v=20260507f"></script>
-<script src="js/modules/employes.js?v=20260507f"></script>
-<script src="js/modules/credits.js?v=20260507f"></script>
-<script src="js/modules/suivi.js?v=20260507f"></script>
-<script src="js/modules/fournisseurs.js?v=20260507f"></script>
-<script src="js/modules/bilan.js?v=20260507f"></script>
-<script src="js/main.js?v=20260507f"></script>
+<script src="js/data.js?v=20260507g"></script>
+<script src="js/charts.js?v=20260507g"></script>
+<script src="js/modules/dashboard.js?v=20260507g"></script>
+<script src="js/modules/depenses.js?v=20260507g"></script>
+<script src="js/modules/banque.js?v=20260507g"></script>
+<script src="js/modules/mobile.js?v=20260507g"></script>
+<script src="js/modules/categories.js?v=20260507g"></script>
+<script src="js/modules/employes.js?v=20260507g"></script>
+<script src="js/modules/credits.js?v=20260507g"></script>
+<script src="js/modules/suivi.js?v=20260507g"></script>
+<script src="js/modules/fournisseurs.js?v=20260507g"></script>
+<script src="js/modules/bilan.js?v=20260507g"></script>
+<script src="js/main.js?v=20260507g"></script>
 </body>
 </html>
