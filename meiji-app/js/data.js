@@ -113,6 +113,9 @@ const Data = {
   // ===================== FOURNISSEURS =====================
   fournisseurs: [],
 
+  // ===================== CHEQUES (suivi bancaire) =====================
+  cheques: [],
+
   // ===================== BANQUE / MOBILE =====================
   soldes: {
     banque: { montant: 0, date: null },

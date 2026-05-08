@@ -44,6 +44,7 @@ const App = {
       employes: 'Employés',
       'comptes-emp': 'Comptes employés',
       credits: 'Crédits clients',
+      suivi: 'Suivi des chèques',
       fournisseurs: 'Fournisseurs',
       bilan: 'Bilan',
     };
@@ -177,6 +178,7 @@ const App = {
     Employes.render();
     CEmployes.render();
     Credits.render();
+    Suivi.render();
     Fournisseurs.render();
     Bilan.render();
   },
@@ -248,6 +250,8 @@ const App = {
     document.getElementById('btn-new-cat')?.addEventListener('click', () => Categories.openModal(null));
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
+    document.getElementById('btn-new-chq')?.addEventListener('click', () => Suivi.openModal());
+    this.initTabs('suivi-tabs', f => { Suivi.filter = f; Suivi.render(); });
     document.getElementById('btn-new-fourn')?.addEventListener('click', () => Fournisseurs.openModal());
     document.getElementById('btn-new-mvt-banque')?.addEventListener('click', () => Banque.openMvtModal());
     document.getElementById('btn-new-mvt-mobile')?.addEventListener('click', () => Mobile.openMvtModal());
@@ -261,6 +265,7 @@ const App = {
     Credits.restore();   // doit précéder Recettes.restore (les journées peuvent porter des règlements)
     Depenses.restore();
     Recettes.restore();
+    Suivi.restore();
 
     // Initial render
     this.renderAll();

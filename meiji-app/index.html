@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563EB">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260507e">
+  <link rel="stylesheet" href="css/styles.css?v=20260507f">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -33,6 +33,7 @@
     <div class="nav-item" data-page="mobile"><i class="ti ti-device-mobile"></i><span class="label">Mobile Money</span></div>
 
     <div class="sb-section">Gestion</div>
+    <div class="nav-item" data-page="suivi"><i class="ti ti-checks"></i><span class="label">Suivi chèques</span></div>
     <div class="nav-item" data-page="categories"><i class="ti ti-tags"></i><span class="label">Catégories</span></div>
     <div class="nav-item" data-page="employes"><i class="ti ti-users"></i><span class="label">Employés</span></div>
     <div class="nav-item" data-page="comptes-emp"><i class="ti ti-user-dollar"></i><span class="label">Comptes employés</span></div>
@@ -373,6 +374,51 @@
       </div>
     </div>
 
+    <!-- SUIVI CHEQUES -->
+    <div class="page" id="page-suivi">
+      <div class="period-bar">
+        <span class="period-bar-title"><i class="ti ti-checks"></i> Suivi des chèques</span>
+        <button class="btn btn-primary" id="btn-new-chq"><i class="ti ti-plus"></i> Nouveau chèque</button>
+        <div class="tabs ml-auto" id="suivi-tabs">
+          <button class="tab active" data-filter="all">Tous</button>
+          <button class="tab" data-filter="attente">En attente</button>
+          <button class="tab" data-filter="depose">Déposés</button>
+          <button class="tab" data-filter="encaisse">Encaissés</button>
+          <button class="tab" data-filter="rejete">Rejetés</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="g4">
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-clock"></i> En attente</div><div class="mc-val amber" id="chq-attente">0</div><div class="mc-sub" id="chq-nb-attente">0 chèque</div></div>
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-building-bank"></i> Déposés</div><div class="mc-val blue" id="chq-depose">0</div><div class="mc-sub" id="chq-nb-depose">0 chèque</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-circle-check"></i> Encaissés</div><div class="mc-val green" id="chq-encaisse">0</div><div class="mc-sub" id="chq-nb-encaisse">0 chèque</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-circle-x"></i> Rejetés</div><div class="mc-val red" id="chq-rejete">0</div><div class="mc-sub" id="chq-nb-rejete">0 chèque</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)">
+            <span class="card-title"><i class="ti ti-list"></i> Chèques</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr>
+                <th>Reçu le</th>
+                <th>Caisse</th>
+                <th>N° chèque</th>
+                <th>Banque</th>
+                <th>Tireur</th>
+                <th class="text-right">Montant</th>
+                <th>Statut</th>
+                <th>Dépôt</th>
+                <th>Encaissement</th>
+                <th>Action</th>
+              </tr></thead>
+              <tbody id="chq-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- CATEGORIES -->
     <div class="page" id="page-categories">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-tags"></i> Catégories</span>
@@ -492,17 +538,18 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/data.js?v=20260507e"></script>
-<script src="js/charts.js?v=20260507e"></script>
-<script src="js/modules/dashboard.js?v=20260507e"></script>
-<script src="js/modules/depenses.js?v=20260507e"></script>
-<script src="js/modules/banque.js?v=20260507e"></script>
-<script src="js/modules/mobile.js?v=20260507e"></script>
-<script src="js/modules/categories.js?v=20260507e"></script>
-<script src="js/modules/employes.js?v=20260507e"></script>
-<script src="js/modules/credits.js?v=20260507e"></script>
-<script src="js/modules/fournisseurs.js?v=20260507e"></script>
-<script src="js/modules/bilan.js?v=20260507e"></script>
-<script src="js/main.js?v=20260507e"></script>
+<script src="js/data.js?v=20260507f"></script>
+<script src="js/charts.js?v=20260507f"></script>
+<script src="js/modules/dashboard.js?v=20260507f"></script>
+<script src="js/modules/depenses.js?v=20260507f"></script>
+<script src="js/modules/banque.js?v=20260507f"></script>
+<script src="js/modules/mobile.js?v=20260507f"></script>
+<script src="js/modules/categories.js?v=20260507f"></script>
+<script src="js/modules/employes.js?v=20260507f"></script>
+<script src="js/modules/credits.js?v=20260507f"></script>
+<script src="js/modules/suivi.js?v=20260507f"></script>
+<script src="js/modules/fournisseurs.js?v=20260507f"></script>
+<script src="js/modules/bilan.js?v=20260507f"></script>
+<script src="js/main.js?v=20260507f"></script>
 </body>
 </html>
