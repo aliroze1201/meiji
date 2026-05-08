@@ -104,6 +104,16 @@ const App = {
       const y = document.getElementById('sel-annee2');
       return y ? dateStr.startsWith(y.value) : true;
     }
+    if (this.period === 'plage') {
+      const d = document.getElementById('sel-debut');
+      const f = document.getElementById('sel-fin');
+      if (!d || !f) return true;
+      const v = dateStr.slice(0, 10);
+      const dv = d.value, fv = f.value;
+      if (dv && v < dv) return false;
+      if (fv && v > fv) return false;
+      return true;
+    }
     return true;
   },
 
@@ -116,9 +126,10 @@ const App = {
     const di = document.getElementById('period-inputs');
     if (!di) return;
     const today = Data.today();
+    const re = () => this.renderAll();
     if (this.period === 'jour') {
       di.innerHTML = `<input type="date" id="sel-jour" value="${today}">`;
-      document.getElementById('sel-jour').addEventListener('change', () => Dashboard.render());
+      document.getElementById('sel-jour').addEventListener('change', re);
     } else if (this.period === 'mois') {
       di.innerHTML = `
         <select id="sel-mois">
@@ -130,33 +141,30 @@ const App = {
         <select id="sel-annee">
           <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
         </select>`;
-      document.getElementById('sel-mois').addEventListener('change', () => Dashboard.render());
-      document.getElementById('sel-annee').addEventListener('change', () => Dashboard.render());
+      document.getElementById('sel-mois').addEventListener('change', re);
+      document.getElementById('sel-annee').addEventListener('change', re);
     } else if (this.period === 'annee') {
       di.innerHTML = `<select id="sel-annee2"><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option></select>`;
-      document.getElementById('sel-annee2').addEventListener('change', () => Dashboard.render());
+      document.getElementById('sel-annee2').addEventListener('change', re);
+    } else if (this.period === 'plage') {
+      const last30 = new Date(); last30.setDate(last30.getDate() - 30);
+      const startDefault = last30.toISOString().split('T')[0];
+      di.innerHTML = `
+        <span style="font-size:11px;color:var(--c-muted);font-weight:600">Du</span>
+        <input type="date" id="sel-debut" value="${this._lastDebut || startDefault}">
+        <span style="font-size:11px;color:var(--c-muted);font-weight:600">au</span>
+        <input type="date" id="sel-fin" value="${this._lastFin || today}">`;
+      const debut = document.getElementById('sel-debut');
+      const fin   = document.getElementById('sel-fin');
+      debut.addEventListener('change', () => { this._lastDebut = debut.value; re(); });
+      fin.addEventListener('change',   () => { this._lastFin   = fin.value;   re(); });
     } else {
       di.innerHTML = '';
     }
   },
 
   filterJournees() {
-    const jj = Data.journees;
-    if (this.period === 'tout') return jj;
-    if (this.period === 'jour') {
-      const s = document.getElementById('sel-jour');
-      return s ? jj.filter(x => x.date === s.value) : jj;
-    }
-    if (this.period === 'mois') {
-      const m = document.getElementById('sel-mois'), y = document.getElementById('sel-annee');
-      if (!m || !y) return jj;
-      return jj.filter(x => x.date.startsWith(y.value + '-' + m.value.padStart(2, '0')));
-    }
-    if (this.period === 'annee') {
-      const y = document.getElementById('sel-annee2');
-      return y ? jj.filter(x => x.date.startsWith(y.value)) : jj;
-    }
-    return jj;
+    return Data.journees.filter(j => this.inPeriod(j.date));
   },
 
   getPeriodLabel() {
@@ -165,6 +173,12 @@ const App = {
     if (this.period === 'jour') { const s = document.getElementById('sel-jour'); return s ? Data.fmtD(s.value) : ''; }
     if (this.period === 'mois') { const m = document.getElementById('sel-mois'), y = document.getElementById('sel-annee'); if (!m || !y) return ''; return mois[parseInt(m.value)] + ' ' + y.value; }
     if (this.period === 'annee') { const y = document.getElementById('sel-annee2'); return y ? 'Année ' + y.value : ''; }
+    if (this.period === 'plage') {
+      const d = document.getElementById('sel-debut');
+      const f = document.getElementById('sel-fin');
+      if (!d || !f) return '';
+      return 'Du ' + (d.value ? Data.fmtD(d.value) : '?') + ' au ' + (f.value ? Data.fmtD(f.value) : '?');
+    }
     return '';
   },
 
@@ -195,6 +209,8 @@ const App = {
 
   // ===================== RENDER ALL =====================
   renderAll() {
+    const pl = document.getElementById('period-label');
+    if (pl) pl.textContent = this.getPeriodLabel();
     Dashboard.render();
     Recettes.render();
     Depenses.renderTable();
