@@ -3,10 +3,32 @@
  */
 
 const Banque = {
+  STORAGE_KEY: 'meiji-banque',
+
+  save() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+        solde: Data.soldes.banque,
+        mvts: Data.mvtsBanque,
+      }));
+    } catch (e) { console.warn('localStorage indisponible', e); }
+  },
+
+  restore() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.solde) Data.soldes.banque = data.solde;
+      if (Array.isArray(data.mvts)) Data.mvtsBanque = data.mvts;
+    } catch (e) { /* noop */ }
+  },
+
   saveSolde() {
     const val = parseFloat(document.getElementById('inp-banque')?.value) || 0;
     Data.soldes.banque = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
     document.getElementById('inp-banque').value = '';
+    this.save();
     this.render();
     Dashboard.render();
     Bilan.render();
@@ -56,6 +78,7 @@ const Banque = {
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
     Data.mvtsBanque.unshift(mvt);
+    this.save();
     App.closeModal();
     this.render();
     Dashboard.render();

@@ -311,6 +311,8 @@ const App = {
     Depenses.restore();
     Recettes.restore();
     Suivi.restore();
+    Banque.restore();
+    Mobile.restore();
     if (typeof Pointage !== 'undefined') Pointage.init();
 
     // Initial render
