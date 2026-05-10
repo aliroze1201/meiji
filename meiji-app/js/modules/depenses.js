@@ -630,33 +630,26 @@ const Depenses = {
   DRAFT_KEY:   'meiji-dep-drafts',
 
   persist() {
-    try {
-      const userDeps = Data.histDep.filter(d => d.userId);
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userDeps));
-    } catch (e) { console.warn('localStorage indisponible', e); }
+    const userDeps = Data.histDep.filter(d => d.userId);
+    AppDB.save(this.STORAGE_KEY, userDeps);
   },
 
   persistDrafts() {
+    // Drafts = saisies en cours, par-navigateur → localStorage uniquement.
     try {
       localStorage.setItem(this.DRAFT_KEY, JSON.stringify({
         seq: this._draftSeq,
         drafts: this.drafts,
       }));
-    } catch (e) { console.warn('localStorage indisponible', e); }
+    } catch (e) {}
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (raw) {
-        const userDeps = JSON.parse(raw);
-        if (Array.isArray(userDeps)) {
-          const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
-          userDeps.forEach(d => { if (!existingIds.has(d.userId)) Data.histDep.push(d); });
-        }
-      }
-    } catch (e) { console.warn('Erreur restauration', e); }
-
+  async restore() {
+    const userDeps = await AppDB.load(this.STORAGE_KEY);
+    if (Array.isArray(userDeps)) {
+      const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
+      userDeps.forEach(d => { if (!existingIds.has(d.userId)) Data.histDep.push(d); });
+    }
     try {
       const rawD = localStorage.getItem(this.DRAFT_KEY);
       if (rawD) {
@@ -666,7 +659,7 @@ const Depenses = {
           this._draftSeq = obj.seq || (this.drafts.reduce((m,d) => Math.max(m, d.id || 0), 0) + 1);
         }
       }
-    } catch (e) { console.warn('Erreur restauration drafts', e); }
+    } catch (e) {}
   },
 
   // ===================== EXPORT / IMPORT EXCEL =====================

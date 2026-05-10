@@ -6,22 +6,17 @@ const Mobile = {
   STORAGE_KEY: 'meiji-mobile',
 
   save() {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
-        solde: Data.soldes.mobile,
-        mvts: Data.mvtsMobile,
-      }));
-    } catch (e) { console.warn('localStorage indisponible', e); }
+    AppDB.save(this.STORAGE_KEY, {
+      solde: Data.soldes.mobile,
+      mvts: Data.mvtsMobile,
+    });
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data.solde) Data.soldes.mobile = data.solde;
-      if (Array.isArray(data.mvts)) Data.mvtsMobile = data.mvts;
-    } catch (e) { /* noop */ }
+  async restore() {
+    const data = await AppDB.load(this.STORAGE_KEY);
+    if (!data) return;
+    if (data.solde) Data.soldes.mobile = data.solde;
+    if (Array.isArray(data.mvts)) Data.mvtsMobile = data.mvts;
   },
 
   saveSolde() {

@@ -310,20 +310,22 @@ const App = {
     // Theme
     this.initTheme();
 
-    // Restaurer les saisies sauvegardées localement
-    Credits.restore();   // doit précéder Recettes.restore (les journées peuvent porter des règlements)
-    Depenses.restore();
-    Suivi.restore();
-    Banque.restore();
-    Mobile.restore();
-    Employes.restore();
     if (typeof Pointage !== 'undefined') Pointage.init();
 
-    // Recettes/journées : asynchrone (Supabase). On rend une 1re fois,
-    // puis on re-rend quand les données serveur arrivent.
+    // Tous les modules sont async (Supabase). Premier rendu immédiat avec
+    // les seeds, puis re-render dès que les données serveur arrivent.
     this.renderAll();
-    Recettes.restore().then(() => this.renderAll())
-      .catch(e => console.error('Restore Recettes:', e));
+    Promise.all([
+      Credits.restore(),   // doit précéder Recettes (journées peuvent porter des règlements)
+      Depenses.restore(),
+      Suivi.restore(),
+      Banque.restore(),
+      Mobile.restore(),
+      Employes.restore(),
+    ])
+    .then(() => Recettes.restore())
+    .then(() => this.renderAll())
+    .catch(e => console.error('Restore modules:', e));
     console.log('🍣 MEIJI App initialisée');
   }
 };
