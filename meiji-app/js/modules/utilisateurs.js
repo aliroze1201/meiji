@@ -22,6 +22,34 @@ const Utilisateurs = {
     await this.load();
     this.draw();
     this.bindCreateForm();
+    this.bindResetButton();
+  },
+
+  bindResetButton() {
+    const btn = document.getElementById('btn-reset-data');
+    if (!btn || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => {
+      const ok = confirm(
+        '⚠️ Cette action va effacer DÉFINITIVEMENT toutes les données saisies (recettes, dépenses, employés, crédits, banque, mobile money, pointage, chèques, catégories).\n\n' +
+        'Les comptes utilisateurs et le thème seront conservés.\n\n' +
+        'Continuer ?'
+      );
+      if (!ok) return;
+      const ok2 = confirm('Dernière confirmation : tape OK sur le clavier après avoir cliqué sur OK ici. Es-tu sûr ?');
+      if (!ok2) return;
+
+      const keep = new Set(['meiji-theme']);
+      const removed = [];
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('meiji-') && !keep.has(k)) {
+          localStorage.removeItem(k);
+          removed.push(k);
+        }
+      });
+      alert(`${removed.length} entrée(s) supprimée(s). La page va se recharger.`);
+      location.reload();
+    });
   },
 
   async load() {
