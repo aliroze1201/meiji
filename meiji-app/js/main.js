@@ -37,6 +37,7 @@ const App = {
       dashboard: 'Tableau de bord',
       recettes: 'Recettes CA',
       depenses: 'Dépenses',
+      pointage: 'Pointage journée',
       analyse: 'Analyse charges',
       banque: 'Compte Bancaire',
       mobile: 'Mobile Money',
@@ -224,6 +225,7 @@ const App = {
     Suivi.render();
     Fournisseurs.render();
     Bilan.render();
+    if (typeof Pointage !== 'undefined') Pointage.render();
   },
 
   // ===================== INIT =====================
@@ -309,6 +311,7 @@ const App = {
     Depenses.restore();
     Recettes.restore();
     Suivi.restore();
+    if (typeof Pointage !== 'undefined') Pointage.init();
 
     // Initial render
     this.renderAll();
