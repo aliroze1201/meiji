@@ -13,6 +13,18 @@ const Auth = {
   user: null,
   profile: null, // { id, email, nom, role }
 
+  USER_DOMAIN: '@meiji.local',
+
+  toEmail(idOrEmail) {
+    const v = (idOrEmail || '').trim().toLowerCase();
+    if (!v) return '';
+    return v.includes('@') ? v : v + this.USER_DOMAIN;
+  },
+  toUsername(email) {
+    if (!email) return '';
+    return email.endsWith(this.USER_DOMAIN) ? email.slice(0, -this.USER_DOMAIN.length) : email;
+  },
+
   ROLE_PERMISSIONS: {
     admin:       ['*'],
     responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
@@ -69,10 +81,10 @@ const Auth = {
         <div class="login-logo"><i class="ti ti-fish"></i> MEIJI</div>
         <div class="login-sub">Connexion à votre espace</div>
         <form id="login-form">
-          <label>Email</label>
-          <input type="email" id="login-email" required autofocus>
+          <label>Identifiant</label>
+          <input type="text" id="login-email" required autofocus autocomplete="username" placeholder="ex: ali">
           <label>Mot de passe</label>
-          <input type="password" id="login-password" required>
+          <input type="password" id="login-password" required autocomplete="current-password">
           <button type="submit" class="btn btn-primary" style="width:100%;margin-top:12px">
             <i class="ti ti-login"></i> Se connecter
           </button>
@@ -82,7 +94,7 @@ const Auth = {
     document.body.appendChild(overlay);
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('login-email').value;
+      const email = this.toEmail(document.getElementById('login-email').value);
       const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
       errEl.textContent = '';
@@ -122,8 +134,9 @@ const Auth = {
   _renderUserBadge() {
     const avatar = document.querySelector('.tb-avatar');
     if (!avatar || !this.profile) return;
-    avatar.textContent = (this.profile.nom || this.profile.email || '?').charAt(0).toUpperCase();
-    avatar.title = `${this.profile.nom || this.profile.email} · ${this.profile.role}`;
+    const display = this.profile.nom || this.toUsername(this.profile.email);
+    avatar.textContent = (display || '?').charAt(0).toUpperCase();
+    avatar.title = `${display} · ${this.profile.role}`;
     avatar.style.cursor = 'pointer';
     avatar.onclick = () => this._showUserMenu();
   },
@@ -135,7 +148,7 @@ const Auth = {
           <div class="modal-title"><i class="ti ti-user"></i> Mon compte</div>
           <div style="text-align:center;padding:8px 0">
             <div style="font-size:18px;font-weight:700">${this.profile.nom || '—'}</div>
-            <div style="color:var(--c-muted);font-size:13px">${this.profile.email}</div>
+            <div style="color:var(--c-muted);font-size:13px">${this.toUsername(this.profile.email)}</div>
             <div style="margin-top:8px"><span class="badge b-blue">${this.profile.role}</span></div>
           </div>
           <div class="modal-actions">
