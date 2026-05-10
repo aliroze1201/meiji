@@ -313,15 +313,17 @@ const App = {
     // Restaurer les saisies sauvegardées localement
     Credits.restore();   // doit précéder Recettes.restore (les journées peuvent porter des règlements)
     Depenses.restore();
-    Recettes.restore();
     Suivi.restore();
     Banque.restore();
     Mobile.restore();
     Employes.restore();
     if (typeof Pointage !== 'undefined') Pointage.init();
 
-    // Initial render
+    // Recettes/journées : asynchrone (Supabase). On rend une 1re fois,
+    // puis on re-rend quand les données serveur arrivent.
     this.renderAll();
+    Recettes.restore().then(() => this.renderAll())
+      .catch(e => console.error('Restore Recettes:', e));
     console.log('🍣 MEIJI App initialisée');
   }
 };

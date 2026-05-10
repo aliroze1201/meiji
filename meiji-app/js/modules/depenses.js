@@ -247,31 +247,34 @@ const Recettes = {
       return;
     }
 
-    let added = 0;
+    const toSave = [];
     this.drafts.forEach(d => {
       if (!d.date || !this._draftTotal(d)) return;
-      const obj = {
+      // Si une journée existe déjà à cette date, on la met à jour (préserve deps/ds/cs).
+      const existing = Data.journees.find(j => j.date === d.date);
+      const obj = existing ? { ...existing } : {
         id: Data.newId(),
-        userRec: true,
         date: d.date,
-        s: { esp:+d.s.esp||0, chq:+d.s.chq||0, mob:+d.s.mob||0, cred:+d.s.cred||0 },
-        b: { esp:+d.b.esp||0, chq:+d.b.chq||0, mob:+d.b.mob||0, cred:+d.b.cred||0 },
-        c: { esp:+d.c.esp||0, chq:+d.c.chq||0, mob:+d.c.mob||0, cred:+d.c.cred||0 },
         ds: 0, db: 0, dc: 0,
         cs: 0, cb: 0, cc: 0,
         deps: { s:[], b:[], c:[] },
       };
-      Data.journees.push(obj);
-      added++;
+      obj.userRec = true;
+      obj.date = d.date;
+      obj.s = { esp:+d.s.esp||0, chq:+d.s.chq||0, mob:+d.s.mob||0, cred:+d.s.cred||0 };
+      obj.b = { esp:+d.b.esp||0, chq:+d.b.chq||0, mob:+d.b.mob||0, cred:+d.b.cred||0 };
+      obj.c = { esp:+d.c.esp||0, chq:+d.c.chq||0, mob:+d.c.mob||0, cred:+d.c.cred||0 };
+      if (!existing) Data.journees.push(obj);
+      toSave.push(obj);
     });
 
     Data.journees.sort((a,b) => a.date.localeCompare(b.date));
 
     this.drafts = [];
     this.persistDrafts();
-    this.persistUser();
+    this.persistUser(toSave);
     App.renderAll();
-    if (added) alert(`✅ ${added} journée(s) validée(s).`);
+    if (toSave.length) alert(`✅ ${toSave.length} journée(s) validée(s).`);
   },
 
   // ===================== PERSISTANCE =====================
@@ -284,28 +287,51 @@ const Recettes = {
     } catch (e) {}
   },
 
-  persistUser() {
+  // Sauvegarde : Supabase si dispo, sinon localStorage (mode public).
+  // Si `targets` est fourni, on n'upsert que ces journées-là (plus rapide).
+  async persistUser(targets) {
+    if (typeof JourneesDB !== 'undefined' && JourneesDB.enabled()) {
+      const list = Array.isArray(targets) ? targets : Data.journees.filter(j => j.userRec);
+      for (const j of list) {
+        const ok = await JourneesDB.upsertOne(j);
+        if (!ok) { alert('⚠️ Sauvegarde Supabase échouée pour ' + j.date + '. Voir console.'); break; }
+      }
+      return;
+    }
     try {
       const userJ = Data.journees.filter(j => j.userRec);
       localStorage.setItem(this.USER_KEY, JSON.stringify(userJ));
     } catch (e) {}
   },
 
-  restore() {
-    try {
-      const rawU = localStorage.getItem(this.USER_KEY);
-      if (rawU) {
-        const arr = JSON.parse(rawU);
-        if (Array.isArray(arr)) {
-          arr.forEach(uj => {
-            const idx = Data.journees.findIndex(j => j.date === uj.date);
-            if (idx >= 0) Data.journees[idx] = uj;  // remplace la journée du seed/existante
-            else Data.journees.push(uj);
-          });
-          Data.journees.sort((a,b) => a.date.localeCompare(b.date));
-        }
+  // Charge depuis Supabase si dispo (et écrase le seed local), sinon localStorage.
+  async restore() {
+    let loaded = false;
+    if (typeof JourneesDB !== 'undefined' && JourneesDB.enabled()) {
+      const rows = await JourneesDB.loadAll();
+      if (Array.isArray(rows)) {
+        // Supabase = source de vérité : remplace toutes les journées existantes.
+        Data.journees = rows;
+        loaded = true;
       }
-    } catch (e) {}
+    }
+    if (!loaded) {
+      // Fallback localStorage (mode public ou offline)
+      try {
+        const rawU = localStorage.getItem(this.USER_KEY);
+        if (rawU) {
+          const arr = JSON.parse(rawU);
+          if (Array.isArray(arr)) {
+            arr.forEach(uj => {
+              const idx = Data.journees.findIndex(j => j.date === uj.date);
+              if (idx >= 0) Data.journees[idx] = uj;
+              else Data.journees.push(uj);
+            });
+            Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+          }
+        }
+      } catch (e) {}
+    }
     try {
       const rawD = localStorage.getItem(this.STORAGE_KEY);
       if (rawD) {
