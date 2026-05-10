@@ -7,9 +7,8 @@
 
 const Config = {
   supabase: {
-    // ▼▼▼ REMPLACE ces 2 valeurs après avoir créé ton projet Supabase ▼▼▼
-    url:     'YOUR_SUPABASE_URL',     // ex: 'https://xxxxx.supabase.co'
-    anonKey: 'YOUR_SUPABASE_ANON_KEY', // clé "anon public" (Settings → API)
+    url:     'https://gtvyfuinbfisblhluxfu.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dnlmdWluYmZpc2JsaGx1eGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNjA1NDYsImV4cCI6MjA5MzkzNjU0Nn0.emWSp6quoCJNuuyo9RavqWYe-AwUur_AbYT-4yfqHPo',
   },
 };
 
