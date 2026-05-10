@@ -294,6 +294,7 @@ const App = {
     });
     document.getElementById('btn-new-cat')?.addEventListener('click', () => Categories.openModal(null));
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
+    document.getElementById('btn-new-emp')?.addEventListener('click', () => Employes.openModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
     document.getElementById('btn-new-chq')?.addEventListener('click', () => Suivi.openModal());
     this.initTabs('suivi-tabs', f => { Suivi.filter = f; Suivi.render(); });
@@ -313,6 +314,7 @@ const App = {
     Suivi.restore();
     Banque.restore();
     Mobile.restore();
+    Employes.restore();
     if (typeof Pointage !== 'undefined') Pointage.init();
 
     // Initial render
