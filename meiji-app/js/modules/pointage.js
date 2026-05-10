@@ -55,11 +55,26 @@ const Pointage = {
     const espB = j ? (j.b.esp || 0) : 0;
     const espC = j ? (j.c.esp || 0) : 0;
     const espTot = espS + espB + espC;
-    // Dépenses du jour = totaux journée + dépenses libres saisies dans Dépenses
-    let dep = j ? Data.depTotal(j) : 0;
-    if (!j && Array.isArray(Data.histDep)) {
-      Data.histDep.forEach(d => { if (d.date === date) dep += (d.montant || 0); });
+
+    // ===== DÉPENSES DU JOUR =====
+    // On rassemble TOUTES les dépenses ayant la date sélectionnée :
+    //  - les dépenses imbriquées dans la journée (j.deps.s/b/c)
+    //  - les dépenses libres (Data.histDep) avec la même date
+    const all = [];
+    if (j && j.deps) {
+      ['s', 'b', 'c'].forEach(k => {
+        const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
+        (j.deps[k] || []).forEach(d => all.push({
+          dept, label: d.label || '—', montant: parseFloat(d.montant) || 0
+        }));
+      });
     }
+    if (Array.isArray(Data.histDep) && date) {
+      Data.histDep.filter(d => d.date === date).forEach(d => all.push({
+        dept: d.dept, label: d.label || d.observation || '—', montant: parseFloat(d.montant) || 0
+      }));
+    }
+    const dep = all.reduce((s, d) => s + d.montant, 0);
     const theorique = fond + espTot - dep;
 
     this._set('pt-esp-s', Data.fmt(espS));
@@ -72,21 +87,11 @@ const Pointage = {
 
     const tbody = document.getElementById('pt-deps');
     if (tbody) {
-      const all = [];
-      if (j && j.deps) {
-        ['s', 'b', 'c'].forEach(k => {
-          const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
-          (j.deps[k] || []).forEach(d => all.push({ dept, label: d.label, montant: d.montant }));
-        });
-      }
-      if (Data.histDep) {
-        Data.histDep.filter(d => d.date === date).forEach(d => all.push(d));
-      }
       if (all.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3" class="text-muted" style="text-align:center;padding:16px">Aucune dépense saisie ce jour</td></tr>';
       } else {
         tbody.innerHTML = all.map(d =>
-          `<tr><td>${d.dept}</td><td>${d.label}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`
+          `<tr><td>${d.dept || '—'}</td><td>${d.label}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`
         ).join('');
       }
     }
