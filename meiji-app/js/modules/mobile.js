@@ -1,34 +1,19 @@
 /**
- * modules/mobile.js — Mobile Money
+ * modules/mobile.js — Mobile Money (cloud Supabase)
  */
 
 const Mobile = {
-  STORAGE_KEY: 'meiji-mobile',
+  STORAGE_KEY: 'meiji-mobile', // legacy
+  restore() { /* géré par Store.bootstrap */ },
 
-  save() {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
-        solde: Data.soldes.mobile,
-        mvts: Data.mvtsMobile,
-      }));
-    } catch (e) { console.warn('localStorage indisponible', e); }
-  },
-
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data.solde) Data.soldes.mobile = data.solde;
-      if (Array.isArray(data.mvts)) Data.mvtsMobile = data.mvts;
-    } catch (e) { /* noop */ }
-  },
-
-  saveSolde() {
+  async saveSolde() {
     const val = parseFloat(document.getElementById('inp-mobile')?.value) || 0;
-    Data.soldes.mobile = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    Data.soldes.mobile = { montant: val, date: dateStr };
     document.getElementById('inp-mobile').value = '';
-    this.save();
+    try {
+      if (Store && Store.ready) await Store.upsertSolde('mobile', val, dateStr);
+    } catch (e) { alert('Erreur enregistrement : ' + e.message); return; }
     this.render();
     Dashboard.render();
     Bilan.render();
@@ -66,9 +51,8 @@ const Mobile = {
     document.getElementById('mmvt-out-btn').className = 'mvt-btn out' + (t === 'out' ? ' active' : '');
   },
 
-  saveMvt() {
+  async saveMvt() {
     const mvt = {
-      id: Data.newId(),
       date: document.getElementById('mmvt-date')?.value,
       lib: document.getElementById('mmvt-lib')?.value,
       op: document.getElementById('mmvt-op')?.value,
@@ -77,8 +61,14 @@ const Mobile = {
       ref: document.getElementById('mmvt-ref')?.value,
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
-    Data.mvtsMobile.unshift(mvt);
-    this.save();
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.insertMvt('mobile', mvt);
+        Data.mvtsMobile.unshift(saved);
+      } else {
+        Data.mvtsMobile.unshift({ id: Data.newId(), ...mvt });
+      }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     App.closeModal();
     this.render();
     Dashboard.render();

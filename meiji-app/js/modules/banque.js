@@ -1,34 +1,21 @@
 /**
- * modules/banque.js — Compte bancaire
+ * modules/banque.js — Compte bancaire (cloud Supabase)
  */
 
 const Banque = {
-  STORAGE_KEY: 'meiji-banque',
+  STORAGE_KEY: 'meiji-banque', // legacy
 
-  save() {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
-        solde: Data.soldes.banque,
-        mvts: Data.mvtsBanque,
-      }));
-    } catch (e) { console.warn('localStorage indisponible', e); }
-  },
+  // Données chargées via Store.bootstrap() — restore() reste en no-op pour compat
+  restore() { /* géré par Store.bootstrap */ },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data.solde) Data.soldes.banque = data.solde;
-      if (Array.isArray(data.mvts)) Data.mvtsBanque = data.mvts;
-    } catch (e) { /* noop */ }
-  },
-
-  saveSolde() {
+  async saveSolde() {
     const val = parseFloat(document.getElementById('inp-banque')?.value) || 0;
-    Data.soldes.banque = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    Data.soldes.banque = { montant: val, date: dateStr };
     document.getElementById('inp-banque').value = '';
-    this.save();
+    try {
+      if (Store && Store.ready) await Store.upsertSolde('banque', val, dateStr);
+    } catch (e) { alert('Erreur enregistrement : ' + e.message); return; }
     this.render();
     Dashboard.render();
     Bilan.render();
@@ -66,9 +53,8 @@ const Banque = {
     document.getElementById('mvt-out-btn').className = 'mvt-btn out' + (t === 'out' ? ' active' : '');
   },
 
-  saveMvt() {
+  async saveMvt() {
     const mvt = {
-      id: Data.newId(),
       date: document.getElementById('mvt-date')?.value,
       lib: document.getElementById('mvt-lib')?.value,
       op: document.getElementById('mvt-op')?.value,
@@ -77,8 +63,14 @@ const Banque = {
       ref: document.getElementById('mvt-ref')?.value,
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
-    Data.mvtsBanque.unshift(mvt);
-    this.save();
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.insertMvt('banque', mvt);
+        Data.mvtsBanque.unshift(saved);
+      } else {
+        Data.mvtsBanque.unshift({ id: Data.newId(), ...mvt });
+      }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     App.closeModal();
     this.render();
     Dashboard.render();

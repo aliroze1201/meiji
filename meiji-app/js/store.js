@@ -189,20 +189,218 @@ const Store = {
   },
 
   // =====================================================================
+  // EMPLOYÉS
+  // =====================================================================
+  async loadEmployes() {
+    const { data, error } = await this.client
+      .from('meiji_employes').select('*').order('id');
+    if (error) throw error;
+    return (data || []).map(this._eFromDb);
+  },
+  async insertEmploye(e) {
+    const { data, error } = await this.client
+      .from('meiji_employes').insert(this._eToDb(e)).select().single();
+    if (error) throw error;
+    return this._eFromDb(data);
+  },
+  async updateEmploye(id, e) {
+    const { data, error } = await this.client
+      .from('meiji_employes').update(this._eToDb(e)).eq('id', id).select().single();
+    if (error) throw error;
+    return this._eFromDb(data);
+  },
+  async deleteEmploye(id) {
+    const { error } = await this.client.from('meiji_employes').delete().eq('id', id);
+    if (error) throw error;
+  },
+  _eToDb(e) { return { nom: e.nom, poste: e.poste||null, dept: e.dept||null, brut: e.brut||0, prime: e.prime||0, avance: e.avance||0, net: e.net||0 }; },
+  _eFromDb(r) { return { id: r.id, nom: r.nom, poste: r.poste, dept: r.dept, brut: r.brut, prime: r.prime, avance: r.avance, net: r.net }; },
+
+  // =====================================================================
+  // CHÈQUES
+  // =====================================================================
+  async loadCheques() {
+    const { data, error } = await this.client
+      .from('meiji_cheques').select('*').order('date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(this._chFromDb);
+  },
+  async insertCheque(c) {
+    const { data, error } = await this.client
+      .from('meiji_cheques').insert(this._chToDb(c)).select().single();
+    if (error) throw error;
+    return this._chFromDb(data);
+  },
+  async updateCheque(id, c) {
+    const { data, error } = await this.client
+      .from('meiji_cheques').update(this._chToDb(c)).eq('id', id).select().single();
+    if (error) throw error;
+    return this._chFromDb(data);
+  },
+  async deleteCheque(id) {
+    const { error } = await this.client.from('meiji_cheques').delete().eq('id', id);
+    if (error) throw error;
+  },
+  _chToDb(c) {
+    return {
+      date: c.date || null, dept: c.dept || null,
+      numero: c.numero || null, banque: c.banque || null,
+      tireur: c.tireur || null, montant: c.montant || 0,
+      notes: c.notes || null,
+      statut: c.statut || 'attente',
+      date_depot: c.dateDepot || null,
+      date_encaissement: c.dateEncaissement || null,
+    };
+  },
+  _chFromDb(r) {
+    return {
+      id: r.id, date: r.date, dept: r.dept,
+      numero: r.numero, banque: r.banque, tireur: r.tireur,
+      montant: r.montant, notes: r.notes,
+      statut: r.statut, dateDepot: r.date_depot, dateEncaissement: r.date_encaissement,
+    };
+  },
+
+  // =====================================================================
+  // SOLDES (banque / mobile) + MOUVEMENTS
+  // =====================================================================
+  async loadSoldes() {
+    const { data, error } = await this.client.from('meiji_solde').select('*');
+    if (error) throw error;
+    const out = { banque: { montant: 0, date: null }, mobile: { montant: 0, date: null } };
+    (data || []).forEach(r => { out[r.type] = { montant: r.montant, date: r.date_str }; });
+    return out;
+  },
+  async upsertSolde(type, montant, dateStr) {
+    const { error } = await this.client.from('meiji_solde')
+      .upsert({ type, montant, date_str: dateStr, updated_at: new Date().toISOString() }, { onConflict: 'type' });
+    if (error) throw error;
+  },
+  async loadMvts(type) {
+    const { data, error } = await this.client.from('meiji_mvts')
+      .select('*').eq('type', type).order('date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(this._mvFromDb);
+  },
+  async insertMvt(type, m) {
+    const row = this._mvToDb(type, m);
+    const { data, error } = await this.client.from('meiji_mvts')
+      .insert(row).select().single();
+    if (error) throw error;
+    return this._mvFromDb(data);
+  },
+  async deleteMvt(id) {
+    const { error } = await this.client.from('meiji_mvts').delete().eq('id', id);
+    if (error) throw error;
+  },
+  _mvToDb(type, m) {
+    return {
+      type, date: m.date || null, lib: m.lib || null, op: m.op || null,
+      mnt: m.mnt || 0, mvt_type: m.type, ref: m.ref || null,
+    };
+  },
+  _mvFromDb(r) {
+    return { id: r.id, date: r.date, lib: r.lib, op: r.op, mnt: r.mnt, type: r.mvt_type, ref: r.ref };
+  },
+
+  // =====================================================================
+  // FOURNISSEURS
+  // =====================================================================
+  async loadFournisseurs() {
+    const { data, error } = await this.client
+      .from('meiji_fournisseurs').select('*').order('date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(this._fFromDb);
+  },
+  async insertFournisseur(f) {
+    const { data, error } = await this.client
+      .from('meiji_fournisseurs').insert(this._fToDb(f)).select().single();
+    if (error) throw error;
+    return this._fFromDb(data);
+  },
+  async deleteFournisseur(id) {
+    const { error } = await this.client.from('meiji_fournisseurs').delete().eq('id', id);
+    if (error) throw error;
+  },
+  _fToDb(f) {
+    return {
+      date: f.date || null, four: f.four || null, num: f.num || null,
+      ech: f.ech || null, lib: f.lib || null,
+      deb: f.deb || 0, cred: f.cred || 0, solde: f.solde || 0,
+      obs: f.obs || null,
+    };
+  },
+  _fFromDb(r) {
+    return {
+      id: r.id, date: r.date, four: r.four, num: r.num, ech: r.ech, lib: r.lib,
+      deb: r.deb, cred: r.cred, solde: r.solde, obs: r.obs,
+    };
+  },
+
+  // =====================================================================
+  // CATÉGORIES
+  // =====================================================================
+  async loadCategories() {
+    const { data, error } = await this.client.from('meiji_categories').select('*').order('id');
+    if (error) throw error;
+    return (data || []).map(this._catFromDb);
+  },
+  async insertCategorie(c) {
+    const { data, error } = await this.client.from('meiji_categories')
+      .insert(this._catToDb(c)).select().single();
+    if (error) throw error;
+    return this._catFromDb(data);
+  },
+  async updateCategorie(id, c) {
+    const { data, error } = await this.client.from('meiji_categories')
+      .update(this._catToDb(c)).eq('id', id).select().single();
+    if (error) throw error;
+    return this._catFromDb(data);
+  },
+  async deleteCategorie(id) {
+    const { error } = await this.client.from('meiji_categories').delete().eq('id', id);
+    if (error) throw error;
+  },
+  _catToDb(c) { return { nom: c.nom, type: c.type, color: c.color || null, dept: c.dept || null, desc_text: c.desc || null }; },
+  _catFromDb(r) { return { id: r.id, nom: r.nom, type: r.type, color: r.color, dept: r.dept, desc: r.desc_text }; },
+
+  // =====================================================================
+  // POINTAGE
+  // =====================================================================
+  async upsertPointage(date, compte, ecart) {
+    const { error } = await this.client.from('meiji_pointage')
+      .upsert({ date, compte, ecart, updated_at: new Date().toISOString() }, { onConflict: 'date' });
+    if (error) throw error;
+  },
+  async loadPointage(date) {
+    const { data, error } = await this.client.from('meiji_pointage')
+      .select('*').eq('date', date).maybeSingle();
+    if (error) throw error;
+    return data || null;
+  },
+
+  // =====================================================================
   // BOOTSTRAP : charge tout depuis Supabase, et seed la base si vide
   // =====================================================================
   async bootstrap() {
     if (!this.ready) return false;
 
-    const [jj, dd, cc] = await Promise.all([
+    const [jj, dd, cc, ee, ch, soldes, mvB, mvM, fo, cats] = await Promise.all([
       this.loadJournees(),
       this.loadDepenses(),
       this.loadCredits(),
+      this.loadEmployes(),
+      this.loadCheques(),
+      this.loadSoldes(),
+      this.loadMvts('banque'),
+      this.loadMvts('mobile'),
+      this.loadFournisseurs(),
+      this.loadCategories(),
     ]);
 
-    // Seed automatique si la base est vide ET data.js contient des journées seed
+    // === SEED journées si DB vide ===
     if (jj.length === 0 && Array.isArray(Data.journees) && Data.journees.length > 0) {
-      console.log(`Store: seed initial → import de ${Data.journees.length} journées vers Supabase`);
+      console.log(`Store: seed → ${Data.journees.length} journées`);
       for (const j of Data.journees) {
         try { await this.upsertJournee(j); } catch (e) { console.warn('seed journée:', e); }
       }
@@ -212,7 +410,7 @@ const Store = {
     }
 
     if (dd.length === 0 && Array.isArray(Data.histDep) && Data.histDep.length > 0) {
-      console.log(`Store: seed → import de ${Data.histDep.length} dépenses`);
+      console.log(`Store: seed → ${Data.histDep.length} dépenses`);
       for (const d of Data.histDep) {
         try { await this.insertDepense(d); } catch (e) { console.warn('seed dep:', e); }
       }
@@ -222,7 +420,7 @@ const Store = {
     }
 
     if (cc.length === 0 && Array.isArray(Data.credits) && Data.credits.length > 0) {
-      console.log(`Store: seed → import de ${Data.credits.length} crédits`);
+      console.log(`Store: seed → ${Data.credits.length} crédits`);
       for (const c of Data.credits) {
         try { await this.insertCredit(c); } catch (e) { console.warn('seed credit:', e); }
       }
@@ -230,6 +428,32 @@ const Store = {
     } else {
       Data.credits = cc;
     }
+
+    if (ee.length === 0 && Array.isArray(Data.employes) && Data.employes.length > 0) {
+      console.log(`Store: seed → ${Data.employes.length} employés`);
+      for (const e of Data.employes) {
+        try { await this.insertEmploye(e); } catch (err) { console.warn('seed emp:', err); }
+      }
+      Data.employes = await this.loadEmployes();
+    } else {
+      Data.employes = ee;
+    }
+
+    if (cats.length === 0 && Array.isArray(Data.categories) && Data.categories.length > 0) {
+      console.log(`Store: seed → ${Data.categories.length} catégories`);
+      for (const c of Data.categories) {
+        try { await this.insertCategorie(c); } catch (err) { console.warn('seed cat:', err); }
+      }
+      Data.categories = await this.loadCategories();
+    } else if (cats.length > 0) {
+      Data.categories = cats;
+    }
+
+    Data.cheques = ch;
+    Data.soldes = soldes;
+    Data.mvtsBanque = mvB;
+    Data.mvtsMobile = mvM;
+    Data.fournisseurs = fo;
 
     return true;
   },

@@ -23,18 +23,14 @@ const Pointage = {
     this.restore();
   },
 
-  restore() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '{}');
-      const dateEl = document.getElementById('pt-date');
-      if (saved.date && dateEl) dateEl.value = saved.date;
-    } catch (e) { /* noop */ }
-    this.render();
-  },
+  restore() { this.render(); },
 
-  save(extra = {}) {
+  async save(extra = {}) {
     const date = document.getElementById('pt-date')?.value || '';
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ date, ...extra }));
+    if (!date) return;
+    if (extra.compte != null && Store && Store.ready) {
+      try { await Store.upsertPointage(date, extra.compte, extra.ecart); } catch (e) { console.warn(e); }
+    }
   },
 
   _set(id, val) {

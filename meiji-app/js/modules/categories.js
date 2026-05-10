@@ -52,30 +52,45 @@ const Categories = {
       </div>`);
   },
 
-  save() {
+  async save() {
     const nom = document.getElementById('cat-nom')?.value.trim();
     if (!nom) { alert('Nom requis'); return; }
     const cat = {
-      id: this.editId || Data.newId(),
       nom,
       type: document.getElementById('cat-type')?.value,
       color: document.getElementById('cat-color')?.value,
       dept: document.getElementById('cat-dept')?.value,
       desc: document.getElementById('cat-desc')?.value,
     };
-    if (this.editId) {
-      const idx = Data.categories.findIndex(c => c.id === this.editId);
-      if (idx >= 0) Data.categories[idx] = cat;
-    } else {
-      Data.categories.push(cat);
-    }
+    try {
+      if (this.editId) {
+        if (Store && Store.ready) {
+          const saved = await Store.updateCategorie(this.editId, cat);
+          const idx = Data.categories.findIndex(c => c.id === this.editId);
+          if (idx >= 0) Data.categories[idx] = saved;
+        } else {
+          const idx = Data.categories.findIndex(c => c.id === this.editId);
+          if (idx >= 0) Data.categories[idx] = { id: this.editId, ...cat };
+        }
+      } else {
+        if (Store && Store.ready) {
+          const saved = await Store.insertCategorie(cat);
+          Data.categories.push(saved);
+        } else {
+          Data.categories.push({ id: Data.newId(), ...cat });
+        }
+      }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     this.editId = null;
     App.closeModal();
     this.render();
   },
 
-  delete(id) {
+  async delete(id) {
     if (!confirm('Supprimer cette catégorie ?')) return;
+    try {
+      if (Store && Store.ready) await Store.deleteCategorie(id);
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     Data.categories = Data.categories.filter(c => c.id !== id);
     this.render();
   },
@@ -119,17 +134,8 @@ const Categories = {
 // ===================== EMPLOYÉS =====================
 const Employes = {
   STORAGE_KEY: 'meiji-employes',
-
-  save() {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(Data.employes)); } catch (e) {}
-  },
-
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (raw) Data.employes = JSON.parse(raw);
-    } catch (e) {}
-  },
+  save() { /* données en cloud désormais */ },
+  restore() { /* géré par Store.bootstrap */ },
 
   openModal(idx) {
     const editing = idx != null && idx >= 0;
@@ -177,7 +183,7 @@ const Employes = {
     if (el) el.textContent = Data.fmt(net);
   },
 
-  save_(idx) {
+  async save_(idx) {
     const nom = document.getElementById('emp-nom')?.value.trim();
     if (!nom) { alert('Le nom est requis'); return; }
     const brut = parseFloat(document.getElementById('emp-brut')?.value) || 0;
@@ -190,17 +196,32 @@ const Employes = {
       brut, prime, avance,
       net: brut + prime - avance,
     };
-    if (idx >= 0) Data.employes[idx] = entry;
-    else Data.employes.push(entry);
-    this.save();
+    try {
+      if (Store && Store.ready) {
+        if (idx >= 0) {
+          const existing = Data.employes[idx];
+          const saved = await Store.updateEmploye(existing.id, entry);
+          Data.employes[idx] = saved;
+        } else {
+          const saved = await Store.insertEmploye(entry);
+          Data.employes.push(saved);
+        }
+      } else {
+        if (idx >= 0) Data.employes[idx] = entry;
+        else Data.employes.push(entry);
+      }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     App.closeModal();
     this.render();
   },
 
-  delete(idx) {
+  async delete(idx) {
     if (!confirm('Supprimer cet employé ?')) return;
+    const e = Data.employes[idx];
+    try {
+      if (Store && Store.ready && e?.id) await Store.deleteEmploye(e.id);
+    } catch (err) { alert('Erreur : ' + err.message); return; }
     Data.employes.splice(idx, 1);
-    this.save();
     this.render();
   },
 
@@ -550,7 +571,7 @@ const Fournisseurs = {
       </div>`);
   },
 
-  save() {
+  async save() {
     const f = {
       date: document.getElementById('fo-date')?.value,
       four: document.getElementById('fo-four')?.value,
@@ -562,7 +583,14 @@ const Fournisseurs = {
       obs: document.getElementById('fo-obs')?.value,
     };
     f.solde = f.deb - f.cred;
-    Data.fournisseurs.unshift(f);
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.insertFournisseur(f);
+        Data.fournisseurs.unshift(saved);
+      } else {
+        Data.fournisseurs.unshift({ id: Data.newId(), ...f });
+      }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     App.closeModal();
     this.render();
   },

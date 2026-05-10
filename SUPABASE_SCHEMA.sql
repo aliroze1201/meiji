@@ -69,3 +69,113 @@ drop policy if exists "auth_full_credits"  on meiji_credits;
 create policy "auth_full_journees" on meiji_journees for all to authenticated using (true) with check (true);
 create policy "auth_full_depenses" on meiji_depenses for all to authenticated using (true) with check (true);
 create policy "auth_full_credits"  on meiji_credits  for all to authenticated using (true) with check (true);
+
+-- =====================================================================
+-- ÉTAPE 2 : reste des modules (employés, chèques, banque, mobile,
+-- fournisseurs, catégories, pointage)
+-- =====================================================================
+
+create table if not exists meiji_employes (
+  id        bigserial primary key,
+  nom       text not null,
+  poste     text,
+  dept      text,
+  brut      bigint not null default 0,
+  prime     bigint not null default 0,
+  avance    bigint not null default 0,
+  net       bigint not null default 0,
+  created_at timestamptz default now()
+);
+
+create table if not exists meiji_cheques (
+  id                 bigserial primary key,
+  date               date,
+  dept               text check (dept in ('SUSHI','BAR','CHICHA')),
+  numero             text,
+  banque             text,
+  tireur             text,
+  montant            bigint not null default 0,
+  notes              text,
+  statut             text not null default 'attente'
+                     check (statut in ('attente','depose','encaisse','rejete')),
+  date_depot         date,
+  date_encaissement  date,
+  created_at         timestamptz default now()
+);
+
+-- Solde courant pour Banque & Mobile (1 ligne par type)
+create table if not exists meiji_solde (
+  type      text primary key check (type in ('banque','mobile')),
+  montant   bigint not null default 0,
+  date_str  text,
+  updated_at timestamptz default now()
+);
+
+-- Mouvements Banque & Mobile
+create table if not exists meiji_mvts (
+  id        bigserial primary key,
+  type      text not null check (type in ('banque','mobile')),
+  date      date,
+  lib       text,
+  op        text,
+  mnt       bigint not null default 0,
+  mvt_type  text not null check (mvt_type in ('in','out')),
+  ref       text,
+  created_at timestamptz default now()
+);
+
+create table if not exists meiji_fournisseurs (
+  id        bigserial primary key,
+  date      date,
+  four      text,
+  num       text,
+  ech       date,
+  lib       text,
+  deb       bigint not null default 0,
+  cred      bigint not null default 0,
+  solde     bigint not null default 0,
+  obs       text,
+  created_at timestamptz default now()
+);
+
+create table if not exists meiji_categories (
+  id        bigserial primary key,
+  nom       text not null,
+  type      text not null,
+  color     text,
+  dept      text,
+  desc_text text,
+  created_at timestamptz default now()
+);
+
+-- Pointage (1 ligne par date)
+create table if not exists meiji_pointage (
+  date       date primary key,
+  compte     bigint,
+  ecart      bigint,
+  updated_at timestamptz default now()
+);
+
+alter table meiji_employes      enable row level security;
+alter table meiji_cheques       enable row level security;
+alter table meiji_solde         enable row level security;
+alter table meiji_mvts          enable row level security;
+alter table meiji_fournisseurs  enable row level security;
+alter table meiji_categories    enable row level security;
+alter table meiji_pointage      enable row level security;
+
+drop policy if exists "auth_full_employes"     on meiji_employes;
+drop policy if exists "auth_full_cheques"      on meiji_cheques;
+drop policy if exists "auth_full_solde"        on meiji_solde;
+drop policy if exists "auth_full_mvts"         on meiji_mvts;
+drop policy if exists "auth_full_fournisseurs" on meiji_fournisseurs;
+drop policy if exists "auth_full_categories"   on meiji_categories;
+drop policy if exists "auth_full_pointage"     on meiji_pointage;
+
+create policy "auth_full_employes"     on meiji_employes     for all to authenticated using (true) with check (true);
+create policy "auth_full_cheques"      on meiji_cheques      for all to authenticated using (true) with check (true);
+create policy "auth_full_solde"        on meiji_solde        for all to authenticated using (true) with check (true);
+create policy "auth_full_mvts"         on meiji_mvts         for all to authenticated using (true) with check (true);
+create policy "auth_full_fournisseurs" on meiji_fournisseurs for all to authenticated using (true) with check (true);
+create policy "auth_full_categories"   on meiji_categories   for all to authenticated using (true) with check (true);
+create policy "auth_full_pointage"     on meiji_pointage     for all to authenticated using (true) with check (true);

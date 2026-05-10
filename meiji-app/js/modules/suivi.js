@@ -47,7 +47,7 @@ const Suivi = {
       </div>`);
   },
 
-  save(id) {
+  async save(id) {
     const date    = document.getElementById('chq-f-date')?.value;
     const dept    = document.getElementById('chq-f-dept')?.value;
     const numero  = document.getElementById('chq-f-num')?.value.trim();
@@ -59,76 +59,73 @@ const Suivi = {
     if (!date) return alert('Date requise');
     if (!montant) return alert('Montant requis');
 
-    if (id) {
-      const c = Data.cheques.find(x => x.id === id);
-      if (!c) return;
-      Object.assign(c, { date, dept, numero, banque, tireur, montant, notes });
-    } else {
-      Data.cheques.push({
-        id: Data.newId(),
-        date, dept, numero, banque, tireur, montant, notes,
-        statut: 'attente',
-        dateDepot: null,
-        dateEncaissement: null,
-      });
-    }
-    this.persist();
+    try {
+      if (id) {
+        const c = Data.cheques.find(x => x.id === id);
+        if (!c) return;
+        const updated = { ...c, date, dept, numero, banque, tireur, montant, notes };
+        if (Store && Store.ready) {
+          const saved = await Store.updateCheque(id, updated);
+          const i = Data.cheques.findIndex(x => x.id === id);
+          if (i >= 0) Data.cheques[i] = saved;
+        } else { Object.assign(c, updated); }
+      } else {
+        const obj = { date, dept, numero, banque, tireur, montant, notes,
+          statut: 'attente', dateDepot: null, dateEncaissement: null };
+        if (Store && Store.ready) {
+          const saved = await Store.insertCheque(obj);
+          Data.cheques.unshift(saved);
+        } else {
+          Data.cheques.push({ id: Data.newId(), ...obj });
+        }
+      }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     App.closeModal();
     App.renderAll();
   },
 
-  // ===================== TRANSITIONS DE STATUT =====================
-  deposer(id) {
+  async _updateStatut(id, patch) {
     const c = Data.cheques.find(x => x.id === id);
     if (!c) return;
+    const updated = { ...c, ...patch };
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.updateCheque(id, updated);
+        const i = Data.cheques.findIndex(x => x.id === id);
+        if (i >= 0) Data.cheques[i] = saved;
+      } else { Object.assign(c, patch); }
+    } catch (e) { alert('Erreur : ' + e.message); return; }
+    App.renderAll();
+  },
+
+  deposer(id) {
     const date = prompt('Date du dépôt en banque (AAAA-MM-JJ) :', Data.today());
     if (!date) return;
-    c.statut = 'depose';
-    c.dateDepot = date;
-    this.persist();
-    App.renderAll();
+    this._updateStatut(id, { statut: 'depose', dateDepot: date });
   },
 
   encaisser(id) {
-    const c = Data.cheques.find(x => x.id === id);
-    if (!c) return;
     const date = prompt('Date d\'encaissement (AAAA-MM-JJ) :', Data.today());
     if (!date) return;
-    c.statut = 'encaisse';
-    c.dateEncaissement = date;
-    this.persist();
-    App.renderAll();
+    this._updateStatut(id, { statut: 'encaisse', dateEncaissement: date });
   },
 
   rejeter(id) {
-    const c = Data.cheques.find(x => x.id === id);
-    if (!c) return;
     if (!confirm('Marquer ce chèque comme rejeté ?')) return;
-    c.statut = 'rejete';
-    this.persist();
-    App.renderAll();
+    this._updateStatut(id, { statut: 'rejete' });
   },
 
-  remove(id) {
+  async remove(id) {
     if (!confirm('Supprimer ce chèque ?')) return;
+    try {
+      if (Store && Store.ready) await Store.deleteCheque(id);
+    } catch (e) { alert('Erreur : ' + e.message); return; }
     Data.cheques = Data.cheques.filter(x => x.id !== id);
-    this.persist();
     App.renderAll();
   },
 
-  // ===================== PERSISTANCE =====================
-  persist() {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(Data.cheques)); } catch (e) {}
-  },
-
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) Data.cheques = arr;
-    } catch (e) {}
-  },
+  persist() { /* données en cloud désormais */ },
+  restore() { /* géré par Store.bootstrap */ },
 
   // ===================== RENDER =====================
   render() {
