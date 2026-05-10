@@ -107,13 +107,15 @@ const Data = {
   },
 
   getAllDeps() {
-    const all = this.histDep.map(d => ({ ...d }));
+    const all = this.histDep.map((d, i) => ({ ...d, _src: 'hist', _idx: i }));
     this.journees.forEach(j => {
       if (!j.deps) return;
       ['s', 'b', 'c'].forEach(dk => {
         const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk];
-        (j.deps[dk] || []).forEach(d => all.push({
-          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant
+        (j.deps[dk] || []).forEach((d, di) => all.push({
+          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant,
+          observation: d.observation || null,
+          _src: 'jour', _jid: j.id, _dk: dk, _di: di
         }));
       });
     });

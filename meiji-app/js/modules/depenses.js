@@ -36,7 +36,7 @@ const Recettes = {
 
     const tb = document.getElementById('rec-table');
     if (!tb) return;
-    if (!jj.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Aucune recette</td></tr>'; return; }
+    if (!jj.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">Aucune recette</td></tr>'; return; }
 
     tb.innerHTML = jj.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => {
       const total = Data.caTotal(j);
@@ -53,8 +53,85 @@ const Recettes = {
         <td class="text-right" style="color:var(--c-chicha)">${Data.fmts(Data.caisse(j,'c'))}</td>
         <td class="text-right fw-bold">${Data.fmts(total)}</td>
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">${pays.join('')}</div></td>
+        <td class="nowrap" style="white-space:nowrap">
+          <button class="btn-ghost" title="Modifier" onclick="Recettes.editJournee(${j.id})"><i class="ti ti-edit"></i></button>
+          <button class="btn-ghost" title="Supprimer" onclick="Recettes.deleteJournee(${j.id})"><i class="ti ti-trash"></i></button>
+        </td>
       </tr>`;
     }).join('');
+  },
+
+  // ===================== EDITION JOURNÉE =====================
+  editJournee(jid) {
+    const j = Data.journees.find(x => x.id === jid);
+    if (!j) return;
+    const modes = [['esp','Espèces'],['chq','Chèque'],['mob','Mobile'],['cred','Crédit']];
+    const caisses = [['s','SUSHI','b-blue'],['b','BAR','b-green'],['c','CHICHA','b-amber']];
+    const inputs = caisses.map(([k, label, badge]) => `
+      <div style="margin-bottom:12px">
+        <div style="font-weight:700;margin-bottom:6px"><span class="badge ${badge}">${label}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          ${modes.map(([m, lbl]) => `
+            <label style="display:flex;flex-direction:column;font-size:11px;color:var(--c-muted)">
+              ${lbl}
+              <input type="number" min="0" step="100" id="ej-${k}-${m}" value="${j[k][m] || 0}" style="margin-top:3px">
+            </label>`).join('')}
+        </div>
+      </div>`).join('');
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:560px">
+          <div class="modal-title"><i class="ti ti-edit"></i> Modifier la journée</div>
+          <label style="font-size:11px;color:var(--c-muted)">Date</label>
+          <input type="date" id="ej-date" value="${j.date}" style="margin-bottom:14px;width:100%">
+          ${inputs}
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Recettes.saveEditJournee(${j.id})">
+              <i class="ti ti-check"></i> Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  saveEditJournee(jid) {
+    const j = Data.journees.find(x => x.id === jid);
+    if (!j) return;
+    const v = (id) => parseFloat(document.getElementById(id).value) || 0;
+    const date = document.getElementById('ej-date').value;
+    if (!date) return alert('Date requise.');
+    j.date = date;
+    ['s','b','c'].forEach(k => {
+      ['esp','chq','mob','cred'].forEach(m => {
+        j[k][m] = v(`ej-${k}-${m}`);
+      });
+    });
+    j.userRec = true;
+    Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+    this.persistUser();
+    App.closeModal();
+    App.renderAll();
+  },
+
+  deleteJournee(jid) {
+    const j = Data.journees.find(x => x.id === jid);
+    if (!j) return;
+    if (!confirm(`Supprimer la journée du ${Data.fmtD(j.date)} ? Cette action est irréversible.`)) return;
+    Data.journees = Data.journees.filter(x => x.id !== jid);
+    this._persistDeleted(jid, j.date);
+    this.persistUser();
+    App.renderAll();
+  },
+
+  _persistDeleted(jid, date) {
+    try {
+      const k = 'meiji-deleted-journees';
+      const arr = JSON.parse(localStorage.getItem(k) || '[]');
+      arr.push({ id: jid, date });
+      localStorage.setItem(k, JSON.stringify(arr));
+    } catch (e) {}
   },
 
   // ===================== BROUILLONS =====================
@@ -293,6 +370,17 @@ const Recettes = {
 
   restore() {
     try {
+      const delRaw = localStorage.getItem('meiji-deleted-journees');
+      if (delRaw) {
+        const del = JSON.parse(delRaw);
+        if (Array.isArray(del) && del.length) {
+          const ids = new Set(del.map(d => d.id));
+          const dates = new Set(del.map(d => d.date));
+          Data.journees = Data.journees.filter(j => !ids.has(j.id) && !dates.has(j.date));
+        }
+      }
+    } catch (e) {}
+    try {
       const rawU = localStorage.getItem(this.USER_KEY);
       if (rawU) {
         const arr = JSON.parse(rawU);
@@ -422,14 +510,20 @@ const Depenses = {
     if (!list.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Aucune dépense</td></tr>'; return; }
 
     const dash = '<span style="color:var(--c-muted)">—</span>';
-    tb.innerHTML = list.map(d => {
+    tb.innerHTML = list.map((d, idx) => {
       const col = catColors[d.groupe || 'Autres'] || '#94A3B8';
       const obsRaw = d.observation || d.label || '';
       const obs = obsRaw ? this._escape(obsRaw) : '';
       const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
+      // Stocker la dépense pour récupération par index lors de l'édition
+      this._rowCache = this._rowCache || {};
+      this._rowCache[idx] = d;
       const deleteBtn = d.userId
         ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
-        : '';
+        : (d._src === 'jour'
+            ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.removeJourDep(${d._jid},'${d._dk}',${d._di})"><i class="ti ti-trash"></i></button>`
+            : '');
+      const editBtn = `<button class="btn-ghost" title="Modifier" onclick="Depenses.editFromRow(${idx})"><i class="ti ti-edit"></i></button>`;
       return `
       <tr>
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
@@ -439,9 +533,134 @@ const Depenses = {
         <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
         <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
         <td>${obsCell}</td>
-        <td>${deleteBtn}</td>
+        <td class="nowrap" style="white-space:nowrap">${editBtn}${deleteBtn}</td>
       </tr>`;
     }).join('');
+  },
+
+  // ===================== EDITION DEPENSE =====================
+  editFromRow(idx) {
+    const d = this._rowCache && this._rowCache[idx];
+    if (!d) return;
+    const cats = Data.categories.filter(c => c.type === 'dep').map(c => c.nom);
+    const obs = d.observation || (d.label && d.label !== d.groupe ? d.label : '');
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:480px">
+          <div class="modal-title"><i class="ti ti-edit"></i> Modifier la dépense</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label style="font-size:11px;color:var(--c-muted)">Date
+              <input type="date" id="ed-date" value="${d.date}" style="width:100%">
+            </label>
+            <label style="font-size:11px;color:var(--c-muted)">Département
+              <select id="ed-dept" style="width:100%">
+                <option value="SUSHI"${d.dept==='SUSHI'?' selected':''}>SUSHI</option>
+                <option value="BAR"${d.dept==='BAR'?' selected':''}>BAR</option>
+                <option value="CHICHA"${d.dept==='CHICHA'?' selected':''}>CHICHA</option>
+              </select>
+            </label>
+          </div>
+          <label style="font-size:11px;color:var(--c-muted);display:block;margin-top:10px">Catégorie / libellé
+            <input type="text" id="ed-cat" list="ed-cat-list" value="${this._escape(d.groupe || d.label || '')}" style="width:100%">
+            <datalist id="ed-cat-list">${cats.map(c => `<option value="${this._escape(c)}">`).join('')}</datalist>
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+            <label style="font-size:11px;color:var(--c-muted)">Quantité
+              <input type="number" id="ed-qte" min="0" value="${d.qte != null ? d.qte : ''}" style="width:100%">
+            </label>
+            <label style="font-size:11px;color:var(--c-muted)">Prix unitaire
+              <input type="number" id="ed-prix" min="0" value="${d.prix != null ? d.prix : ''}" style="width:100%">
+            </label>
+            <label style="font-size:11px;color:var(--c-muted)">Montant
+              <input type="number" id="ed-montant" min="0" value="${d.montant || 0}" style="width:100%">
+            </label>
+          </div>
+          <label style="font-size:11px;color:var(--c-muted);display:block;margin-top:10px">Observation
+            <input type="text" id="ed-obs" value="${this._escape(obs)}" style="width:100%">
+          </label>
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Depenses.saveEditFromRow(${idx})">
+              <i class="ti ti-check"></i> Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  saveEditFromRow(idx) {
+    const d = this._rowCache && this._rowCache[idx];
+    if (!d) return;
+    const v = (id) => document.getElementById(id).value;
+    const date = v('ed-date');
+    const dept = v('ed-dept');
+    const cat = v('ed-cat').trim();
+    const qte = parseFloat(v('ed-qte'));
+    const prix = parseFloat(v('ed-prix'));
+    const montant = parseFloat(v('ed-montant')) || 0;
+    const obs = v('ed-obs').trim();
+    if (!date) return alert('Date requise.');
+    if (!cat) return alert('Catégorie requise.');
+    if (!montant) return alert('Montant requis.');
+
+    if (d._src === 'jour') {
+      const j = Data.journees.find(x => x.id === d._jid);
+      if (!j) return alert('Journée introuvable.');
+      const arr = j.deps[d._dk];
+      const target = arr[d._di];
+      if (!target) return;
+      target.label = cat;
+      target.groupe = Data.getGroupe(cat);
+      target.montant = montant;
+      target.observation = obs || null;
+      // Si dept changé : déplacer dans le bon tableau de la même journée
+      const newDk = { SUSHI:'s', BAR:'b', CHICHA:'c' }[dept];
+      if (newDk !== d._dk) {
+        arr.splice(d._di, 1);
+        j.deps[newDk] = j.deps[newDk] || [];
+        j.deps[newDk].push(target);
+      }
+      // Si la date change : on ne déplace pas vers une autre journée — on prévient.
+      if (date !== j.date) {
+        alert('Note : la date ne peut pas être modifiée ici (la dépense est rattachée à la journée du ' + Data.fmtD(j.date) + '). Supprimez et recréez-la pour la déplacer.');
+      }
+      this._recalcJourneeTotals(j);
+      j.userRec = true;
+      Recettes.persistUser();
+    } else if (d._src === 'hist') {
+      const h = Data.histDep[d._idx];
+      if (!h) return;
+      h.date = date;
+      h.dept = dept;
+      h.label = cat;
+      h.groupe = Data.getGroupe(cat);
+      h.qte = isNaN(qte) ? null : qte;
+      h.prix = isNaN(prix) ? null : prix;
+      h.montant = montant;
+      h.observation = obs || null;
+      if (!h.userId) h.userId = Data.newId();
+      this.persist();
+    }
+    App.closeModal();
+    App.renderAll();
+  },
+
+  removeJourDep(jid, dk, di) {
+    if (!confirm('Supprimer cette dépense ?')) return;
+    const j = Data.journees.find(x => x.id === jid);
+    if (!j || !j.deps || !j.deps[dk]) return;
+    j.deps[dk].splice(di, 1);
+    this._recalcJourneeTotals(j);
+    j.userRec = true;
+    Recettes.persistUser();
+    App.renderAll();
+  },
+
+  _recalcJourneeTotals(j) {
+    const sum = arr => (arr || []).reduce((s, x) => s + (parseFloat(x.montant) || 0), 0);
+    j.ds = sum(j.deps && j.deps.s);
+    j.db = sum(j.deps && j.deps.b);
+    j.dc = sum(j.deps && j.deps.c);
   },
 
   _escape(str) {
