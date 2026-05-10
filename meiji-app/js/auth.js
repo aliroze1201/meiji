@@ -17,6 +17,7 @@ const Auth = {
     admin:       ['*'],
     responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
     gerant:      ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
+    // 'utilisateurs' réservé à admin (couvert par '*')
     caissier:    ['dashboard','pointage','recettes','depenses'],
     serveur:     ['dashboard','recettes'],
   },

@@ -30,6 +30,7 @@ const App = {
     this.currentPage = pageId;
     this.updateTopbarTitle(pageId);
     this.renderAll();
+    if (pageId === 'utilisateurs' && typeof Utilisateurs !== 'undefined') Utilisateurs.render();
   },
 
   updateTopbarTitle(pageId) {
@@ -48,6 +49,7 @@ const App = {
       suivi: 'Suivi des chèques',
       fournisseurs: 'Fournisseurs',
       bilan: 'Bilan',
+      utilisateurs: 'Utilisateurs',
     };
     const tb = document.getElementById('tb-title');
     if (tb) tb.textContent = titles[pageId] || 'MEIJI';
