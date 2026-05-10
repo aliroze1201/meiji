@@ -194,6 +194,29 @@
           <div class="card-header"><span class="card-title"><i class="ti ti-chart-bar-popular"></i> Top catégories de charges</span></div>
           <div id="charges-bars"></div>
         </div>
+
+        <!-- RÉCAP JOURNÉE -->
+        <div class="card" id="recap-journee">
+          <div class="card-header">
+            <span class="card-title"><i class="ti ti-calendar-event"></i> Récap de la dernière journée</span>
+            <span class="text-muted" id="rj-date"></span>
+          </div>
+          <div class="g3">
+            <div class="mc blue"><div class="mc-label blue">🍱 CA SUSHI</div><div class="mc-val blue" id="rj-s">0 FCFA</div></div>
+            <div class="mc green"><div class="mc-label green">🍸 CA BAR</div><div class="mc-val green" id="rj-b">0 FCFA</div></div>
+            <div class="mc amber"><div class="mc-label amber">💨 CA CHICHA</div><div class="mc-val amber" id="rj-c">0 FCFA</div></div>
+          </div>
+          <div class="g3" style="margin-top:12px">
+            <div class="mc"><div class="mc-label">💵 Espèces reçues</div><div class="mc-val" id="rj-esp">0 FCFA</div></div>
+            <div class="mc red"><div class="mc-label red">📤 Dépenses du jour</div><div class="mc-val red" id="rj-dep">0 FCFA</div></div>
+            <div class="mc green"><div class="mc-label green">✅ Solde espèces restant</div><div class="mc-val" id="rj-solde">0 FCFA</div></div>
+          </div>
+          <div class="card-header" style="margin-top:20px"><span class="card-title">Détail des dépenses du jour</span></div>
+          <table>
+            <thead><tr><th>Département</th><th>Libellé</th><th style="text-align:right">Montant</th></tr></thead>
+            <tbody id="rj-deps"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
