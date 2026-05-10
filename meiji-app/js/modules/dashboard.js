@@ -45,6 +45,55 @@ const Dashboard = {
     Charts.renderCompareChart('compare-chart', jj);
     Charts.renderDonutPay('donut-pay', 'donut-pay-legend', jj);
     Charts.renderProgressBars('charges-bars', allDeps);
+
+    // Récap journée
+    this._renderRecap(jj);
+  },
+
+  _renderRecap(jj) {
+    const ids = ['rj-s','rj-b','rj-c','rj-esp','rj-dep','rj-solde'];
+    if (!jj || jj.length === 0) {
+      this._set('rj-date', '— aucune journée —');
+      ids.forEach(id => this._set(id, '0 FCFA'));
+      const tbody = document.getElementById('rj-deps');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="text-muted" style="text-align:center;padding:16px">Aucune donnée</td></tr>';
+      return;
+    }
+    const last = [...jj].sort((a,b) => b.date.localeCompare(a.date))[0];
+    this._set('rj-date', Data.fmtD(last.date));
+    this._set('rj-s', Data.fmt(Data.caisse(last, 's')));
+    this._set('rj-b', Data.fmt(Data.caisse(last, 'b')));
+    this._set('rj-c', Data.fmt(Data.caisse(last, 'c')));
+
+    const totEsp = (last.s.esp || 0) + (last.b.esp || 0) + (last.c.esp || 0);
+    const totDep = (last.ds || 0) + (last.db || 0) + (last.dc || 0);
+    const solde = totEsp - totDep;
+    this._set('rj-esp', Data.fmt(totEsp));
+    this._set('rj-dep', Data.fmt(totDep));
+    const sel = document.getElementById('rj-solde');
+    if (sel) {
+      sel.textContent = Data.fmt(solde);
+      sel.style.color = solde >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
+    }
+
+    const tbody = document.getElementById('rj-deps');
+    if (tbody) {
+      const all = [];
+      ['s','b','c'].forEach(k => {
+        const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
+        ((last.deps && last.deps[k]) || []).forEach(d => all.push({ dept, label: d.label, montant: d.montant }));
+      });
+      if (Data.histDep) {
+        Data.histDep.filter(d => d.date === last.date).forEach(d => all.push(d));
+      }
+      if (all.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-muted" style="text-align:center;padding:16px">Aucune dépense saisie ce jour</td></tr>';
+      } else {
+        tbody.innerHTML = all.map(d =>
+          `<tr><td>${d.dept}</td><td>${d.label}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`
+        ).join('');
+      }
+    }
   },
 
   _set(id, val) {
