@@ -1,9 +1,10 @@
 # 🔐 Configuration de l'authentification Supabase
 
-L'application MEIJI supporte une authentification multi-utilisateur avec 3 rôles :
+L'application MEIJI supporte une authentification multi-utilisateur avec 4 rôles :
 - **admin** : accès complet, peut gérer les utilisateurs
-- **gerant** : accès complet sauf gestion des utilisateurs
-- **caissier** : uniquement Tableau de bord, Pointage, Recettes, Dépenses
+- **responsable** : accès complet sauf gestion des utilisateurs
+- **caissier** : Tableau de bord, Pointage, Recettes, Dépenses
+- **serveur** : Tableau de bord et Recettes uniquement (saisie des ventes)
 
 Tant que Supabase n'est pas configuré, l'app reste accessible **sans login** (mode public).
 
@@ -23,7 +24,8 @@ CREATE TABLE profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   nom TEXT,
-  role TEXT NOT NULL DEFAULT 'caissier' CHECK (role IN ('admin','gerant','caissier')),
+  role TEXT NOT NULL DEFAULT 'serveur'
+       CHECK (role IN ('admin','responsable','caissier','serveur')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -51,7 +53,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, role)
-  VALUES (NEW.id, NEW.email, 'caissier');
+  VALUES (NEW.id, NEW.email, 'serveur');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -59,6 +61,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+### Migration depuis l'ancienne version (3 rôles)
+
+Si la table `profiles` existe déjà avec l'ancien CHECK (`admin`/`gerant`/`caissier`),
+exécute ceci pour ajouter `responsable` et `serveur` :
+
+```sql
+ALTER TABLE profiles DROP CONSTRAINT profiles_role_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('admin','responsable','caissier','serveur'));
+
+-- Optionnel : renommer les anciens "gerant" en "responsable"
+UPDATE profiles SET role = 'responsable' WHERE role = 'gerant';
 ```
 
 ## 3. Créer le premier compte admin
@@ -100,14 +116,30 @@ Dans Supabase → **Authentication** → **Providers** → **Email** : décoche 
 
 ## 7. Ajouter des utilisateurs
 
-Pour l'instant, crée chaque utilisateur via :
-1. **Authentication** → **Users** → "Add user"
+Pour chaque membre de l'équipe :
+1. **Authentication** → **Users** → "Add user" (avec "Auto Confirm User")
 2. Puis dans **SQL Editor** :
 ```sql
-UPDATE profiles SET role = 'caissier', nom = 'Prénom Nom' WHERE email = 'user@exemple.com';
+UPDATE profiles
+   SET role = 'caissier',           -- ou 'admin' / 'responsable' / 'serveur'
+       nom  = 'Prénom Nom'
+ WHERE email = 'user@exemple.com';
 ```
 
-Les rôles possibles : `admin`, `gerant`, `caissier`.
+### Récap des accès par rôle
+
+| Module              | admin | responsable | caissier | serveur |
+|---------------------|:-----:|:-----------:|:--------:|:-------:|
+| Tableau de bord     |  ✅   |     ✅      |    ✅    |   ✅    |
+| Pointage            |  ✅   |     ✅      |    ✅    |   —     |
+| Recettes            |  ✅   |     ✅      |    ✅    |   ✅    |
+| Dépenses            |  ✅   |     ✅      |    ✅    |   —     |
+| Analyse / Bilan     |  ✅   |     ✅      |    —     |   —     |
+| Banque / Mobile $   |  ✅   |     ✅      |    —     |   —     |
+| Catégories          |  ✅   |     ✅      |    —     |   —     |
+| Employés / Crédits  |  ✅   |     ✅      |    —     |   —     |
+| Fournisseurs        |  ✅   |     ✅      |    —     |   —     |
+| Gestion utilisateurs|  ✅   |     —       |    —     |   —     |
 
 ## Sécurité
 
@@ -115,4 +147,4 @@ Les rôles possibles : `admin`, `gerant`, `caissier`.
 - Tenter de lire/modifier la table `profiles` (bloqué par RLS)
 - Utiliser les identifiants Auth de quelqu'un (même protection que tout site web)
 
-Pour un vrai contrôle des données métier, il faudrait stocker les recettes/dépenses dans Supabase aussi — ce n'est pas l'objet de cette PR.
+Pour un vrai contrôle des données métier, il faudrait stocker les recettes/dépenses dans Supabase aussi.

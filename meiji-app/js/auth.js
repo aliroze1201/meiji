@@ -2,9 +2,10 @@
  * auth.js — Authentification Supabase + rôles
  *
  * Rôles:
- *  - admin    : accès complet, peut gérer les utilisateurs
- *  - gerant   : accès complet sauf gestion utilisateurs
- *  - caissier : uniquement Tableau de bord, Pointage, Recettes, Dépenses
+ *  - admin       : accès complet, peut gérer les utilisateurs
+ *  - responsable : accès complet sauf gestion utilisateurs
+ *  - caissier    : Tableau de bord, Pointage, Recettes, Dépenses
+ *  - serveur     : Tableau de bord, Recettes uniquement
  */
 
 const Auth = {
@@ -13,9 +14,11 @@ const Auth = {
   profile: null, // { id, email, nom, role }
 
   ROLE_PERMISSIONS: {
-    admin:    ['*'],
-    gerant:   ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
-    caissier: ['dashboard','pointage','recettes','depenses'],
+    admin:       ['*'],
+    responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
+    gerant:      ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
+    caissier:    ['dashboard','pointage','recettes','depenses'],
+    serveur:     ['dashboard','recettes'],
   },
 
   async init() {
