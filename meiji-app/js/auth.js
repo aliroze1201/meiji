@@ -70,6 +70,8 @@ const Auth = {
     this._unlockUI();
     this._applyRolePermissions();
     this._renderUserBadge();
+    // Charger les données métier depuis Supabase (RLS exige authentification)
+    if (typeof App !== 'undefined' && App.bootstrapCloud) App.bootstrapCloud();
   },
 
   _showLogin() {

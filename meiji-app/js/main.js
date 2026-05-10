@@ -343,5 +343,9 @@ const App = {
 document.addEventListener('DOMContentLoaded', async () => {
   if (typeof Auth !== 'undefined') await Auth.init();
   App.init();
-  await App.bootstrapCloud();
+  // Si pas d'auth (Config.isAuthEnabled === false), on charge quand même
+  // (Auth._onLogin appelle bootstrapCloud après login si auth activée)
+  if (typeof Config !== 'undefined' && !Config.isAuthEnabled()) {
+    await App.bootstrapCloud();
+  }
 });

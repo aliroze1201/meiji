@@ -385,75 +385,86 @@ const Store = {
   async bootstrap() {
     if (!this.ready) return false;
 
+    // Charge chaque entité indépendamment : si une table manque ou échoue,
+    // les autres restent disponibles.
+    const safeLoad = async (name, fn, fallback) => {
+      try { return await fn(); }
+      catch (e) { console.warn(`Store.${name} échoué :`, e.message || e); return fallback; }
+    };
     const [jj, dd, cc, ee, ch, soldes, mvB, mvM, fo, cats] = await Promise.all([
-      this.loadJournees(),
-      this.loadDepenses(),
-      this.loadCredits(),
-      this.loadEmployes(),
-      this.loadCheques(),
-      this.loadSoldes(),
-      this.loadMvts('banque'),
-      this.loadMvts('mobile'),
-      this.loadFournisseurs(),
-      this.loadCategories(),
+      safeLoad('loadJournees',     () => this.loadJournees(),       null),
+      safeLoad('loadDepenses',     () => this.loadDepenses(),       null),
+      safeLoad('loadCredits',      () => this.loadCredits(),        null),
+      safeLoad('loadEmployes',     () => this.loadEmployes(),       null),
+      safeLoad('loadCheques',      () => this.loadCheques(),        null),
+      safeLoad('loadSoldes',       () => this.loadSoldes(),         null),
+      safeLoad('loadMvts(banque)', () => this.loadMvts('banque'),   null),
+      safeLoad('loadMvts(mobile)', () => this.loadMvts('mobile'),   null),
+      safeLoad('loadFournisseurs', () => this.loadFournisseurs(),   null),
+      safeLoad('loadCategories',   () => this.loadCategories(),     null),
     ]);
 
     // === SEED journées si DB vide ===
-    if (jj.length === 0 && Array.isArray(Data.journees) && Data.journees.length > 0) {
+    if (jj && jj.length === 0 && Array.isArray(Data.journees) && Data.journees.length > 0) {
       console.log(`Store: seed → ${Data.journees.length} journées`);
       for (const j of Data.journees) {
         try { await this.upsertJournee(j); } catch (e) { console.warn('seed journée:', e); }
       }
-      Data.journees = await this.loadJournees();
-    } else {
+      const reloaded = await safeLoad('reload journees', () => this.loadJournees(), null);
+      if (reloaded) Data.journees = reloaded;
+    } else if (jj) {
       Data.journees = jj;
     }
 
-    if (dd.length === 0 && Array.isArray(Data.histDep) && Data.histDep.length > 0) {
+    if (dd && dd.length === 0 && Array.isArray(Data.histDep) && Data.histDep.length > 0) {
       console.log(`Store: seed → ${Data.histDep.length} dépenses`);
       for (const d of Data.histDep) {
         try { await this.insertDepense(d); } catch (e) { console.warn('seed dep:', e); }
       }
-      Data.histDep = await this.loadDepenses();
-    } else {
+      const reloaded = await safeLoad('reload deps', () => this.loadDepenses(), null);
+      if (reloaded) Data.histDep = reloaded;
+    } else if (dd) {
       Data.histDep = dd;
     }
 
-    if (cc.length === 0 && Array.isArray(Data.credits) && Data.credits.length > 0) {
+    if (cc && cc.length === 0 && Array.isArray(Data.credits) && Data.credits.length > 0) {
       console.log(`Store: seed → ${Data.credits.length} crédits`);
       for (const c of Data.credits) {
         try { await this.insertCredit(c); } catch (e) { console.warn('seed credit:', e); }
       }
-      Data.credits = await this.loadCredits();
-    } else {
+      const reloaded = await safeLoad('reload credits', () => this.loadCredits(), null);
+      if (reloaded) Data.credits = reloaded;
+    } else if (cc) {
       Data.credits = cc;
     }
 
-    if (ee.length === 0 && Array.isArray(Data.employes) && Data.employes.length > 0) {
+    if (ee && ee.length === 0 && Array.isArray(Data.employes) && Data.employes.length > 0) {
       console.log(`Store: seed → ${Data.employes.length} employés`);
       for (const e of Data.employes) {
         try { await this.insertEmploye(e); } catch (err) { console.warn('seed emp:', err); }
       }
-      Data.employes = await this.loadEmployes();
-    } else {
+      const reloaded = await safeLoad('reload emp', () => this.loadEmployes(), null);
+      if (reloaded) Data.employes = reloaded;
+    } else if (ee) {
       Data.employes = ee;
     }
 
-    if (cats.length === 0 && Array.isArray(Data.categories) && Data.categories.length > 0) {
+    if (cats && cats.length === 0 && Array.isArray(Data.categories) && Data.categories.length > 0) {
       console.log(`Store: seed → ${Data.categories.length} catégories`);
       for (const c of Data.categories) {
         try { await this.insertCategorie(c); } catch (err) { console.warn('seed cat:', err); }
       }
-      Data.categories = await this.loadCategories();
-    } else if (cats.length > 0) {
+      const reloaded = await safeLoad('reload cats', () => this.loadCategories(), null);
+      if (reloaded) Data.categories = reloaded;
+    } else if (cats) {
       Data.categories = cats;
     }
 
-    Data.cheques = ch;
-    Data.soldes = soldes;
-    Data.mvtsBanque = mvB;
-    Data.mvtsMobile = mvM;
-    Data.fournisseurs = fo;
+    if (ch)     Data.cheques      = ch;
+    if (soldes) Data.soldes       = soldes;
+    if (mvB)    Data.mvtsBanque   = mvB;
+    if (mvM)    Data.mvtsMobile   = mvM;
+    if (fo)     Data.fournisseurs = fo;
 
     return true;
   },
