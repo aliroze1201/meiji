@@ -1,128 +1,182 @@
 /**
- * charts.js — Graphiques Canvas modernisés pour MEIJI
- * Gradients, retina, anneau épais, animation, hover.
+ * charts.js — Graphiques avec Chart.js
+ * Garde la même API que l'ancienne implémentation Canvas.
  */
 
 const Charts = {
+  _instances: {},
+
+  _getCtx(containerId, isCanvas) {
+    const el = document.getElementById(containerId);
+    if (!el) return null;
+    let canvas;
+    if (isCanvas) {
+      canvas = el;
+    } else {
+      canvas = el.querySelector('canvas');
+      if (!canvas) {
+        el.innerHTML = '<canvas></canvas>';
+        canvas = el.querySelector('canvas');
+      }
+    }
+    return canvas;
+  },
+
+  _destroy(id) {
+    if (this._instances[id]) {
+      this._instances[id].destroy();
+      delete this._instances[id];
+    }
+  },
 
   _alpha(hex, a) {
     const h = hex.replace('#','');
     const v = h.length === 3 ? h.split('').map(c => c+c).join('') : h;
-    const n = parseInt(v, 16);
-    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
-  },
-
-  _setup(canvas) {
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.clientWidth || 140;
-    const h = canvas.clientHeight || 140;
-    canvas.width  = w * dpr;
-    canvas.height = h * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { ctx, w, h };
-  },
-
-  drawDonut(canvasId, data) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const { ctx, w, h } = this._setup(canvas);
-    const cx = w / 2, cy = h / 2;
-    const r = Math.min(cx, cy) - 6;
-    const ri = r - 18;
-
-    ctx.clearRect(0, 0, w, h);
-
-    // Track de fond
-    ctx.beginPath();
-    ctx.arc(cx, cy, (r + ri) / 2, 0, Math.PI * 2);
-    ctx.lineWidth = r - ri;
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--c-line').trim() || '#F1F4F9';
-    ctx.stroke();
-
-    const total = data.reduce((s, d) => s + d.val, 0);
-    if (!total) return;
-
-    const gap = 0.018;
-    let start = -Math.PI / 2;
-
-    data.forEach(d => {
-      const angle = (d.val / total) * Math.PI * 2;
-      if (angle <= 0) return;
-      const a0 = start + gap / 2;
-      const a1 = start + angle - gap / 2;
-
-      const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-      grad.addColorStop(0, this._alpha(d.color, 0.92));
-      grad.addColorStop(1, d.color);
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, (r + ri) / 2, a0, Math.max(a0, a1));
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = r - ri;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      start += angle;
-    });
-  },
-
-  renderBarChart(containerId, journees) {
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    if (!journees.length) {
-      el.innerHTML = '<div class="empty" style="width:100%">Aucune donnée pour cette période</div>';
-      return;
-    }
-    const slice = journees.slice(-12);
-    const mx = Math.max(...slice.map(j => Data.caTotal(j))) || 1;
-    el.innerHTML = slice.map(j => {
-      const tot  = Data.caTotal(j);
-      const hs   = Math.max(2, Math.round((Data.caisse(j,'s') / mx) * 150));
-      const hb   = Math.max(2, Math.round((Data.caisse(j,'b') / mx) * 150));
-      const hc   = Math.max(2, Math.round((Data.caisse(j,'c') / mx) * 150));
-      return `
-      <div class="bar-col" title="${Data.fmtD(j.date)} — ${Data.fmt(tot)}">
-        <div class="bar-val">${Data.fmts(tot / 1000)}k</div>
-        <div class="bar-col-spacer">
-          <div class="bar-seg" style="background:linear-gradient(180deg,#FBBF24,#D97706);border-radius:3px 3px 0 0;height:${hc}px"></div>
-          <div class="bar-seg" style="background:linear-gradient(180deg,#34D399,#047857);height:${hb}px"></div>
-          <div class="bar-seg" style="background:linear-gradient(180deg,#60A5FA,#1D4ED8);border-radius:${hs<=2?'3px 3px 0 0':'0'};height:${hs}px"></div>
-        </div>
-        <div class="bar-label">${Data.fmtDs(j.date)}</div>
-      </div>`;
-    }).join('');
-  },
-
-  renderCompareChart(containerId, journees) {
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    if (!journees.length) {
-      el.innerHTML = '<div class="empty" style="width:100%">Aucune donnée</div>';
-      return;
-    }
-    const slice = journees.slice(-12);
-    const mx = Math.max(...slice.map(j => Math.max(Data.caTotal(j), Data.depTotal(j)))) || 1;
-    el.innerHTML = slice.map(j => {
-      const hca  = Math.max(2, Math.round((Data.caTotal(j)  / mx) * 140));
-      const hdep = Math.max(2, Math.round((Data.depTotal(j) / mx) * 140));
-      return `
-      <div class="bar-col" title="${Data.fmtD(j.date)} — CA ${Data.fmt(Data.caTotal(j))} · Charges ${Data.fmt(Data.depTotal(j))}">
-        <div class="bar-col-spacer">
-          <div style="display:flex;align-items:flex-end;gap:3px;justify-content:center;height:100%">
-            <div style="width:42%;height:${hca}px;background:linear-gradient(180deg,#60A5FA,#1D4ED8);border-radius:4px 4px 0 0"></div>
-            <div style="width:42%;height:${hdep}px;background:linear-gradient(180deg,#F87171,#B91C1C);border-radius:4px 4px 0 0"></div>
-          </div>
-        </div>
-        <div class="bar-label">${Data.fmtDs(j.date)}</div>
-      </div>`;
-    }).join('');
+    const r = parseInt(v.substr(0,2), 16);
+    const g = parseInt(v.substr(2,2), 16);
+    const b = parseInt(v.substr(4,2), 16);
+    return `rgba(${r},${g},${b},${a})`;
   },
 
   _formatBig(n) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1) + 'M';
     if (n >= 1000) return Math.round(n / 1000) + 'k';
     return Data.fmts(n);
+  },
+
+  _commonOpts() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const grid = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const text = dark ? '#cbd5e1' : '#475569';
+    return { grid, text };
+  },
+
+  renderBarChart(containerId, journees) {
+    const canvas = this._getCtx(containerId, false);
+    if (!canvas) return;
+    this._destroy(containerId);
+
+    if (!journees.length) {
+      canvas.parentElement.innerHTML = '<div class="empty" style="width:100%">Aucune donnée pour cette période</div>';
+      return;
+    }
+    const slice = journees.slice(-12);
+    const labels = slice.map(j => Data.fmtDs(j.date));
+    const { grid, text } = this._commonOpts();
+
+    this._instances[containerId] = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'SUSHI',  data: slice.map(j => Data.caisse(j,'s')), backgroundColor: '#2563EB', borderRadius: 4 },
+          { label: 'BAR',    data: slice.map(j => Data.caisse(j,'b')), backgroundColor: '#10B981', borderRadius: 4 },
+          { label: 'CHICHA', data: slice.map(j => Data.caisse(j,'c')), backgroundColor: '#F59E0B', borderRadius: 4 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: text, font: { weight: 600 } } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Data.fmt(c.raw)}` } },
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { color: text } },
+          y: { stacked: true, grid: { color: grid }, ticks: { color: text, callback: v => Charts._formatBig(v) } },
+        },
+      },
+    });
+  },
+
+  renderCompareChart(containerId, journees) {
+    const canvas = this._getCtx(containerId, false);
+    if (!canvas) return;
+    this._destroy(containerId);
+
+    if (!journees.length) {
+      canvas.parentElement.innerHTML = '<div class="empty" style="width:100%">Aucune donnée</div>';
+      return;
+    }
+    const slice = journees.slice(-12);
+    const labels = slice.map(j => Data.fmtDs(j.date));
+    const { grid, text } = this._commonOpts();
+
+    this._instances[containerId] = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'CA',      data: slice.map(j => Data.caTotal(j)),   backgroundColor: '#2563EB', borderRadius: 4 },
+          { label: 'Charges', data: slice.map(j => Data.depTotal(j)),  backgroundColor: '#EF4444', borderRadius: 4 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: text, font: { weight: 600 } } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Data.fmt(c.raw)}` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: text } },
+          y: { grid: { color: grid }, ticks: { color: text, callback: v => Charts._formatBig(v) } },
+        },
+      },
+    });
+  },
+
+  _renderDonut(canvasId, dataItems, totalLabelId) {
+    const canvas = this._getCtx(canvasId, true);
+    if (!canvas) return;
+    this._destroy(canvasId);
+
+    const total = dataItems.reduce((s, d) => s + d.val, 0);
+    const center = document.getElementById(totalLabelId);
+    if (center) center.textContent = this._formatBig(total);
+
+    if (total === 0) {
+      // Render empty placeholder ring
+      this._instances[canvasId] = new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels: ['—'], datasets: [{ data: [1], backgroundColor: ['#e2e8f0'], borderWidth: 0 }] },
+        options: { cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+      });
+      return;
+    }
+
+    const { text } = this._commonOpts();
+    this._instances[canvasId] = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: dataItems.map(d => d.label),
+        datasets: [{
+          data: dataItems.map(d => d.val),
+          backgroundColor: dataItems.map(d => d.color),
+          borderColor: 'transparent',
+          borderWidth: 2,
+          hoverOffset: 8,
+        }],
+      },
+      options: {
+        cutout: '70%',
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: c => {
+                const pct = total ? Math.round((c.raw / total) * 100) : 0;
+                return `${c.label}: ${Data.fmt(c.raw)} (${pct}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
   },
 
   renderDonutCA(canvasId, legendId, journees) {
@@ -135,10 +189,7 @@ const Charts = {
       { label: 'BAR',    val: tb, color: '#10B981' },
       { label: 'CHICHA', val: tc, color: '#F59E0B' },
     ];
-    this.drawDonut(canvasId, data);
-
-    const center = document.getElementById('donut-ca-v');
-    if (center) center.textContent = this._formatBig(total);
+    this._renderDonut(canvasId, data, 'donut-ca-v');
 
     const legend = document.getElementById(legendId);
     if (legend) legend.innerHTML = data.map(d => `
@@ -167,10 +218,7 @@ const Charts = {
       { label: 'Crédit',  val: cred, color: '#F59E0B' },
     ].filter(d => d.val > 0);
 
-    this.drawDonut(canvasId, data);
-
-    const center = document.getElementById('donut-pay-v');
-    if (center) center.textContent = this._formatBig(total);
+    this._renderDonut(canvasId, data, 'donut-pay-v');
 
     const legend = document.getElementById(legendId);
     if (legend) legend.innerHTML = data.map(d => `

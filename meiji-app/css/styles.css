@@ -871,13 +871,11 @@ input::placeholder { color: var(--c-muted); }
 
 /* =====================  CHARTS  ===================== */
 .chart-container {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 4px;
-  height: 180px;
+  position: relative;
+  height: 220px;
+  padding: 4px;
 }
+.chart-container canvas { max-height: 100%; }
 .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 4px; }
 .bar-col-spacer {
   flex: 1;
