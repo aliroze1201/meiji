@@ -3,10 +3,32 @@
  */
 
 const Mobile = {
+  STORAGE_KEY: 'meiji-mobile',
+
+  save() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+        solde: Data.soldes.mobile,
+        mvts: Data.mvtsMobile,
+      }));
+    } catch (e) { console.warn('localStorage indisponible', e); }
+  },
+
+  restore() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.solde) Data.soldes.mobile = data.solde;
+      if (Array.isArray(data.mvts)) Data.mvtsMobile = data.mvts;
+    } catch (e) { /* noop */ }
+  },
+
   saveSolde() {
     const val = parseFloat(document.getElementById('inp-mobile')?.value) || 0;
     Data.soldes.mobile = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
     document.getElementById('inp-mobile').value = '';
+    this.save();
     this.render();
     Dashboard.render();
     Bilan.render();
@@ -56,6 +78,7 @@ const Mobile = {
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
     Data.mvtsMobile.unshift(mvt);
+    this.save();
     App.closeModal();
     this.render();
     Dashboard.render();
