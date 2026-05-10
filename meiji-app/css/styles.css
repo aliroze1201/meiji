@@ -1312,3 +1312,31 @@ input::placeholder { color: var(--c-muted); }
   .content { padding: var(--s-4); }
   .period-bar { padding: var(--s-4); }
 }
+
+/* ================== AUTH ================== */
+body.auth-locked .app { filter: blur(4px); pointer-events: none; user-select: none; }
+#login-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #0f1729 0%, #1a2744 60%, #1e3a5f 100%);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+#login-overlay .login-card {
+  background: white; padding: 36px 32px; border-radius: 18px; max-width: 380px; width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+}
+#login-overlay .login-logo {
+  font-family: var(--font-display); font-size: 28px; font-weight: 900; text-align: center;
+  letter-spacing: 4px; color: #0f1729;
+}
+#login-overlay .login-logo i { color: #2563EB; margin-right: 6px; }
+#login-overlay .login-sub { text-align: center; color: #64748b; font-size: 13px; margin: 6px 0 24px; }
+#login-overlay form label {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  font-weight: 600; color: #64748b; margin: 12px 0 4px;
+}
+#login-overlay form input {
+  width: 100%; padding: 11px 14px; border: 1px solid #e2e8f0;
+  border-radius: 10px; font-size: 14px; box-sizing: border-box;
+}
+#login-overlay form input:focus { outline: 2px solid #2563EB; border-color: transparent; }
+#login-overlay .login-error { color: #ef4444; font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }

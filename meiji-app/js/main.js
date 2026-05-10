@@ -323,4 +323,7 @@ const App = {
   }
 };
 
-document.addEventListener('DOMContentLoaded', () => App.init());
+document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof Auth !== 'undefined') await Auth.init();
+  App.init();
+});
