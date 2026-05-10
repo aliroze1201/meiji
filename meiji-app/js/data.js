@@ -103,7 +103,20 @@ const Data = {
   },
 
   depTotal(j) {
-    return (j.ds || 0) + (j.db || 0) + (j.dc || 0);
+    let t = (j.ds || 0) + (j.db || 0) + (j.dc || 0);
+    if (Array.isArray(this.histDep)) {
+      this.histDep.forEach(d => { if (d.date === j.date) t += (d.montant || 0); });
+    }
+    return t;
+  },
+
+  depByDept(j, dept) {
+    const key = { SUSHI: 'ds', BAR: 'db', CHICHA: 'dc' }[dept];
+    let t = j[key] || 0;
+    if (Array.isArray(this.histDep)) {
+      this.histDep.forEach(d => { if (d.date === j.date && d.dept === dept) t += (d.montant || 0); });
+    }
+    return t;
   },
 
   getAllDeps() {

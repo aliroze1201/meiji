@@ -55,7 +55,11 @@ const Pointage = {
     const espB = j ? (j.b.esp || 0) : 0;
     const espC = j ? (j.c.esp || 0) : 0;
     const espTot = espS + espB + espC;
-    const dep = j ? ((j.ds || 0) + (j.db || 0) + (j.dc || 0)) : 0;
+    // Dépenses du jour = totaux journée + dépenses libres saisies dans Dépenses
+    let dep = j ? Data.depTotal(j) : 0;
+    if (!j && Array.isArray(Data.histDep)) {
+      Data.histDep.forEach(d => { if (d.date === date) dep += (d.montant || 0); });
+    }
     const theorique = fond + espTot - dep;
 
     this._set('pt-esp-s', Data.fmt(espS));
