@@ -6,55 +6,10 @@
 const Data = {
 
   // ===================== JOURNÉES =====================
-  journees: [
-    {id:1,date:'2026-04-19',s:{esp:5646000,chq:0,mob:93500,cred:0},b:{esp:1692000,chq:0,mob:0,cred:0},c:{esp:1090000,chq:0,mob:0,cred:0},ds:5235574,db:490100,dc:0,cs:410426,cb:1201900,cc:1090000,deps:{s:[],b:[],c:[]}},
-    {id:2,date:'2026-04-21',s:{esp:822500,chq:0,mob:0,cred:0},b:{esp:181000,chq:0,mob:0,cred:0},c:{esp:60000,chq:0,mob:0,cred:0},ds:407998,db:334436,dc:0,cs:824928,cb:1048464,cc:1150000,deps:{s:[],b:[],c:[]}},
-    {id:3,date:'2026-04-22',s:{esp:1133500,chq:0,mob:0,cred:0},b:{esp:536000,chq:0,mob:0,cred:0},c:{esp:187500,chq:0,mob:0,cred:0},ds:1215543,db:141306,dc:0,cs:1133500,cb:536000,cc:187500,deps:{s:[],b:[],c:[]}},
-    {id:4,date:'2026-04-23',s:{esp:1005500,chq:0,mob:90000,cred:0},b:{esp:284000,chq:0,mob:0,cred:0},c:{esp:75000,chq:0,mob:0,cred:0},ds:359233,db:717380,dc:0,cs:1095500,cb:284000,cc:75000,deps:{s:[],b:[],c:[]}},
-    {id:5,date:'2026-04-24',s:{esp:2089950,chq:0,mob:0,cred:0},b:{esp:523400,chq:0,mob:0,cred:0},c:{esp:67500,chq:0,mob:0,cred:0},ds:1167922,db:178950,dc:0,cs:2089950,cb:523400,cc:67500,deps:{s:[],b:[],c:[]}},
-    {id:6,date:'2026-04-25',s:{esp:1669000,chq:0,mob:0,cred:0},b:{esp:888400,chq:0,mob:0,cred:0},c:{esp:225000,chq:0,mob:0,cred:0},ds:420777,db:370803,dc:0,cs:1669000,cb:888400,cc:225000,deps:{s:[],b:[],c:[]}},
-    {id:7,date:'2026-04-26',s:{esp:1991490,chq:0,mob:0,cred:0},b:{esp:462160,chq:0,mob:0,cred:0},c:{esp:75000,chq:0,mob:0,cred:0},ds:592000,db:591000,dc:0,cs:1991490,cb:462160,cc:75000,deps:{s:[],b:[],c:[]}},
-    {id:8,date:'2026-04-28',s:{esp:1056350,chq:0,mob:0,cred:0},b:{esp:411100,chq:0,mob:0,cred:0},c:{esp:120000,chq:0,mob:0,cred:0},ds:1123345,db:375585,dc:0,cs:1056350,cb:411100,cc:120000,deps:{s:[],b:[],c:[]}},
-    {id:9,date:'2026-04-29',s:{esp:1189850,chq:0,mob:24000,cred:0},b:{esp:302650,chq:0,mob:0,cred:0},c:{esp:89500,chq:0,mob:0,cred:0},ds:404400,db:134950,dc:15000,cs:1213850,cb:302650,cc:89500,deps:{s:[],b:[],c:[]}},
-    {id:10,date:'2026-04-30',s:{esp:1420000,chq:0,mob:0,cred:0},b:{esp:647800,chq:0,mob:0,cred:0},c:{esp:172500,chq:0,mob:0,cred:0},ds:6275239,db:2004300,dc:0,cs:1420000,cb:647800,cc:172500,deps:{s:[],b:[],c:[]}},
-    {id:11,date:'2026-05-01',s:{esp:1913850,chq:0,mob:58000,cred:0},b:{esp:642900,chq:0,mob:0,cred:0},c:{esp:180000,chq:0,mob:0,cred:0},ds:301366,db:160100,dc:0,cs:1612484,cb:482800,cc:180000,deps:{s:[],b:[],c:[]}},
-    {id:12,date:'2026-05-02',s:{esp:2028620,chq:0,mob:0,cred:0},b:{esp:922000,chq:0,mob:0,cred:0},c:{esp:180000,chq:0,mob:0,cred:0},ds:758400,db:449760,dc:0,cs:2882704,cb:955040,cc:360000,deps:{s:[],b:[],c:[]}},
-    {id:13,date:'2026-05-03',s:{esp:1613040,chq:0,mob:8000,cred:0},b:{esp:571740,chq:0,mob:0,cred:0},c:{esp:172500,chq:0,mob:0,cred:0},ds:363873,db:282500,dc:0,cs:1621040,cb:571740,cc:172500,deps:{s:[],b:[],c:[]}},
-    {id:14,date:'2026-05-05',s:{esp:1132500,chq:0,mob:45000,cred:0},b:{esp:499500,chq:0,mob:0,cred:0},c:{esp:75000,chq:0,mob:0,cred:0},ds:1002500,db:605000,dc:0,cs:1177500,cb:499500,cc:75000,deps:{s:[],b:[],c:[]}},
-  ],
+  journees: [],
 
   // ===================== DÉPENSES HISTORIQUES =====================
-  histDep: [
-    {date:'2026-04-19',dept:'SUSHI',label:'CLIMX2',montant:700000},
-    {date:'2026-04-19',dept:'SUSHI',label:'REGULATEUR',montant:1250000},
-    {date:'2026-04-19',dept:'SUSHI',label:'MAIN DOEUVRE MONTAGE CLIM',montant:40000},
-    {date:'2026-04-19',dept:'SUSHI',label:'AVC SALIARE',montant:340000},
-    {date:'2026-04-19',dept:'SUSHI',label:'VIDANGE',montant:130000},
-    {date:'2026-04-19',dept:'SUSHI',label:'RATIO ELECTRICIEN',montant:100000},
-    {date:'2026-04-19',dept:'SUSHI',label:'SOLDE MD PEINTRE',montant:188000},
-    {date:'2026-04-19',dept:'BAR',label:'DEPENSE ALCOOL 19',montant:299000},
-    {date:'2026-04-19',dept:'BAR',label:'DON JULIO BLANC X 2',montant:69000},
-    {date:'2026-04-19',dept:'BAR',label:'REMISE CLIENT JO',montant:40000},
-    {date:'2026-04-19',dept:'BAR',label:'ACHAT FRUIT ET LEGUME',montant:50600},
-    {date:'2026-04-21',dept:'SUSHI',label:'GASOIL X3 BIDON',montant:45000},
-    {date:'2026-04-21',dept:'SUSHI',label:'GALETTE DE RIZX 6',montant:24000},
-    {date:'2026-04-21',dept:'SUSHI',label:'FILLET BOEUF X 3KG',montant:33585},
-    {date:'2026-04-21',dept:'SUSHI',label:'BLANC POULET',montant:32700},
-    {date:'2026-04-21',dept:'BAR',label:'DON JULIO BRUN X 1',montant:59500},
-    {date:'2026-04-21',dept:'BAR',label:'BELL VEDERE PURE X 2',montant:46000},
-    {date:'2026-04-30',dept:'SUSHI',label:'SALAIRE AVRIL 26',montant:3725000},
-    {date:'2026-04-30',dept:'BAR',label:'SALAIRE AVRIL 26',montant:2425000},
-    {date:'2026-04-30',dept:'SUSHI',label:'COMMUNITY MANAGEMENT',montant:125000},
-    {date:'2026-04-30',dept:'BAR',label:'LOCATION LOYER',montant:525000},
-    {date:'2026-05-01',dept:'SUSHI',label:'EMPLOYER CUISINIER PRIME 1ER MAI',montant:80000},
-    {date:'2026-05-02',dept:'SUSHI',label:'ACHAT SAUMON FILET',montant:405825},
-    {date:'2026-05-02',dept:'SUSHI',label:'ACHAT GAMBAS',montant:340000},
-    {date:'2026-05-02',dept:'BAR',label:'BOISSON',montant:370000},
-    {date:'2026-05-02',dept:'BAR',label:'MOET CHADON X3',montant:145500},
-    {date:'2026-05-03',dept:'BAR',label:'CAVE A VIN',montant:149000},
-    {date:'2026-05-05',dept:'SUSHI',label:'GAZOIL',montant:45000},
-    {date:'2026-05-05',dept:'BAR',label:'ACHAT FRUIT ET LEGUME',montant:50600},
-  ],
+  histDep: [],
 
   // ===================== CATÉGORIES =====================
   categories: [
@@ -78,22 +33,22 @@ const Data = {
 
   // ===================== EMPLOYÉS =====================
   employes: [
-    {nom:'BANZOUZI PRECIEUSE',poste:'SERVEUR',dept:'BAR',brut:100000,prime:30000,avance:30000,net:100000},
-    {nom:'NGOTENI SAIRAH',poste:'SERVEUR',dept:'BAR',brut:100000,prime:80000,avance:80000,net:100000},
+    {nom:'BANZOUZI PRECIEUSE',poste:'SERVEUR',dept:'BAR',brut:100000,prime:0,avance:0,net:100000},
+    {nom:'NGOTENI SAIRAH',poste:'SERVEUR',dept:'BAR',brut:100000,prime:0,avance:0,net:100000},
     {nom:'ITOUA SCHEKINA',poste:'SERVEUR',dept:'BAR',brut:60000,prime:0,avance:0,net:60000},
     {nom:'BOCARDI FREDERIC',poste:'SERVEUR',dept:'BAR',brut:60000,prime:0,avance:0,net:60000},
     {nom:'SITA ROSCA',poste:'SERVEUR',dept:'BAR',brut:60000,prime:0,avance:0,net:60000},
-    {nom:'ETANIEKE SEBASTIEN',poste:'SERVEUR',dept:'BAR',brut:175000,prime:150000,avance:150000,net:175000},
+    {nom:'ETANIEKE SEBASTIEN',poste:'SERVEUR',dept:'BAR',brut:175000,prime:0,avance:0,net:175000},
     {nom:'OKOUBA REDDY',poste:'BAR',dept:'BAR',brut:300000,prime:0,avance:0,net:300000},
-    {nom:'TOWDAY SHING',poste:'BAR',dept:'BAR',brut:125000,prime:25000,avance:0,net:150000},
+    {nom:'TOWDAY SHING',poste:'BAR',dept:'BAR',brut:125000,prime:0,avance:0,net:125000},
     {nom:'TCHISSANBO ALEX',poste:'CHICHA',dept:'CHICHA',brut:150000,prime:0,avance:0,net:150000},
-    {nom:'PELITO CHRISTOPHER',poste:'SUSHI',dept:'RESTAURANT',brut:1280000,prime:400000,avance:1280000,net:400000},
-    {nom:'BIANG FRANCIS',poste:'SUSHI',dept:'RESTAURANT',brut:1400000,prime:0,avance:400000,net:1000000},
-    {nom:'JAMES KING',poste:'SUSHI',dept:'RESTAURANT',brut:1045000,prime:200000,avance:200000,net:1045000},
+    {nom:'PELITO CHRISTOPHER',poste:'SUSHI',dept:'RESTAURANT',brut:1280000,prime:0,avance:0,net:1280000},
+    {nom:'BIANG FRANCIS',poste:'SUSHI',dept:'RESTAURANT',brut:1400000,prime:0,avance:0,net:1400000},
+    {nom:'JAMES KING',poste:'SUSHI',dept:'RESTAURANT',brut:1045000,prime:0,avance:0,net:1045000},
     {nom:'KOSSI FREITAS KEKELI',poste:'SERVEUR',dept:'RESTAURANT',brut:650000,prime:0,avance:0,net:650000},
     {nom:'KHASSIM',poste:'SERVEUR',dept:'RESTAURANT',brut:500000,prime:0,avance:0,net:500000},
-    {nom:'BOUBACAR MBACKE',poste:'CUISINE',dept:'RESTAURANT',brut:500000,prime:100000,avance:0,net:600000},
-    {nom:'DIATTA RICHARD',poste:'CUISINE',dept:'RESTAURANT',brut:250000,prime:100000,avance:100000,net:250000},
+    {nom:'BOUBACAR MBACKE',poste:'CUISINE',dept:'RESTAURANT',brut:500000,prime:0,avance:0,net:500000},
+    {nom:'DIATTA RICHARD',poste:'CUISINE',dept:'RESTAURANT',brut:250000,prime:0,avance:0,net:250000},
     {nom:'MOBEY CHRIST',poste:'CUISINE',dept:'RESTAURANT',brut:110000,prime:0,avance:0,net:110000},
     {nom:'LOUSSAKOU ELI',poste:'CUISINE',dept:'RESTAURANT',brut:70000,prime:0,avance:0,net:70000},
     {nom:'NDAO ALIOU',poste:'SUPERVISEUR',dept:'RESTAURANT',brut:250000,prime:0,avance:0,net:250000},
@@ -105,10 +60,7 @@ const Data = {
   compteEmp: { CHRIST: [], FRANCIS: [], KING: [] },
 
   // ===================== CRÉDITS CLIENTS =====================
-  credits: [
-    {id:1,date:'2026-04-19',ticket:'193',client:'RAAD',dept:'SUSHI',montant:79000,statut:'ouvert'},
-    {id:2,date:'2026-04-19',ticket:'198',client:'ALI ROZE',dept:'SUSHI',montant:14500,statut:'ouvert'},
-  ],
+  credits: [],
 
   // ===================== FOURNISSEURS =====================
   fournisseurs: [],
