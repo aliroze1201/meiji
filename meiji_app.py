@@ -522,6 +522,9 @@ with tab_dashboard:
         total_depenses = sum(depenses.values())
         total_especes_recues = totaux_par_mode.get("Espèces", 0.0)
         solde_especes = fond_de_caisse + total_especes_recues - total_depenses
+        total_digital = ca_total - total_especes_recues
+        pct_especes = (total_especes_recues / ca_total * 100) if ca_total > 0 else 0
+        pct_digital = (total_digital / ca_total * 100) if ca_total > 0 else 0
 
         # ══════════════════════════════════════════════════════════════════════
         # SECTION 1 — KPI Cards
@@ -687,6 +690,23 @@ with tab_dashboard:
                         <div class="value">{fmt(totaux_par_mode.get("Virement", 0))}</div>
                     </div>
                 </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Répartition Espèces vs Digital ──
+        st.markdown(f"""
+        <div style="background:white; border:1px solid var(--meiji-border); border-radius:14px; padding:1.2rem 1.5rem; margin-top:1rem;">
+            <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; font-weight:600; margin-bottom:0.8rem;">
+                Répartition Espèces vs Digital
+            </div>
+            <div style="display:flex; height:14px; border-radius:8px; overflow:hidden; background:#f1f5f9;">
+                <div style="width:{pct_especes}%; background:linear-gradient(90deg,#10b981,#059669);"></div>
+                <div style="width:{pct_digital}%; background:linear-gradient(90deg,#2563eb,#1e3a5f);"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:0.6rem; font-size:0.85rem; font-weight:600; color:var(--meiji-text);">
+                <span>💵 Espèces : {fmt(total_especes_recues)} ({pct_especes:.1f}%)</span>
+                <span>💳 Digital : {fmt(total_digital)} ({pct_digital:.1f}%)</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
