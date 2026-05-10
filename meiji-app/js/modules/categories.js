@@ -356,9 +356,8 @@ const Credits = {
       </div>`);
   },
 
-  save() {
+  async save() {
     const c = {
-      id: Data.newId(),
       date: document.getElementById('cr-date')?.value,
       ticket: document.getElementById('cr-tick')?.value,
       client: document.getElementById('cr-client')?.value,
@@ -367,8 +366,17 @@ const Credits = {
       statut: 'ouvert',
     };
     if (!c.client || !c.montant) { alert('Client et montant requis'); return; }
-    Data.credits.push(c);
-    this.persist();
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.insertCredit(c);
+        Data.credits.push(saved);
+      } else {
+        Data.credits.push({ id: Data.newId(), ...c });
+      }
+    } catch (e) {
+      alert('Erreur enregistrement : ' + e.message);
+      return;
+    }
     App.closeModal();
     App.renderAll();
   },
@@ -417,7 +425,7 @@ const Credits = {
       </div>`);
   },
 
-  confirmRegler(id) {
+  async confirmRegler(id) {
     const c = Data.credits.find(x => x.id === id);
     if (!c) return;
     const date = document.getElementById('reg-date')?.value;
@@ -428,8 +436,6 @@ const Credits = {
     let j = Data.journees.find(x => x.date === date);
     if (!j) {
       j = {
-        id: Data.newId(),
-        userRec: true,
         date,
         s:{esp:0,chq:0,mob:0,cred:0},
         b:{esp:0,chq:0,mob:0,cred:0},
@@ -437,48 +443,42 @@ const Credits = {
         ds:0, db:0, dc:0, cs:0, cb:0, cc:0,
         deps:{s:[],b:[],c:[]},
       };
-      Data.journees.push(j);
-      Data.journees.sort((a,b) => a.date.localeCompare(b.date));
-    } else {
-      // Marquer la journée comme modifiée pour qu'elle soit persistée
-      j.userRec = true;
     }
     const k = c.dept === 'SUSHI' ? 's' : c.dept === 'BAR' ? 'b' : 'c';
     j[k][mode] = (j[k][mode] || 0) + c.montant;
 
-    // Marquer le crédit comme réglé
-    c.statut = 'regle';
-    c.dateReg = date;
-    c.modeReg = mode;
+    try {
+      if (Store && Store.ready) {
+        const savedJ = await Store.upsertJournee(j);
+        const idx = Data.journees.findIndex(x => x.date === savedJ.date);
+        if (idx >= 0) Data.journees[idx] = savedJ;
+        else Data.journees.push(savedJ);
+        Data.journees.sort((a,b) => a.date.localeCompare(b.date));
 
-    // Persistance
-    this.persist();
-    if (typeof Recettes !== 'undefined' && Recettes.persistUser) Recettes.persistUser();
+        const updated = await Store.updateCredit(c.id, {
+          ...c, statut: 'regle', dateReg: date, modeReg: mode,
+        });
+        const ci = Data.credits.findIndex(x => x.id === c.id);
+        if (ci >= 0) Data.credits[ci] = updated;
+      } else {
+        if (!Data.journees.find(x => x.date === date)) {
+          Data.journees.push({ id: Data.newId(), ...j });
+          Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+        }
+        c.statut = 'regle'; c.dateReg = date; c.modeReg = mode;
+      }
+    } catch (e) {
+      alert('Erreur enregistrement : ' + e.message);
+      return;
+    }
 
     App.closeModal();
     App.renderAll();
   },
 
-  persist() {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(Data.credits)); } catch (e) {}
-  },
-
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return;
-      // Remplacer la liste : on prend la version sauvegardée comme source de vérité
-      const seedById = new Map(Data.credits.map(c => [c.id, c]));
-      const out = [];
-      arr.forEach(c => out.push(c));
-      // Ajouter les seeds non sauvegardés (au cas où)
-      const savedIds = new Set(arr.map(c => c.id));
-      Data.credits.forEach(c => { if (!savedIds.has(c.id)) out.push(c); });
-      Data.credits = out;
-    } catch (e) {}
-  },
+  // No-op : conservée pour compat
+  persist() { /* données en cloud désormais */ },
+  restore() { /* données chargées via Store.bootstrap() */ },
 
   render() {
     const filter = App.filters.cred;

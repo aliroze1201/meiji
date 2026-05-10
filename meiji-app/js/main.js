@@ -310,23 +310,38 @@ const App = {
     // Theme
     this.initTheme();
 
-    // Restaurer les saisies sauvegardées localement
-    Credits.restore();   // doit précéder Recettes.restore (les journées peuvent porter des règlements)
-    Depenses.restore();
-    Recettes.restore();
+    // Modules encore en localStorage (étape 2 de la migration cloud)
     Suivi.restore();
     Banque.restore();
     Mobile.restore();
     Employes.restore();
+    // Drafts en cours (volontairement local, par utilisateur)
+    if (typeof Recettes !== 'undefined' && Recettes.restoreDrafts) Recettes.restoreDrafts();
+    if (typeof Depenses !== 'undefined' && Depenses.restoreDrafts) Depenses.restoreDrafts();
     if (typeof Pointage !== 'undefined') Pointage.init();
 
     // Initial render
     this.renderAll();
     console.log('🍣 MEIJI App initialisée');
+  },
+
+  // Bootstrap Supabase : charge journées / dépenses / crédits depuis le cloud
+  // (puis rend l'UI). Appelé après Auth.
+  async bootstrapCloud() {
+    if (typeof Store === 'undefined') return;
+    if (!Store.init()) return;
+    try {
+      await Store.bootstrap();
+      this.renderAll();
+    } catch (e) {
+      console.error('Bootstrap Supabase échoué:', e);
+      alert('Erreur de chargement des données depuis le cloud :\n' + (e.message || e));
+    }
   }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (typeof Auth !== 'undefined') await Auth.init();
   App.init();
+  await App.bootstrapCloud();
 });

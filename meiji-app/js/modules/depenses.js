@@ -96,7 +96,7 @@ const Recettes = {
       </div>`);
   },
 
-  saveEditJournee(jid) {
+  async saveEditJournee(jid) {
     const j = Data.journees.find(x => x.id === jid);
     if (!j) return;
     const v = (id) => parseFloat(document.getElementById(id).value) || 0;
@@ -108,30 +108,34 @@ const Recettes = {
         j[k][m] = v(`ej-${k}-${m}`);
       });
     });
-    j.userRec = true;
     Data.journees.sort((a,b) => a.date.localeCompare(b.date));
-    this.persistUser();
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.upsertJournee(j);
+        // Remplacer par l'objet renvoyé (id réel de la base)
+        const idx = Data.journees.findIndex(x => x.id === j.id || x.date === saved.date);
+        if (idx >= 0) Data.journees[idx] = saved;
+      }
+    } catch (e) {
+      alert('Erreur enregistrement : ' + e.message);
+      return;
+    }
     App.closeModal();
     App.renderAll();
   },
 
-  deleteJournee(jid) {
+  async deleteJournee(jid) {
     const j = Data.journees.find(x => x.id === jid);
     if (!j) return;
     if (!confirm(`Supprimer la journée du ${Data.fmtD(j.date)} ? Cette action est irréversible.`)) return;
-    Data.journees = Data.journees.filter(x => x.id !== jid);
-    this._persistDeleted(jid, j.date);
-    this.persistUser();
-    App.renderAll();
-  },
-
-  _persistDeleted(jid, date) {
     try {
-      const k = 'meiji-deleted-journees';
-      const arr = JSON.parse(localStorage.getItem(k) || '[]');
-      arr.push({ id: jid, date });
-      localStorage.setItem(k, JSON.stringify(arr));
-    } catch (e) {}
+      if (Store && Store.ready) await Store.deleteJournee(jid);
+    } catch (e) {
+      alert('Erreur suppression : ' + e.message);
+      return;
+    }
+    Data.journees = Data.journees.filter(x => x.id !== jid);
+    App.renderAll();
   },
 
   // ===================== BROUILLONS =====================
@@ -314,7 +318,7 @@ const Recettes = {
     this._refreshHeader();
   },
 
-  commitDrafts() {
+  async commitDrafts() {
     if (!this.drafts.length) return alert('Aucune saisie à valider.');
 
     const invalid = this.drafts.filter(d => !d.date || !this._draftTotal(d)).length;
@@ -324,34 +328,41 @@ const Recettes = {
       return;
     }
 
+    const toSave = this.drafts.filter(d => d.date && this._draftTotal(d)).map(d => ({
+      date: d.date,
+      s: { esp:+d.s.esp||0, chq:+d.s.chq||0, mob:+d.s.mob||0, cred:+d.s.cred||0 },
+      b: { esp:+d.b.esp||0, chq:+d.b.chq||0, mob:+d.b.mob||0, cred:+d.b.cred||0 },
+      c: { esp:+d.c.esp||0, chq:+d.c.chq||0, mob:+d.c.mob||0, cred:+d.c.cred||0 },
+      ds: 0, db: 0, dc: 0, cs: 0, cb: 0, cc: 0,
+      deps: { s:[], b:[], c:[] },
+    }));
+
     let added = 0;
-    this.drafts.forEach(d => {
-      if (!d.date || !this._draftTotal(d)) return;
-      const obj = {
-        id: Data.newId(),
-        userRec: true,
-        date: d.date,
-        s: { esp:+d.s.esp||0, chq:+d.s.chq||0, mob:+d.s.mob||0, cred:+d.s.cred||0 },
-        b: { esp:+d.b.esp||0, chq:+d.b.chq||0, mob:+d.b.mob||0, cred:+d.b.cred||0 },
-        c: { esp:+d.c.esp||0, chq:+d.c.chq||0, mob:+d.c.mob||0, cred:+d.c.cred||0 },
-        ds: 0, db: 0, dc: 0,
-        cs: 0, cb: 0, cc: 0,
-        deps: { s:[], b:[], c:[] },
-      };
-      Data.journees.push(obj);
-      added++;
-    });
+    try {
+      for (const obj of toSave) {
+        if (Store && Store.ready) {
+          const saved = await Store.upsertJournee(obj);
+          // Replace ou ajoute par date (upsert UNIQUE sur date)
+          const idx = Data.journees.findIndex(j => j.date === saved.date);
+          if (idx >= 0) Data.journees[idx] = saved;
+          else Data.journees.push(saved);
+        } else {
+          Data.journees.push({ id: Data.newId(), ...obj });
+        }
+        added++;
+      }
+    } catch (e) {
+      alert('Erreur enregistrement : ' + e.message);
+    }
 
     Data.journees.sort((a,b) => a.date.localeCompare(b.date));
-
     this.drafts = [];
     this.persistDrafts();
-    this.persistUser();
     App.renderAll();
     if (added) alert(`✅ ${added} journée(s) validée(s).`);
   },
 
-  // ===================== PERSISTANCE =====================
+  // ===================== PERSISTANCE (drafts seulement, en local) =====================
   persistDrafts() {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
@@ -361,39 +372,11 @@ const Recettes = {
     } catch (e) {}
   },
 
-  persistUser() {
-    try {
-      const userJ = Data.journees.filter(j => j.userRec);
-      localStorage.setItem(this.USER_KEY, JSON.stringify(userJ));
-    } catch (e) {}
-  },
+  // No-op : conservée pour compatibilité (anciens appels depuis Credits, etc.)
+  persistUser() { /* données en cloud désormais */ },
 
-  restore() {
-    try {
-      const delRaw = localStorage.getItem('meiji-deleted-journees');
-      if (delRaw) {
-        const del = JSON.parse(delRaw);
-        if (Array.isArray(del) && del.length) {
-          const ids = new Set(del.map(d => d.id));
-          const dates = new Set(del.map(d => d.date));
-          Data.journees = Data.journees.filter(j => !ids.has(j.id) && !dates.has(j.date));
-        }
-      }
-    } catch (e) {}
-    try {
-      const rawU = localStorage.getItem(this.USER_KEY);
-      if (rawU) {
-        const arr = JSON.parse(rawU);
-        if (Array.isArray(arr)) {
-          arr.forEach(uj => {
-            const idx = Data.journees.findIndex(j => j.date === uj.date);
-            if (idx >= 0) Data.journees[idx] = uj;  // remplace la journée du seed/existante
-            else Data.journees.push(uj);
-          });
-          Data.journees.sort((a,b) => a.date.localeCompare(b.date));
-        }
-      }
-    } catch (e) {}
+  // Charger les drafts en cours depuis localStorage (les données métier viennent de Supabase)
+  restoreDrafts() {
     try {
       const rawD = localStorage.getItem(this.STORAGE_KEY);
       if (rawD) {
@@ -451,13 +434,26 @@ const Recettes = {
           alert("Aucune ligne 'Saisie utilisateur' trouvée à importer.");
           return;
         }
-        if (!confirm(`Importer ${imported.length} journée(s) ? Les saisies utilisateur actuelles seront remplacées.`)) return;
-        Data.journees = Data.journees.filter(j => !j.userRec);
-        imported.forEach(j => Data.journees.push(j));
-        Data.journees.sort((a,b) => a.date.localeCompare(b.date));
-        this.persistUser();
-        App.renderAll();
-        alert(`✅ ${imported.length} journée(s) importée(s).`);
+        if (!confirm(`Importer ${imported.length} journée(s) ? Elles seront ajoutées/mises à jour dans le cloud.`)) return;
+        (async () => {
+          let ok = 0;
+          for (const j of imported) {
+            try {
+              if (Store && Store.ready) {
+                const saved = await Store.upsertJournee(j);
+                const idx = Data.journees.findIndex(x => x.date === saved.date);
+                if (idx >= 0) Data.journees[idx] = saved;
+                else Data.journees.push(saved);
+              } else {
+                Data.journees.push(j);
+              }
+              ok++;
+            } catch (err) { console.warn('import:', err); }
+          }
+          Data.journees.sort((a,b) => a.date.localeCompare(b.date));
+          App.renderAll();
+          alert(`✅ ${ok} journée(s) importée(s).`);
+        })();
       } catch (err) {
         alert('Erreur lors de la lecture du fichier : ' + err.message);
       }
@@ -588,7 +584,7 @@ const Depenses = {
       </div>`);
   },
 
-  saveEditFromRow(idx) {
+  async saveEditFromRow(idx) {
     const d = this._rowCache && this._rowCache[idx];
     if (!d) return;
     const v = (id) => document.getElementById(id).value;
@@ -603,56 +599,73 @@ const Depenses = {
     if (!cat) return alert('Catégorie requise.');
     if (!montant) return alert('Montant requis.');
 
-    if (d._src === 'jour') {
-      const j = Data.journees.find(x => x.id === d._jid);
-      if (!j) return alert('Journée introuvable.');
-      const arr = j.deps[d._dk];
-      const target = arr[d._di];
-      if (!target) return;
-      target.label = cat;
-      target.groupe = Data.getGroupe(cat);
-      target.montant = montant;
-      target.observation = obs || null;
-      // Si dept changé : déplacer dans le bon tableau de la même journée
-      const newDk = { SUSHI:'s', BAR:'b', CHICHA:'c' }[dept];
-      if (newDk !== d._dk) {
-        arr.splice(d._di, 1);
-        j.deps[newDk] = j.deps[newDk] || [];
-        j.deps[newDk].push(target);
+    try {
+      if (d._src === 'jour') {
+        const j = Data.journees.find(x => x.id === d._jid);
+        if (!j) return alert('Journée introuvable.');
+        const arr = j.deps[d._dk];
+        const target = arr[d._di];
+        if (!target) return;
+        target.label = cat;
+        target.groupe = Data.getGroupe(cat);
+        target.montant = montant;
+        target.observation = obs || null;
+        const newDk = { SUSHI:'s', BAR:'b', CHICHA:'c' }[dept];
+        if (newDk !== d._dk) {
+          arr.splice(d._di, 1);
+          j.deps[newDk] = j.deps[newDk] || [];
+          j.deps[newDk].push(target);
+        }
+        if (date !== j.date) {
+          alert('Note : la date ne peut pas être modifiée ici (la dépense est rattachée à la journée du ' + Data.fmtD(j.date) + '). Supprimez et recréez-la pour la déplacer.');
+        }
+        this._recalcJourneeTotals(j);
+        if (Store && Store.ready) {
+          const saved = await Store.upsertJournee(j);
+          const i = Data.journees.findIndex(x => x.id === j.id);
+          if (i >= 0) Data.journees[i] = saved;
+        }
+      } else if (d._src === 'hist') {
+        const h = Data.histDep[d._idx];
+        if (!h) return;
+        const updated = {
+          date, dept, label: cat, groupe: Data.getGroupe(cat),
+          qte: isNaN(qte) ? null : qte,
+          prix: isNaN(prix) ? null : prix,
+          montant,
+          observation: obs || null,
+        };
+        if (Store && Store.ready && h.id) {
+          const saved = await Store.updateDepense(h.id, updated);
+          Data.histDep[d._idx] = saved;
+        } else {
+          Object.assign(h, updated);
+        }
       }
-      // Si la date change : on ne déplace pas vers une autre journée — on prévient.
-      if (date !== j.date) {
-        alert('Note : la date ne peut pas être modifiée ici (la dépense est rattachée à la journée du ' + Data.fmtD(j.date) + '). Supprimez et recréez-la pour la déplacer.');
-      }
-      this._recalcJourneeTotals(j);
-      j.userRec = true;
-      Recettes.persistUser();
-    } else if (d._src === 'hist') {
-      const h = Data.histDep[d._idx];
-      if (!h) return;
-      h.date = date;
-      h.dept = dept;
-      h.label = cat;
-      h.groupe = Data.getGroupe(cat);
-      h.qte = isNaN(qte) ? null : qte;
-      h.prix = isNaN(prix) ? null : prix;
-      h.montant = montant;
-      h.observation = obs || null;
-      if (!h.userId) h.userId = Data.newId();
-      this.persist();
+    } catch (e) {
+      alert('Erreur enregistrement : ' + e.message);
+      return;
     }
     App.closeModal();
     App.renderAll();
   },
 
-  removeJourDep(jid, dk, di) {
+  async removeJourDep(jid, dk, di) {
     if (!confirm('Supprimer cette dépense ?')) return;
     const j = Data.journees.find(x => x.id === jid);
     if (!j || !j.deps || !j.deps[dk]) return;
     j.deps[dk].splice(di, 1);
     this._recalcJourneeTotals(j);
-    j.userRec = true;
-    Recettes.persistUser();
+    try {
+      if (Store && Store.ready) {
+        const saved = await Store.upsertJournee(j);
+        const i = Data.journees.findIndex(x => x.id === j.id);
+        if (i >= 0) Data.journees[i] = saved;
+      }
+    } catch (e) {
+      alert('Erreur suppression : ' + e.message);
+      return;
+    }
     App.renderAll();
   },
 
@@ -768,10 +781,9 @@ const Depenses = {
     this._refreshDraftSummary();
   },
 
-  commitDrafts() {
+  async commitDrafts() {
     if (!this.drafts.length) return alert('Aucune ligne à valider.');
 
-    // Validation
     const invalid = [];
     this.drafts.forEach((d, i) => {
       const err = [];
@@ -787,47 +799,52 @@ const Depenses = {
 
     if (!confirm(`Valider ${this.drafts.length} dépense(s) ? Elles seront ajoutées à l'historique.`)) return;
 
-    this.drafts.forEach(d => {
-      const id = Data.newId();
-      Data.histDep.push({
-        userId: id,
-        date:   d.date,
-        dept:   d.dept,
-        label:  d.cat,
-        groupe: d.cat,
-        qte:    parseFloat(d.qte)  || null,
-        prix:   parseFloat(d.prix) || null,
-        montant: parseFloat(d.montant),
-        observation: d.obs || null,
-      });
-    });
+    try {
+      for (const d of this.drafts) {
+        const dep = {
+          date: d.date, dept: d.dept,
+          label: d.cat, groupe: d.cat,
+          qte: parseFloat(d.qte) || null,
+          prix: parseFloat(d.prix) || null,
+          montant: parseFloat(d.montant),
+          observation: d.obs || null,
+        };
+        if (Store && Store.ready) {
+          const saved = await Store.insertDepense(dep);
+          Data.histDep.push(saved);
+        } else {
+          Data.histDep.push({ userId: Data.newId(), ...dep });
+        }
+      }
+    } catch (e) {
+      alert('Erreur enregistrement : ' + e.message);
+      return;
+    }
 
     this.drafts = [];
     this.persistDrafts();
-    this.persist();
     App.renderAll();
   },
 
-  remove(userId) {
+  async remove(userId) {
     if (!confirm('Supprimer cette dépense ?')) return;
-    const idx = Data.histDep.findIndex(d => d.userId === userId);
-    if (idx >= 0) {
-      Data.histDep.splice(idx, 1);
-      this.persist();
-      App.renderAll();
+    const idx = Data.histDep.findIndex(d => d.userId === userId || d.id === userId);
+    if (idx < 0) return;
+    try {
+      if (Store && Store.ready) await Store.deleteDepense(userId);
+    } catch (e) {
+      alert('Erreur suppression : ' + e.message);
+      return;
     }
+    Data.histDep.splice(idx, 1);
+    App.renderAll();
   },
 
-  // ===================== PERSISTANCE LOCALE =====================
-  STORAGE_KEY: 'meiji-user-deps',
+  // ===================== PERSISTANCE LOCALE (drafts seulement) =====================
+  STORAGE_KEY: 'meiji-user-deps', // legacy, plus utilisé
   DRAFT_KEY:   'meiji-dep-drafts',
 
-  persist() {
-    try {
-      const userDeps = Data.histDep.filter(d => d.userId);
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userDeps));
-    } catch (e) { console.warn('localStorage indisponible', e); }
-  },
+  persist() { /* données en cloud désormais */ },
 
   persistDrafts() {
     try {
@@ -838,18 +855,7 @@ const Depenses = {
     } catch (e) { console.warn('localStorage indisponible', e); }
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (raw) {
-        const userDeps = JSON.parse(raw);
-        if (Array.isArray(userDeps)) {
-          const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
-          userDeps.forEach(d => { if (!existingIds.has(d.userId)) Data.histDep.push(d); });
-        }
-      }
-    } catch (e) { console.warn('Erreur restauration', e); }
-
+  restoreDrafts() {
     try {
       const rawD = localStorage.getItem(this.DRAFT_KEY);
       if (rawD) {
@@ -861,6 +867,8 @@ const Depenses = {
       }
     } catch (e) { console.warn('Erreur restauration drafts', e); }
   },
+
+  restore() { this.restoreDrafts(); },
 
   // ===================== EXPORT / IMPORT EXCEL =====================
   exportExcel() {
