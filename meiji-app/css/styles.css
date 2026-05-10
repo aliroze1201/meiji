@@ -1340,3 +1340,32 @@ body.auth-locked .app { filter: blur(4px); pointer-events: none; user-select: no
 }
 #login-overlay form input:focus { outline: 2px solid #2563EB; border-color: transparent; }
 #login-overlay .login-error { color: #ef4444; font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }
+
+/* Mode lecture seule : désactive saisie + cache boutons d'action sur la page active */
+body.view-only .page.active input:not([type="search"]):not([type="checkbox"]):not([type="radio"]),
+body.view-only .page.active select,
+body.view-only .page.active textarea {
+  pointer-events: none;
+  background: var(--c-bg, #f8fafc);
+  opacity: 0.85;
+}
+body.view-only .page.active .btn-primary,
+body.view-only .page.active .btn-danger,
+body.view-only .page.active button.btn:not(.btn-ghost):not(.seg-btn):not(.tab):not(.icon-btn),
+body.view-only .page.active .dep-dd,
+body.view-only .page.active [data-action="add"],
+body.view-only .page.active [data-action="edit"],
+body.view-only .page.active [data-action="delete"] {
+  display: none !important;
+}
+body.view-only .page.active::before {
+  content: "🔒 Lecture seule";
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}

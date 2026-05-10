@@ -29,6 +29,7 @@ const App = {
     if (el) el.classList.add('active');
     this.currentPage = pageId;
     this.updateTopbarTitle(pageId);
+    if (typeof Auth !== 'undefined' && Auth.applyPageMode) Auth.applyPageMode(pageId);
     this.renderAll();
     if (pageId === 'utilisateurs' && typeof Utilisateurs !== 'undefined') Utilisateurs.render();
   },
