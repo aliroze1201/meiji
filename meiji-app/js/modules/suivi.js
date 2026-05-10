@@ -118,16 +118,12 @@ const Suivi = {
 
   // ===================== PERSISTANCE =====================
   persist() {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(Data.cheques)); } catch (e) {}
+    AppDB.save(this.STORAGE_KEY, Data.cheques);
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) Data.cheques = arr;
-    } catch (e) {}
+  async restore() {
+    const arr = await AppDB.load(this.STORAGE_KEY);
+    if (Array.isArray(arr)) Data.cheques = arr;
   },
 
   // ===================== RENDER =====================

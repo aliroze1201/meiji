@@ -121,14 +121,12 @@ const Employes = {
   STORAGE_KEY: 'meiji-employes',
 
   save() {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(Data.employes)); } catch (e) {}
+    AppDB.save(this.STORAGE_KEY, Data.employes);
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (raw) Data.employes = JSON.parse(raw);
-    } catch (e) {}
+  async restore() {
+    const arr = await AppDB.load(this.STORAGE_KEY);
+    if (Array.isArray(arr)) Data.employes = arr;
   },
 
   openModal(idx) {
@@ -460,24 +458,17 @@ const Credits = {
   },
 
   persist() {
-    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(Data.credits)); } catch (e) {}
+    AppDB.save(this.STORAGE_KEY, Data.credits);
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return;
-      // Remplacer la liste : on prend la version sauvegardée comme source de vérité
-      const seedById = new Map(Data.credits.map(c => [c.id, c]));
-      const out = [];
-      arr.forEach(c => out.push(c));
-      // Ajouter les seeds non sauvegardés (au cas où)
-      const savedIds = new Set(arr.map(c => c.id));
-      Data.credits.forEach(c => { if (!savedIds.has(c.id)) out.push(c); });
-      Data.credits = out;
-    } catch (e) {}
+  async restore() {
+    const arr = await AppDB.load(this.STORAGE_KEY);
+    if (!Array.isArray(arr)) return;
+    // Source de vérité = cloud. On ré-ajoute les seeds dont l'id n'est pas dans le cloud.
+    const out = [...arr];
+    const savedIds = new Set(arr.map(c => c.id));
+    Data.credits.forEach(c => { if (!savedIds.has(c.id)) out.push(c); });
+    Data.credits = out;
   },
 
   render() {

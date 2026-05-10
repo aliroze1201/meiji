@@ -6,22 +6,17 @@ const Banque = {
   STORAGE_KEY: 'meiji-banque',
 
   save() {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
-        solde: Data.soldes.banque,
-        mvts: Data.mvtsBanque,
-      }));
-    } catch (e) { console.warn('localStorage indisponible', e); }
+    AppDB.save(this.STORAGE_KEY, {
+      solde: Data.soldes.banque,
+      mvts: Data.mvtsBanque,
+    });
   },
 
-  restore() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data.solde) Data.soldes.banque = data.solde;
-      if (Array.isArray(data.mvts)) Data.mvtsBanque = data.mvts;
-    } catch (e) { /* noop */ }
+  async restore() {
+    const data = await AppDB.load(this.STORAGE_KEY);
+    if (!data) return;
+    if (data.solde) Data.soldes.banque = data.solde;
+    if (Array.isArray(data.mvts)) Data.mvtsBanque = data.mvts;
   },
 
   saveSolde() {
