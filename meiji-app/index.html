@@ -241,10 +241,6 @@
               <label style="display:block;font-size:11px;color:var(--c-muted);margin-bottom:4px">Date</label>
               <input type="date" id="pt-date" style="padding:8px 12px;border-radius:8px;border:1px solid var(--c-border);background:var(--c-surface)">
             </div>
-            <div>
-              <label style="display:block;font-size:11px;color:var(--c-muted);margin-bottom:4px">Fond de caisse (début)</label>
-              <input type="number" id="pt-fond" placeholder="0" style="padding:8px 12px;border-radius:8px;border:1px solid var(--c-border);background:var(--c-surface);width:160px">
-            </div>
             <button class="btn btn-primary" id="btn-pt-load"><i class="ti ti-refresh"></i> Recharger</button>
           </div>
         </div>
@@ -256,10 +252,9 @@
           <div class="mc amber"><div class="mc-label amber">💨 Espèces CHICHA</div><div class="mc-val amber" id="pt-esp-c">0 FCFA</div></div>
         </div>
 
-        <div class="g3" style="margin-top:12px">
+        <div class="g2" style="margin-top:12px">
           <div class="mc"><div class="mc-label">💵 Total espèces reçues</div><div class="mc-val" id="pt-esp-tot">0 FCFA</div></div>
           <div class="mc red"><div class="mc-label red">📤 Total dépenses du jour</div><div class="mc-val red" id="pt-dep">0 FCFA</div></div>
-          <div class="mc teal"><div class="mc-label teal">💼 Fond de caisse</div><div class="mc-val" id="pt-fond-disp">0 FCFA</div></div>
         </div>
 
         <!-- POINTAGE -->
@@ -270,7 +265,7 @@
           <div style="text-align:center;padding:20px 0">
             <div style="font-size:13px;color:var(--c-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600">Solde théorique (à avoir)</div>
             <div style="font-family:var(--font-display);font-size:42px;font-weight:900;color:var(--c-bar);margin:8px 0" id="pt-theorique">0 FCFA</div>
-            <div style="font-size:12px;color:var(--c-muted)" id="pt-formule">Fond de caisse + Espèces reçues − Dépenses du jour</div>
+            <div style="font-size:12px;color:var(--c-muted)" id="pt-formule">Espèces reçues − Dépenses du jour</div>
           </div>
 
           <div style="border-top:1px dashed var(--c-border);padding-top:20px;margin-top:8px">

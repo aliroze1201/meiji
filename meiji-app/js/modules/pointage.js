@@ -13,7 +13,6 @@ const Pointage = {
     document.getElementById('btn-pt-load')?.addEventListener('click', () => this.render());
     document.getElementById('btn-pt-verify')?.addEventListener('click', () => this.verify());
     document.getElementById('pt-date')?.addEventListener('change', () => this.render());
-    document.getElementById('pt-fond')?.addEventListener('input', () => this.render());
 
     // Date par défaut = dernière journée saisie ou aujourd'hui
     const dateEl = document.getElementById('pt-date');
@@ -29,16 +28,13 @@ const Pointage = {
       const saved = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '{}');
       const dateEl = document.getElementById('pt-date');
       if (saved.date && dateEl) dateEl.value = saved.date;
-      const fondEl = document.getElementById('pt-fond');
-      if (saved.fond != null && fondEl) fondEl.value = saved.fond;
     } catch (e) { /* noop */ }
     this.render();
   },
 
   save(extra = {}) {
     const date = document.getElementById('pt-date')?.value || '';
-    const fond = parseFloat(document.getElementById('pt-fond')?.value) || 0;
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ date, fond, ...extra }));
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ date, ...extra }));
   },
 
   _set(id, val) {
@@ -48,7 +44,6 @@ const Pointage = {
 
   render() {
     const date = document.getElementById('pt-date')?.value;
-    const fond = parseFloat(document.getElementById('pt-fond')?.value) || 0;
     const j = (Data.journees || []).find(x => x.date === date);
 
     const espS = j ? (j.s.esp || 0) : 0;
@@ -75,14 +70,13 @@ const Pointage = {
       }));
     }
     const dep = all.reduce((s, d) => s + d.montant, 0);
-    const theorique = fond + espTot - dep;
+    const theorique = espTot - dep;
 
     this._set('pt-esp-s', Data.fmt(espS));
     this._set('pt-esp-b', Data.fmt(espB));
     this._set('pt-esp-c', Data.fmt(espC));
     this._set('pt-esp-tot', Data.fmt(espTot));
     this._set('pt-dep', Data.fmt(dep));
-    this._set('pt-fond-disp', Data.fmt(fond));
     this._set('pt-theorique', Data.fmt(theorique));
 
     const tbody = document.getElementById('pt-deps');
