@@ -25,6 +25,8 @@ const Auth = {
     return email.endsWith(this.USER_DOMAIN) ? email.slice(0, -this.USER_DOMAIN.length) : email;
   },
 
+  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
+
   ROLE_PERMISSIONS: {
     admin:       ['*'],
     responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
@@ -117,8 +119,28 @@ const Auth = {
   hasAccess(pageId) {
     if (!Config.isAuthEnabled()) return true;
     if (!this.profile) return false;
+    if (this.profile.role === 'admin') return true;
+    // Si l'admin a défini une liste personnalisée pour cet utilisateur, elle prime sur le rôle.
+    const custom = this.profile.pages;
+    if (Array.isArray(custom)) return custom.includes(pageId);
     const perms = this.ROLE_PERMISSIONS[this.profile.role] || [];
     return perms.includes('*') || perms.includes(pageId);
+  },
+
+  canEdit(pageId) {
+    if (!Config.isAuthEnabled()) return true;
+    if (!this.profile) return false;
+    if (this.profile.role === 'admin') return true;
+    if (!this.hasAccess(pageId)) return false;
+    const ro = this.profile.pages_readonly;
+    if (Array.isArray(ro) && ro.includes(pageId)) return false;
+    return true;
+  },
+
+  applyPageMode(pageId) {
+    const editable = this.canEdit(pageId);
+    document.body.classList.toggle('view-only', !editable);
+    document.body.dataset.pageMode = editable ? 'edit' : 'view';
   },
 
   _applyRolePermissions() {
