@@ -32,21 +32,32 @@ CREATE TABLE profiles (
 -- RLS : chaque utilisateur lit son profil ; les admins lisent/modifient tout
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+-- Fonction SECURITY DEFINER pour vérifier le rôle sans déclencher la RLS
+-- de la table profiles elle-même (sinon erreur récursion 42P17).
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
+$$;
+
 CREATE POLICY "Users can read own profile"
   ON profiles FOR SELECT
   USING (auth.uid() = id);
 
 CREATE POLICY "Admins can read all profiles"
   ON profiles FOR SELECT
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (public.is_admin());
 
 CREATE POLICY "Admins can update profiles"
   ON profiles FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (public.is_admin());
 
 CREATE POLICY "Admins can insert profiles"
   ON profiles FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  WITH CHECK (public.is_admin());
 
 -- Trigger : créer automatiquement un profil quand un user s'inscrit
 CREATE OR REPLACE FUNCTION public.handle_new_user()
