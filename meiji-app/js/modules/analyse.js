@@ -1,89 +1,11 @@
 /**
- * modules/depenses.js — Dépenses, Recettes, Analyse
+ * analyse.js — Analyse charges groupées par nature.
  */
 
-// ===================== RECETTES =====================
-const Recettes = {
-  render() {
-    const jj = Data.journees;
-    const tS = jj.reduce((s,j) => s + Data.caisse(j,'s'), 0);
-    const tB = jj.reduce((s,j) => s + Data.caisse(j,'b'), 0);
-    const tC = jj.reduce((s,j) => s + Data.caisse(j,'c'), 0);
-    const tEsp = jj.reduce((s,j) => s + j.s.esp + j.b.esp + j.c.esp, 0);
-    const tChq = jj.reduce((s,j) => s + j.s.chq + j.b.chq + j.c.chq, 0);
-    const tMob = jj.reduce((s,j) => s + j.s.mob + j.b.mob + j.c.mob + j.s.cred + j.b.cred + j.c.cred, 0);
-
-    this._set('r-s', Data.fmt(tS));
-    this._set('r-b', Data.fmt(tB));
-    this._set('r-c', Data.fmt(tC));
-    this._set('r-esp', Data.fmt(tEsp));
-    this._set('r-chq', Data.fmt(tChq));
-    this._set('r-mob', Data.fmt(tMob));
-
-    const tb = document.getElementById('rec-table');
-    if (!tb) return;
-    if (!jj.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Aucune recette</td></tr>'; return; }
-
-    tb.innerHTML = jj.map(j => {
-      const total = Data.caTotal(j);
-      const pays = [];
-      const allPays = { esp: j.s.esp+j.b.esp+j.c.esp, chq: j.s.chq+j.b.chq+j.c.chq, mob: j.s.mob+j.b.mob+j.c.mob, cred: j.s.cred+j.b.cred+j.c.cred };
-      if (allPays.esp) pays.push(`<span class="badge b-blue">Esp. ${Data.fmts(allPays.esp)}</span>`);
-      if (allPays.chq) pays.push(`<span class="badge b-purple">Chq ${Data.fmts(allPays.chq)}</span>`);
-      if (allPays.mob) pays.push(`<span class="badge b-green">Mob ${Data.fmts(allPays.mob)}</span>`);
-      if (allPays.cred) pays.push(`<span class="badge b-amber">Créd ${Data.fmts(allPays.cred)}</span>`);
-      return `<tr>
-        <td>${Data.fmtD(j.date)}</td>
-        <td class="text-right text-blue">${Data.fmts(Data.caisse(j,'s'))}</td>
-        <td class="text-right text-green">${Data.fmts(Data.caisse(j,'b'))}</td>
-        <td class="text-right" style="color:#BA7517">${Data.fmts(Data.caisse(j,'c'))}</td>
-        <td class="text-right fw-bold">${Data.fmts(total)}</td>
-        <td><div style="display:flex;gap:4px;flex-wrap:wrap">${pays.join('')}</div></td>
-      </tr>`;
-    }).join('');
-  },
-  _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
-};
-
-// ===================== DEPENSES =====================
-const Depenses = {
-  renderTable() {
-    const filter = App.filters.dep;
-    const all = Data.getAllDeps();
-    const catColors = Data.getCatColors();
-    const totS = all.filter(d => d.dept === 'SUSHI').reduce((s,d) => s + d.montant, 0);
-    const totB = all.filter(d => d.dept === 'BAR').reduce((s,d) => s + d.montant, 0);
-    const totC = all.filter(d => d.dept === 'CHICHA').reduce((s,d) => s + d.montant, 0);
-
-    this._set('dep-tot', Data.fmt(totS + totB + totC));
-    this._set('dep-s', Data.fmt(totS));
-    this._set('dep-b', Data.fmt(totB));
-    this._set('dep-c', Data.fmt(totC));
-
-    let list = filter === 'all' ? all : all.filter(d => d.dept === filter);
-    list = list.slice().sort((a,b) => b.date.localeCompare(a.date));
-
-    const tb = document.getElementById('dep-table');
-    if (!tb) return;
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Aucune dépense</td></tr>'; return; }
-
-    tb.innerHTML = list.map(d => `
-      <tr>
-        <td class="nowrap">${Data.fmtDs(d.date)}</td>
-        <td>${d.label}</td>
-        <td><span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${catColors[d.groupe||'Autres']||'#888'}22;color:${catColors[d.groupe||'Autres']||'#888'};font-weight:600">${d.groupe || 'Autres'}</span></td>
-        <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
-        <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
-      </tr>`).join('');
-  },
-  _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
-};
-
-// ===================== ANALYSE =====================
 const Analyse = {
   render() {
     const filter = App.filters.an;
-    const all = Data.getAllDeps();
+    const all = App.filterByDate(Data.getAllDeps());
     const fil = filter === 'all' ? all : all.filter(d => d.dept === filter);
     const tot = fil.reduce((s,d) => s + d.montant, 0);
     const catColors = Data.getCatColors();
