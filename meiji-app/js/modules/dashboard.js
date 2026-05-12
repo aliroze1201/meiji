@@ -108,8 +108,11 @@ const Dashboard = {
     this._set('dash-' + pfx + '-chq', Data.fmts(jj.reduce((s,j) => s + j[k].chq, 0)) + ' FCFA');
     this._set('dash-' + pfx + '-mob', Data.fmts(jj.reduce((s,j) => s + j[k].mob, 0)) + ' FCFA');
     this._set('dash-' + pfx + '-cred', Data.fmts(jj.reduce((s,j) => s + j[k].cred, 0)) + ' FCFA');
-    const last = jj[0];
-    const resteKey = { cs: 'cs', cb: 'cb', cc: 'cc' }[pfx];
-    this._set('dash-' + pfx + '-reste', Data.fmts(last ? (last[resteKey] || 0) : 0) + ' FCFA');
+    // Caisse restante = solde espèces cumulé en fin de période filtrée
+    const lastDate = jj.length
+      ? jj.map(j => j.date).sort().slice(-1)[0]
+      : null;
+    const reste = lastDate ? Data.cashEndOfDay(lastDate, k) : 0;
+    this._set('dash-' + pfx + '-reste', Data.fmts(reste) + ' FCFA');
   },
 };

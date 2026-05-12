@@ -325,6 +325,7 @@ const App = {
       Mobile.restore(),
       Employes.restore(),
       (typeof Clotures !== 'undefined' ? Clotures.restore() : Promise.resolve()),
+      (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
     .then(() => this.renderAll())
