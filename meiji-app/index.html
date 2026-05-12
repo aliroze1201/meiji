@@ -43,6 +43,7 @@
     <div class="nav-item" data-page="credits"><i class="ti ti-receipt-2"></i><span class="label">Crédits clients</span></div>
     <div class="nav-item" data-page="fournisseurs"><i class="ti ti-truck-delivery"></i><span class="label">Fournisseurs</span></div>
     <div class="nav-item" data-page="bilan"><i class="ti ti-report-analytics"></i><span class="label">Bilan</span></div>
+    <div class="nav-item" data-page="clotures"><i class="ti ti-calendar-check"></i><span class="label">Clôtures</span></div>
 
     <div class="sb-section">Administration</div>
     <div class="nav-item" id="nav-users" data-page="utilisateurs" style="display:none"><i class="ti ti-user-shield"></i><span class="label">Utilisateurs</span></div>
@@ -646,6 +647,41 @@
       </div>
     </div>
 
+    <!-- CLOTURES -->
+    <div class="page" id="page-clotures">
+      <div class="period-bar">
+        <span class="period-bar-title"><i class="ti ti-calendar-check"></i> Clôtures mensuelles</span>
+        <button class="btn btn-primary" id="btn-new-clo" onclick="Clotures.openCloturerModal()"><i class="ti ti-lock"></i> Clôturer un mois</button>
+      </div>
+      <div class="content">
+        <div class="g4">
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-calendar"></i> Mois clôturés</div><div class="mc-val blue" id="clo-nb">0</div></div>
+          <div class="mc"><div class="mc-label"><i class="ti ti-trending-up"></i> CA cumulé</div><div class="mc-val" id="clo-ca">0 FCFA</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-trending-down"></i> Charges cumulées</div><div class="mc-val red" id="clo-charges">0 FCFA</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-coin"></i> Résultat net cumulé</div><div class="mc-val green" id="clo-net">0 FCFA</div></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)">
+            <span class="card-title"><i class="ti ti-history"></i> Historique des clôtures</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr>
+                <th>Mois</th>
+                <th class="text-right">CA</th>
+                <th class="text-right">Charges</th>
+                <th class="text-right">Résultat</th>
+                <th>Volume</th>
+                <th>Clôturé</th>
+                <th>Actions</th>
+              </tr></thead>
+              <tbody id="clo-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="page-utilisateurs">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-user-shield"></i> Utilisateurs &amp; rôles</span></div>
       <div class="content">
@@ -735,6 +771,7 @@
 <script src="js/modules/suivi.js?v=20260510n"></script>
 <script src="js/modules/fournisseurs.js?v=20260510n"></script>
 <script src="js/modules/bilan.js?v=20260510n"></script>
+<script src="js/modules/clotures.js?v=20260510n"></script>
 <script src="js/modules/utilisateurs.js?v=20260510n"></script>
 <script src="js/main.js?v=20260510n"></script>
 </body>

@@ -188,6 +188,14 @@ const Depenses = {
       return;
     }
 
+    if (typeof Clotures !== 'undefined') {
+      const blocked = this.drafts.find(d => Clotures.isMonthClosed(d.date));
+      if (blocked) {
+        alert(`🔒 Impossible : la dépense du ${Data.fmtD(blocked.date)} appartient au mois de ${Clotures.monthLabel(Clotures.ymOf(blocked.date))}, qui est clôturé.`);
+        return;
+      }
+    }
+
     if (!confirm(`Valider ${this.drafts.length} dépense(s) ? Elles seront ajoutées à l'historique.`)) return;
 
     this.drafts.forEach(d => {
@@ -212,13 +220,14 @@ const Depenses = {
   },
 
   remove(userId) {
-    if (!confirm('Supprimer cette dépense ?')) return;
     const idx = Data.histDep.findIndex(d => d.userId === userId);
-    if (idx >= 0) {
-      Data.histDep.splice(idx, 1);
-      this.persist();
-      App.renderAll();
-    }
+    if (idx < 0) return;
+    const dep = Data.histDep[idx];
+    if (typeof Clotures !== 'undefined' && Clotures.guard(dep.date, 'La suppression de cette dépense')) return;
+    if (!confirm('Supprimer cette dépense ?')) return;
+    Data.histDep.splice(idx, 1);
+    this.persist();
+    App.renderAll();
   },
 
   // ===================== PERSISTANCE LOCALE =====================

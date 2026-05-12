@@ -25,11 +25,11 @@ const Auth = {
     return email.endsWith(this.USER_DOMAIN) ? email.slice(0, -this.USER_DOMAIN.length) : email;
   },
 
-  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
+  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan','clotures'],
 
   ROLE_PERMISSIONS: {
     admin:       ['*'],
-    responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
+    responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan','clotures'],
     gerant:      ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','bilan'],
     // 'utilisateurs' réservé à admin (couvert par '*')
     caissier:    ['dashboard','pointage','recettes','depenses'],

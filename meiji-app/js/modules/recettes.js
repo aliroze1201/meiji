@@ -242,6 +242,14 @@ const Recettes = {
   commitDrafts() {
     if (!this.drafts.length) return alert('Aucune saisie à valider.');
 
+    if (typeof Clotures !== 'undefined') {
+      const blocked = this.drafts.find(d => d.date && this._draftTotal(d) && Clotures.isMonthClosed(d.date));
+      if (blocked) {
+        alert(`🔒 Impossible : la journée du ${Data.fmtD(blocked.date)} appartient au mois de ${Clotures.monthLabel(Clotures.ymOf(blocked.date))}, qui est clôturé.`);
+        return;
+      }
+    }
+
     const invalid = this.drafts.filter(d => !d.date || !this._draftTotal(d)).length;
     if (invalid) {
       if (!confirm(`${invalid} journée(s) sans date ou sans montant. Continuer quand même (ces lignes seront ignorées) ?`)) return;
