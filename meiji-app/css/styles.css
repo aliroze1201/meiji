@@ -12,22 +12,22 @@
 
 /* =====================  TOKENS — LIGHT  ===================== */
 :root {
-  /* Brand accents — palette pimpée : indigo électrique, émeraude, orange citrouille, rose framboise */
-  --c-primary:    #4F46E5;   /* indigo électrique — actions, focus */
-  --c-primary-2:  #4338CA;
-  --c-primary-soft:#EEF2FF;
+  /* Brand accents — inspiré Zra : orange vif sur fond sombre, esprit corporate */
+  --c-primary:    #F97316;   /* orange Zra — actions, CTAs */
+  --c-primary-2:  #EA580C;
+  --c-primary-soft:#FFF7ED;
 
   --c-success:    #10B981;
   --c-success-2:  #059669;
   --c-success-soft:#D1FAE5;
 
-  --c-danger:     #F43F5E;   /* rose framboise plus saturé */
-  --c-danger-2:   #E11D48;
-  --c-danger-soft:#FFE4E6;
+  --c-danger:     #DC2626;
+  --c-danger-2:   #B91C1C;
+  --c-danger-soft:#FEE2E2;
 
-  --c-warning:    #F97316;   /* orange citrouille plus punchy */
-  --c-warning-2:  #EA580C;
-  --c-warning-soft:#FFF7ED;
+  --c-warning:    #F59E0B;   /* ambre doré, distinct du primary orange */
+  --c-warning-2:  #D97706;
+  --c-warning-soft:#FEF3C7;
 
   --c-purple:     #8B5CF6;
   --c-purple-soft:#F3E8FF;
@@ -38,20 +38,30 @@
   --c-pink:       #EC4899;
   --c-pink-soft:  #FCE7F3;
 
-  /* Caisses (catégorisation SUSHI/BAR/CHICHA — couleurs vibrantes) */
-  --c-sushi:      #4F46E5;    /* indigo électrique */
-  --c-sushi-soft: #EEF2FF;
-  --c-bar:        #10B981;    /* émeraude */
+  /* Caisses */
+  --c-sushi:      #2563EB;    /* bleu corporate */
+  --c-sushi-soft: #DBEAFE;
+  --c-bar:        #10B981;    /* vert */
   --c-bar-soft:   #D1FAE5;
-  --c-chicha:     #F97316;    /* orange citrouille */
+  --c-chicha:     #F97316;    /* orange (cohérent avec primary) */
   --c-chicha-soft:#FFF7ED;
 
-  /* Gradients de marque — utilisés ponctuellement sur boutons primary et tags caisses */
-  --grad-primary: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
-  --grad-sushi:   linear-gradient(135deg, #6366F1 0%, #4338CA 100%);
-  --grad-bar:     linear-gradient(135deg, #10B981 0%, #047857 100%);
+  /* Sidebar sombre (toujours en clair ET en sombre) — esprit Zra */
+  --c-sb-bg:      #1F2937;     /* slate-800 */
+  --c-sb-bg-2:    #111827;     /* slate-900 pour le logo */
+  --c-sb-text:    #E5E7EB;
+  --c-sb-muted:   #9CA3AF;
+  --c-sb-border:  #374151;
+  --c-sb-hover:   rgba(255,255,255,.06);
+  --c-sb-active-bg: rgba(249,115,22,.12);
+  --c-sb-active-fg: #FB923C;
+
+  /* Gradients */
+  --grad-primary: linear-gradient(135deg, #FB923C 0%, #EA580C 100%);
+  --grad-sushi:   linear-gradient(135deg, #60A5FA 0%, #2563EB 100%);
+  --grad-bar:     linear-gradient(135deg, #34D399 0%, #059669 100%);
   --grad-chicha:  linear-gradient(135deg, #FB923C 0%, #EA580C 100%);
-  --grad-danger:  linear-gradient(135deg, #FB7185 0%, #E11D48 100%);
+  --grad-danger:  linear-gradient(135deg, #F87171 0%, #B91C1C 100%);
 
   /* Alias historiques (compat avec les modules JS) */
   --c-red:        var(--c-danger);
@@ -113,21 +123,21 @@
 
 /* =====================  TOKENS — DARK  ===================== */
 :root[data-theme="dark"] {
-  --c-primary:    #818CF8;   /* indigo plus clair pour fonds sombres */
-  --c-primary-2:  #6366F1;
-  --c-primary-soft:rgba(129,140,248,.16);
+  --c-primary:    #FB923C;   /* orange Zra, plus clair en dark */
+  --c-primary-2:  #F97316;
+  --c-primary-soft:rgba(251,146,60,.18);
 
   --c-success:    #34D399;
   --c-success-2:  #10B981;
   --c-success-soft:rgba(52,211,153,.16);
 
-  --c-danger:     #FB7185;
-  --c-danger-2:   #F43F5E;
-  --c-danger-soft:rgba(251,113,133,.16);
+  --c-danger:     #F87171;
+  --c-danger-2:   #DC2626;
+  --c-danger-soft:rgba(248,113,113,.16);
 
-  --c-warning:    #FB923C;
-  --c-warning-2:  #F97316;
-  --c-warning-soft:rgba(251,146,60,.16);
+  --c-warning:    #FBBF24;
+  --c-warning-2:  #F59E0B;
+  --c-warning-soft:rgba(251,191,36,.16);
 
   --c-purple:     #A78BFA;
   --c-purple-soft:rgba(167,139,250,.18);
@@ -138,18 +148,28 @@
   --c-pink:       #F472B6;
   --c-pink-soft:  rgba(244,114,182,.18);
 
-  --c-sushi:      #818CF8;
-  --c-sushi-soft: rgba(129,140,248,.16);
+  --c-sushi:      #60A5FA;
+  --c-sushi-soft: rgba(96,165,250,.16);
   --c-bar:        #34D399;
   --c-bar-soft:   rgba(52,211,153,.16);
   --c-chicha:     #FB923C;
-  --c-chicha-soft:rgba(251,146,60,.16);
+  --c-chicha-soft:rgba(251,146,60,.18);
 
-  --grad-primary: linear-gradient(135deg, #818CF8 0%, #6366F1 100%);
-  --grad-sushi:   linear-gradient(135deg, #818CF8 0%, #4F46E5 100%);
+  /* En dark, la sidebar reste sombre, presque-noire (encore plus profonde) */
+  --c-sb-bg:      #0F1419;
+  --c-sb-bg-2:    #050709;
+  --c-sb-text:    #E5E7EB;
+  --c-sb-muted:   #6B7280;
+  --c-sb-border:  #1F2937;
+  --c-sb-hover:   rgba(255,255,255,.04);
+  --c-sb-active-bg: rgba(251,146,60,.14);
+  --c-sb-active-fg: #FB923C;
+
+  --grad-primary: linear-gradient(135deg, #FB923C 0%, #EA580C 100%);
+  --grad-sushi:   linear-gradient(135deg, #60A5FA 0%, #2563EB 100%);
   --grad-bar:     linear-gradient(135deg, #34D399 0%, #059669 100%);
   --grad-chicha:  linear-gradient(135deg, #FB923C 0%, #C2410C 100%);
-  --grad-danger:  linear-gradient(135deg, #FB7185 0%, #BE123C 100%);
+  --grad-danger:  linear-gradient(135deg, #F87171 0%, #B91C1C 100%);
 
   --c-bg:         #0A0B0D;
   --c-bg-2:       #0F1115;
@@ -234,9 +254,10 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* =====================  SIDEBAR  ===================== */
+/* SIDEBAR — sombre permanente (esprit Zra), même en thème clair */
 .sidebar {
-  background: var(--c-surface);
-  border-right: 1px solid var(--c-border);
+  background: var(--c-sb-bg);
+  border-right: 1px solid var(--c-sb-border);
   display: flex;
   flex-direction: column;
   padding: var(--s-4) var(--s-3) var(--s-3);
@@ -250,41 +271,43 @@ a { color: inherit; text-decoration: none; }
   gap: var(--s-3);
   padding: var(--s-1) var(--s-2) var(--s-4);
   margin-bottom: var(--s-3);
-  border-bottom: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-sb-border);
 }
 .sb-logo-mark {
-  width: 34px; height: 34px;
-  border-radius: var(--r-md);
+  width: 38px; height: 38px;
+  border-radius: var(--r-sm);
   background: var(--grad-primary);
   display: grid;
   place-items: center;
   color: #FFFFFF;
-  font-size: 17px;
+  font-size: 18px;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(79,70,229,.32), inset 0 1px 0 rgba(255,255,255,.16);
+  box-shadow: 0 4px 14px rgba(249,115,22,.40), inset 0 1px 0 rgba(255,255,255,.20);
 }
 .sb-logo-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
 .sb-logo-name {
   font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--c-text);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #FFFFFF;
 }
 .sb-logo-sub {
-  font-size: 11px;
-  color: var(--c-muted);
-  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--c-sb-muted);
+  margin-top: 3px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .sb-section {
-  font-size: 10.5px;
-  color: var(--c-muted);
+  font-size: 10px;
+  color: var(--c-sb-muted);
   padding: var(--s-4) var(--s-3) var(--s-2);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .sb-section:first-of-type { padding-top: 0; }
@@ -292,46 +315,48 @@ a { color: inherit; text-decoration: none; }
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
+  gap: 11px;
+  padding: 9px 12px;
   border-radius: var(--r-sm);
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--c-text-2);
+  color: var(--c-sb-text);
   cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
   user-select: none;
   position: relative;
 }
 .nav-item .ti {
-  font-size: 17px;
-  color: var(--c-muted);
+  font-size: 18px;
+  color: var(--c-sb-muted);
   transition: color var(--t-fast);
   flex-shrink: 0;
 }
 .nav-item .label {
   font-weight: 500;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
 }
 .nav-item:hover {
-  background: var(--c-bg-2);
-  color: var(--c-text);
+  background: var(--c-sb-hover);
+  color: #FFFFFF;
 }
-.nav-item:hover .ti { color: var(--c-text); }
+.nav-item:hover .ti { color: #FFFFFF; }
 .nav-item.active {
-  background: var(--c-primary-soft);
-  color: var(--c-primary);
+  background: var(--c-sb-active-bg);
+  color: var(--c-sb-active-fg);
+  font-weight: 600;
 }
-.nav-item.active .ti { color: var(--c-primary); }
+.nav-item.active .ti { color: var(--c-sb-active-fg); }
 .nav-item.active::before {
   content: '';
   position: absolute;
   left: -3px;
-  top: 7px;
-  bottom: 7px;
-  width: 2px;
-  background: var(--c-primary);
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  background: var(--c-sb-active-fg);
   border-radius: 999px;
+  box-shadow: 0 0 12px rgba(251,146,60,.6);
 }
 
 /* =====================  TOPBAR  ===================== */
