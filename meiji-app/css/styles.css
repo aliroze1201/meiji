@@ -12,39 +12,46 @@
 
 /* =====================  TOKENS — LIGHT  ===================== */
 :root {
-  /* Brand accents — réservés aux signaux, jamais aux fonds entiers */
-  --c-primary:    #2563EB;   /* bleu primaire — actions, focus */
-  --c-primary-2:  #1D4ED8;
-  --c-primary-soft:#EFF6FF;
+  /* Brand accents — palette pimpée : indigo électrique, émeraude, orange citrouille, rose framboise */
+  --c-primary:    #4F46E5;   /* indigo électrique — actions, focus */
+  --c-primary-2:  #4338CA;
+  --c-primary-soft:#EEF2FF;
 
   --c-success:    #10B981;
   --c-success-2:  #059669;
-  --c-success-soft:#ECFDF5;
+  --c-success-soft:#D1FAE5;
 
-  --c-danger:     #EF4444;
-  --c-danger-2:   #DC2626;
-  --c-danger-soft:#FEF2F2;
+  --c-danger:     #F43F5E;   /* rose framboise plus saturé */
+  --c-danger-2:   #E11D48;
+  --c-danger-soft:#FFE4E6;
 
-  --c-warning:    #F59E0B;
-  --c-warning-2:  #D97706;
-  --c-warning-soft:#FFFBEB;
+  --c-warning:    #F97316;   /* orange citrouille plus punchy */
+  --c-warning-2:  #EA580C;
+  --c-warning-soft:#FFF7ED;
 
-  --c-purple:     #7C3AED;
-  --c-purple-soft:#F5F3FF;
+  --c-purple:     #8B5CF6;
+  --c-purple-soft:#F3E8FF;
 
-  --c-teal:       #0D9488;
-  --c-teal-soft:  #F0FDFA;
+  --c-teal:       #14B8A6;
+  --c-teal-soft:  #CCFBF1;
 
-  --c-pink:       #DB2777;
-  --c-pink-soft:  #FDF2F8;
+  --c-pink:       #EC4899;
+  --c-pink-soft:  #FCE7F3;
 
-  /* Caisses (utilisées seulement pour catégoriser SUSHI/BAR/CHICHA) */
-  --c-sushi:      #2563EB;    /* bleu */
-  --c-sushi-soft: #EFF6FF;
-  --c-bar:        #10B981;    /* vert */
-  --c-bar-soft:   #ECFDF5;
-  --c-chicha:     #F59E0B;    /* ambre */
-  --c-chicha-soft:#FFFBEB;
+  /* Caisses (catégorisation SUSHI/BAR/CHICHA — couleurs vibrantes) */
+  --c-sushi:      #4F46E5;    /* indigo électrique */
+  --c-sushi-soft: #EEF2FF;
+  --c-bar:        #10B981;    /* émeraude */
+  --c-bar-soft:   #D1FAE5;
+  --c-chicha:     #F97316;    /* orange citrouille */
+  --c-chicha-soft:#FFF7ED;
+
+  /* Gradients de marque — utilisés ponctuellement sur boutons primary et tags caisses */
+  --grad-primary: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  --grad-sushi:   linear-gradient(135deg, #6366F1 0%, #4338CA 100%);
+  --grad-bar:     linear-gradient(135deg, #10B981 0%, #047857 100%);
+  --grad-chicha:  linear-gradient(135deg, #FB923C 0%, #EA580C 100%);
+  --grad-danger:  linear-gradient(135deg, #FB7185 0%, #E11D48 100%);
 
   /* Alias historiques (compat avec les modules JS) */
   --c-red:        var(--c-danger);
@@ -82,7 +89,7 @@
   --sh-xl: 0 16px 48px rgba(15,23,42,.12), 0 4px 8px rgba(15,23,42,.06);
 
   /* Focus ring */
-  --focus-ring: 0 0 0 3px rgba(37,99,235,.18);
+  --focus-ring: 0 0 0 3px rgba(79,70,229,.22);
 
   /* Spacing */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
@@ -106,37 +113,43 @@
 
 /* =====================  TOKENS — DARK  ===================== */
 :root[data-theme="dark"] {
-  --c-primary:    #3B82F6;
-  --c-primary-2:  #2563EB;
-  --c-primary-soft:rgba(59,130,246,.12);
+  --c-primary:    #818CF8;   /* indigo plus clair pour fonds sombres */
+  --c-primary-2:  #6366F1;
+  --c-primary-soft:rgba(129,140,248,.16);
 
   --c-success:    #34D399;
   --c-success-2:  #10B981;
-  --c-success-soft:rgba(52,211,153,.12);
+  --c-success-soft:rgba(52,211,153,.16);
 
-  --c-danger:     #F87171;
-  --c-danger-2:   #EF4444;
-  --c-danger-soft:rgba(248,113,113,.12);
+  --c-danger:     #FB7185;
+  --c-danger-2:   #F43F5E;
+  --c-danger-soft:rgba(251,113,133,.16);
 
-  --c-warning:    #FBBF24;
-  --c-warning-2:  #F59E0B;
-  --c-warning-soft:rgba(251,191,36,.12);
+  --c-warning:    #FB923C;
+  --c-warning-2:  #F97316;
+  --c-warning-soft:rgba(251,146,60,.16);
 
   --c-purple:     #A78BFA;
-  --c-purple-soft:rgba(167,139,250,.14);
+  --c-purple-soft:rgba(167,139,250,.18);
 
   --c-teal:       #2DD4BF;
-  --c-teal-soft:  rgba(45,212,191,.12);
+  --c-teal-soft:  rgba(45,212,191,.16);
 
   --c-pink:       #F472B6;
-  --c-pink-soft:  rgba(244,114,182,.14);
+  --c-pink-soft:  rgba(244,114,182,.18);
 
-  --c-sushi:      #3B82F6;
-  --c-sushi-soft: rgba(59,130,246,.14);
+  --c-sushi:      #818CF8;
+  --c-sushi-soft: rgba(129,140,248,.16);
   --c-bar:        #34D399;
-  --c-bar-soft:   rgba(52,211,153,.14);
-  --c-chicha:     #FBBF24;
-  --c-chicha-soft:rgba(251,191,36,.14);
+  --c-bar-soft:   rgba(52,211,153,.16);
+  --c-chicha:     #FB923C;
+  --c-chicha-soft:rgba(251,146,60,.16);
+
+  --grad-primary: linear-gradient(135deg, #818CF8 0%, #6366F1 100%);
+  --grad-sushi:   linear-gradient(135deg, #818CF8 0%, #4F46E5 100%);
+  --grad-bar:     linear-gradient(135deg, #34D399 0%, #059669 100%);
+  --grad-chicha:  linear-gradient(135deg, #FB923C 0%, #C2410C 100%);
+  --grad-danger:  linear-gradient(135deg, #FB7185 0%, #BE123C 100%);
 
   --c-bg:         #0A0B0D;
   --c-bg-2:       #0F1115;
@@ -157,7 +170,7 @@
   --sh-lg: 0 8px 24px rgba(0,0,0,.55), 0 2px 4px rgba(0,0,0,.4);
   --sh-xl: 0 16px 48px rgba(0,0,0,.65), 0 4px 8px rgba(0,0,0,.5);
 
-  --focus-ring: 0 0 0 3px rgba(59,130,246,.28);
+  --focus-ring: 0 0 0 3px rgba(129,140,248,.32);
 }
 
 /* =====================  BASE  ===================== */
@@ -242,13 +255,13 @@ a { color: inherit; text-decoration: none; }
 .sb-logo-mark {
   width: 34px; height: 34px;
   border-radius: var(--r-md);
-  background: var(--c-primary);
+  background: var(--grad-primary);
   display: grid;
   place-items: center;
   color: #FFFFFF;
   font-size: 17px;
   flex-shrink: 0;
-  box-shadow: 0 1px 2px rgba(37,99,235,.20);
+  box-shadow: 0 2px 8px rgba(79,70,229,.32), inset 0 1px 0 rgba(255,255,255,.16);
 }
 .sb-logo-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
 .sb-logo-name {
@@ -567,17 +580,35 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--c-border);
   border-radius: var(--r-xl);
   padding: var(--s-5);
+  padding-left: calc(var(--s-5) + 4px);
   display: flex;
   flex-direction: column;
   gap: 6px;
   position: relative;
   overflow: hidden;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.mc::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 12px; bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--c-border);
+  transition: background var(--t-fast), width var(--t-fast);
 }
 .mc:hover {
-  border-color: var(--c-border);
-  box-shadow: var(--sh-sm);
+  border-color: color-mix(in srgb, var(--c-primary) 30%, var(--c-border));
+  box-shadow: var(--sh-md);
+  transform: translateY(-1px);
 }
+.mc:hover::before { width: 4px; }
+.mc.blue::before   { background: var(--c-primary); }
+.mc.green::before  { background: var(--c-success); }
+.mc.red::before    { background: var(--c-danger); }
+.mc.amber::before  { background: var(--c-warning); }
+.mc.purple::before { background: var(--c-purple); }
+.mc.teal::before   { background: var(--c-teal); }
 
 .mc-label {
   font-size: 11px;
@@ -815,34 +846,39 @@ tbody tr.row-total td {
 }
 
 .btn-primary {
-  background: var(--c-primary);
-  border-color: var(--c-primary);
+  background: var(--grad-primary);
+  border-color: var(--c-primary-2);
   color: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(37,99,235,.20);
+  box-shadow: 0 1px 2px rgba(79,70,229,.30), inset 0 1px 0 rgba(255,255,255,.10);
 }
 .btn-primary:hover {
-  background: var(--c-primary-2);
-  border-color: var(--c-primary-2);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 12px rgba(79,70,229,.35), inset 0 1px 0 rgba(255,255,255,.12);
+  transform: translateY(-1px);
 }
 
 .btn-success {
-  background: var(--c-success);
-  border-color: var(--c-success);
+  background: var(--grad-bar);
+  border-color: var(--c-success-2);
   color: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(16,185,129,.28), inset 0 1px 0 rgba(255,255,255,.10);
 }
 .btn-success:hover {
-  background: var(--c-success-2);
-  border-color: var(--c-success-2);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 12px rgba(16,185,129,.32), inset 0 1px 0 rgba(255,255,255,.12);
+  transform: translateY(-1px);
 }
 
 .btn-danger {
-  background: var(--c-danger);
-  border-color: var(--c-danger);
+  background: var(--grad-danger);
+  border-color: var(--c-danger-2);
   color: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(244,63,94,.28), inset 0 1px 0 rgba(255,255,255,.10);
 }
 .btn-danger:hover {
-  background: var(--c-danger-2);
-  border-color: var(--c-danger-2);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 12px rgba(244,63,94,.32), inset 0 1px 0 rgba(255,255,255,.12);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
