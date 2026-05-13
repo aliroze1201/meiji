@@ -41,7 +41,7 @@ const Depenses = {
 
     const tb = document.getElementById('dep-table');
     if (!tb) return;
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Aucune dépense</td></tr>'; return; }
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Aucune dépense</td></tr>'; return; }
 
     const dash = '<span style="color:var(--c-muted)">—</span>';
     tb.innerHTML = list.map(d => {
@@ -52,6 +52,14 @@ const Depenses = {
       const deleteBtn = d.userId
         ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
         : '';
+      const pay = d.paiement || (Data.isCashDep(d) ? 'esp' : 'banque');
+      const payCell = d.userId
+        ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${d.userId}, this.value)" style="font-size:12px">
+             <option value="esp"    ${pay==='esp'   ?'selected':''}>💵 Espèces</option>
+             <option value="banque" ${pay==='banque'?'selected':''}>🏦 Banque</option>
+             <option value="mobile" ${pay==='mobile'?'selected':''}>📱 Mobile</option>
+           </select>`
+        : `<span style="font-size:11px;color:var(--c-muted)">${pay==='esp'?'💵 Espèces':pay==='banque'?'🏦 Banque':'📱 Mobile'}</span>`;
       return `
       <tr>
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
@@ -60,10 +68,25 @@ const Depenses = {
         <td class="text-right">${d.prix != null ? Data.fmts(d.prix) : dash}</td>
         <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
         <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
+        <td>${payCell}</td>
         <td>${obsCell}</td>
         <td>${deleteBtn}</td>
       </tr>`;
     }).join('');
+  },
+
+  // Met à jour le mode de paiement d'une dépense utilisateur déjà validée.
+  updatePaiement(userId, value) {
+    const d = Data.histDep.find(x => x.userId === userId);
+    if (!d) return;
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(d.date)) {
+      alert('🔒 Mois clôturé : modification impossible.');
+      App.renderAll();
+      return;
+    }
+    d.paiement = value;
+    this.persist();
+    App.renderAll();
   },
 
   _escape(str) {
@@ -81,6 +104,7 @@ const Depenses = {
       prix: '',
       montant: '',
       obs: '',
+      paiement: 'esp',
     };
   },
 
@@ -162,6 +186,12 @@ const Depenses = {
         <td><input type="number" class="fld-montant montant" min="0" step="1" placeholder="0"
               value="${this._escape(d.montant)}"
               oninput="Depenses.updateDraft(${d.id},'montant',this.value)"></td>
+        <td><select class="fld-pay"
+              onchange="Depenses.updateDraft(${d.id},'paiement',this.value)">
+              <option value="esp"    ${(d.paiement||'esp')==='esp'   ?'selected':''}>💵 Espèces</option>
+              <option value="banque" ${d.paiement==='banque'?'selected':''}>🏦 Banque</option>
+              <option value="mobile" ${d.paiement==='mobile'?'selected':''}>📱 Mobile</option>
+            </select></td>
         <td><input type="text" class="fld-obs" placeholder="Observation"
               value="${this._escape(d.obs)}"
               oninput="Depenses.updateDraft(${d.id},'obs',this.value)"></td>
@@ -210,6 +240,7 @@ const Depenses = {
         prix:   parseFloat(d.prix) || null,
         montant: parseFloat(d.montant),
         observation: d.obs || null,
+        paiement: d.paiement || 'esp',
       });
     });
 
@@ -278,6 +309,7 @@ const Depenses = {
       'Quantité':     d.qte != null ? d.qte : '',
       'Prix unitaire': d.prix != null ? d.prix : '',
       'Montant':      d.montant,
+      'Mode':         d.paiement || (Data.isCashDep(d) ? 'esp' : 'banque'),
       'Observation':  d.observation || d.label || '',
       'ID':           d.userId || '',
     }));
@@ -288,7 +320,7 @@ const Depenses = {
     // Largeurs de colonnes
     ws['!cols'] = [
       { wch: 12 }, { wch: 12 }, { wch: 22 },
-      { wch: 9 },  { wch: 13 }, { wch: 14 }, { wch: 40 }, { wch: 8 },
+      { wch: 9 },  { wch: 13 }, { wch: 14 }, { wch: 10 }, { wch: 40 }, { wch: 8 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Dépenses');
@@ -311,6 +343,8 @@ const Depenses = {
           const id = parseInt(r['ID']);
           if (!id) return;
           const cat = String(r['Catégorie'] || 'Autres');
+          const payRaw = String(r['Mode'] || '').toLowerCase().trim();
+          const pay = ['esp','banque','mobile'].includes(payRaw) ? payRaw : 'esp';
           imported.push({
             userId: id,
             date:   String(r['Date'] || '').slice(0, 10),
@@ -321,6 +355,7 @@ const Depenses = {
             prix:   r['Prix unitaire'] !== '' ? Number(r['Prix unitaire']) : null,
             montant: Number(r['Montant']) || 0,
             observation: String(r['Observation'] || '') || null,
+            paiement: pay,
           });
         });
 

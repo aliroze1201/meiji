@@ -155,13 +155,25 @@ const Data = {
   },
   // Dépenses espèces d'une caisse sur une date.
   // Source unique : getAllDeps() (= histDep + j.deps[]), comme le dashboard.
-  // ⚠️  Les champs legacy j.ds/db/dc des seeds ne sont PAS utilisés ici
-  //     pour éviter le double-comptage.
+  // Seules les dépenses dont paiement = 'esp' (par défaut si non renseigné)
+  // sont déduites du cumul cash. Les paiements banque/mobile sortent du
+  // solde correspondant, pas des espèces.
   cashOutOnDate(date, k) {
     const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
     return this.getAllDeps()
-      .filter(d => d.date === date && d.dept === dept)
+      .filter(d => d.date === date && d.dept === dept && this.isCashDep(d))
       .reduce((s, d) => s + (d.montant || 0), 0);
+  },
+
+  // Renvoie true si la dépense est payée en espèces.
+  // Compat ascendante : si le champ paiement est absent, on infère via la
+  // catégorie (Salaires/Loyer → banque, sinon espèces) pour éviter de
+  // faire plonger artificiellement le cumul cash sur les anciens seeds.
+  isCashDep(d) {
+    if (d.paiement) return d.paiement === 'esp';
+    const g = String(d.groupe || d.label || '').toUpperCase();
+    if (g.includes('SALAIRE') || g.includes('LOYER') || g.includes('LOCATION')) return false;
+    return true;
   },
   // Toutes les dates portant un mouvement (journée ou dépense histo)
   _allCashDates() {
