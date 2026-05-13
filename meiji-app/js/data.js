@@ -166,14 +166,10 @@ const Data = {
   },
 
   // Renvoie true si la dépense est payée en espèces.
-  // Compat ascendante : si le champ paiement est absent, on infère via la
-  // catégorie (Salaires/Loyer → banque, sinon espèces) pour éviter de
-  // faire plonger artificiellement le cumul cash sur les anciens seeds.
+  // Par défaut (champ paiement absent) → espèces, car à ce jour toutes les
+  // dépenses du restaurant sont réglées en cash.
   isCashDep(d) {
-    if (d.paiement) return d.paiement === 'esp';
-    const g = String(d.groupe || d.label || '').toUpperCase();
-    if (g.includes('SALAIRE') || g.includes('LOYER') || g.includes('LOCATION')) return false;
-    return true;
+    return !d.paiement || d.paiement === 'esp';
   },
   // Toutes les dates portant un mouvement (journée ou dépense histo)
   _allCashDates() {

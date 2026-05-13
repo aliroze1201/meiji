@@ -52,7 +52,7 @@ const Depenses = {
       const deleteBtn = d.userId
         ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
         : '';
-      const pay = d.paiement || (Data.isCashDep(d) ? 'esp' : 'banque');
+      const pay = d.paiement || 'esp';
       const payCell = d.userId
         ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${d.userId}, this.value)" style="font-size:12px">
              <option value="esp"    ${pay==='esp'   ?'selected':''}>💵 Espèces</option>
@@ -309,7 +309,7 @@ const Depenses = {
       'Quantité':     d.qte != null ? d.qte : '',
       'Prix unitaire': d.prix != null ? d.prix : '',
       'Montant':      d.montant,
-      'Mode':         d.paiement || (Data.isCashDep(d) ? 'esp' : 'banque'),
+      'Mode':         d.paiement || 'esp',
       'Observation':  d.observation || d.label || '',
       'ID':           d.userId || '',
     }));
