@@ -31,6 +31,7 @@ const Pointage = {
       if (card.style.display !== 'none') this._fillSeedForm();
     });
     document.getElementById('btn-pt-seed-save')?.addEventListener('click', () => this.saveSeed());
+    document.getElementById('btn-pt-seed-auto')?.addEventListener('click', () => this.autoSeed());
 
     // Date par défaut = dernière journée saisie ou aujourd'hui
     const dateEl = document.getElementById('pt-date');
@@ -72,6 +73,45 @@ const Pointage = {
     const can = this.canEditSeed();
     ['pt-seed-date', 'pt-seed-s', 'pt-seed-b', 'pt-seed-c', 'btn-pt-seed-save']
       .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !can; });
+  },
+
+  // Calcule, pour chaque caisse, le solde minimal d'ouverture qui ramène
+  // tous les cumuls journaliers à zéro ou plus (= aucun jour négatif).
+  // Pratique pour caler le fondInit sans connaître l'historique exact du
+  // cash physiquement présent au démarrage de l'app.
+  async autoSeed() {
+    if (!this.canEditSeed()) {
+      alert('🔒 Seul un admin ou responsable peut modifier les soldes d\'ouverture.');
+      return;
+    }
+    // On ignore le fondInit en cours pour faire un calcul absolu : ce que
+    // l'utilisateur attend, c'est « combien aurait-il dû y avoir au départ ».
+    const seedDate = Data.fondInit?.date || null;
+    const dates = Data._allCashDates().filter(d => !seedDate || d >= seedDate);
+    const need = { s: 0, b: 0, c: 0 };
+    ['s', 'b', 'c'].forEach(k => {
+      let bal = 0;
+      let minBal = 0;
+      dates.forEach(d => {
+        bal += Data.cashInOnDate(d, k) - Data.cashOutOnDate(d, k);
+        if (bal < minBal) minBal = bal;
+      });
+      need[k] = Math.max(0, -minBal);
+    });
+    const labels = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+    const lines = ['Soldes d\'ouverture recommandés pour éviter tout cumul négatif :', ''];
+    ['s', 'b', 'c'].forEach(k => lines.push(`• ${labels[k]} : ${Data.fmt(need[k])}`));
+    lines.push('', 'Appliquer ces valeurs ?');
+    if (!confirm(lines.join('\n'))) return;
+    Data.fondInit = {
+      s: need.s, b: need.b, c: need.c,
+      date: seedDate || (Data._allCashDates()[0] || null),
+    };
+    await AppDB.save(this.SEED_KEY, Data.fondInit);
+    this._fillSeedForm();
+    this.render();
+    if (typeof App !== 'undefined') App.renderAll();
+    alert('✅ Soldes d\'ouverture mis à jour.');
   },
 
   async saveSeed() {
