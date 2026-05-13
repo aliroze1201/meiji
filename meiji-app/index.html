@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#F97316">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260513subcat">
+  <link rel="stylesheet" href="css/styles.css?v=20260513subcat2">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -577,8 +577,20 @@
     <div class="page" id="page-categories">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-tags"></i> Catégories</span>
         <button class="btn btn-primary" id="btn-new-cat"><i class="ti ti-plus"></i> Nouvelle catégorie</button>
+        <button class="btn" id="btn-new-subcat" title="Choisir un parent puis ajouter une sous-catégorie"><i class="ti ti-arrow-down-right"></i> Nouvelle sous-catégorie</button>
       </div>
       <div class="content">
+        <div class="card" style="background:var(--c-primary-soft);border-color:var(--c-primary);padding:12px 16px;margin-bottom:12px">
+          <div style="font-size:13px;color:var(--c-text);display:flex;align-items:flex-start;gap:10px">
+            <i class="ti ti-info-circle" style="font-size:18px;color:var(--c-primary);margin-top:2px"></i>
+            <div>
+              <b>Catégories &amp; sous-catégories.</b>
+              Clique <b>Nouvelle catégorie</b> pour créer une <b>catégorie racine</b> (laisse le champ « Parent » vide).
+              Pour créer une <b>sous-catégorie</b> : choisis un parent dans le menu déroulant du modal,
+              ou plus rapide — clique l'icône <b>➕</b> directement à droite d'une catégorie existante dans les listes ci-dessous.
+            </div>
+          </div>
+        </div>
         <div class="g2">
           <div class="card"><div class="card-header"><span class="card-title" style="color:var(--c-bar)"><i class="ti ti-arrow-down"></i> Recettes</span></div><div id="cat-rec"></div></div>
           <div class="card"><div class="card-header"><span class="card-title" style="color:var(--c-red)"><i class="ti ti-arrow-up"></i> Dépenses</span></div><div id="cat-dep"></div></div>
@@ -837,29 +849,29 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/config.js?v=20260513subcat"></script>
-<script src="js/auth.js?v=20260513subcat"></script>
-<script src="js/data.js?v=20260513subcat"></script>
-<script src="js/journees-db.js?v=20260513subcat"></script>
-<script src="js/app-db.js?v=20260513subcat"></script>
-<script src="js/charts.js?v=20260513subcat"></script>
-<script src="js/modules/dashboard.js?v=20260513subcat"></script>
-<script src="js/modules/pointage.js?v=20260513subcat"></script>
-<script src="js/modules/recettes.js?v=20260513subcat"></script>
-<script src="js/modules/depenses.js?v=20260513subcat"></script>
-<script src="js/modules/analyse.js?v=20260513subcat"></script>
-<script src="js/modules/banque.js?v=20260513subcat"></script>
-<script src="js/modules/mobile.js?v=20260513subcat"></script>
-<script src="js/modules/categories.js?v=20260513subcat"></script>
-<script src="js/modules/employes.js?v=20260513subcat"></script>
-<script src="js/modules/comptes-emp.js?v=20260513subcat"></script>
-<script src="js/modules/credits.js?v=20260513subcat"></script>
-<script src="js/modules/suivi.js?v=20260513subcat"></script>
-<script src="js/modules/fournisseurs.js?v=20260513subcat"></script>
-<script src="js/modules/stock.js?v=20260513subcat"></script>
-<script src="js/modules/bilan.js?v=20260513subcat"></script>
-<script src="js/modules/clotures.js?v=20260513subcat"></script>
-<script src="js/modules/utilisateurs.js?v=20260513subcat"></script>
-<script src="js/main.js?v=20260513subcat"></script>
+<script src="js/config.js?v=20260513subcat2"></script>
+<script src="js/auth.js?v=20260513subcat2"></script>
+<script src="js/data.js?v=20260513subcat2"></script>
+<script src="js/journees-db.js?v=20260513subcat2"></script>
+<script src="js/app-db.js?v=20260513subcat2"></script>
+<script src="js/charts.js?v=20260513subcat2"></script>
+<script src="js/modules/dashboard.js?v=20260513subcat2"></script>
+<script src="js/modules/pointage.js?v=20260513subcat2"></script>
+<script src="js/modules/recettes.js?v=20260513subcat2"></script>
+<script src="js/modules/depenses.js?v=20260513subcat2"></script>
+<script src="js/modules/analyse.js?v=20260513subcat2"></script>
+<script src="js/modules/banque.js?v=20260513subcat2"></script>
+<script src="js/modules/mobile.js?v=20260513subcat2"></script>
+<script src="js/modules/categories.js?v=20260513subcat2"></script>
+<script src="js/modules/employes.js?v=20260513subcat2"></script>
+<script src="js/modules/comptes-emp.js?v=20260513subcat2"></script>
+<script src="js/modules/credits.js?v=20260513subcat2"></script>
+<script src="js/modules/suivi.js?v=20260513subcat2"></script>
+<script src="js/modules/fournisseurs.js?v=20260513subcat2"></script>
+<script src="js/modules/stock.js?v=20260513subcat2"></script>
+<script src="js/modules/bilan.js?v=20260513subcat2"></script>
+<script src="js/modules/clotures.js?v=20260513subcat2"></script>
+<script src="js/modules/utilisateurs.js?v=20260513subcat2"></script>
+<script src="js/main.js?v=20260513subcat2"></script>
 </body>
 </html>
