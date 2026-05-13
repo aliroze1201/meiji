@@ -153,16 +153,15 @@ const Data = {
     const j = this.journees.find(x => x.date === date);
     return j ? (j[k]?.esp || 0) : 0;
   },
-  // Dépenses espèces d'une caisse sur une date (deps journée + histDep du dept)
+  // Dépenses espèces d'une caisse sur une date.
+  // Source unique : getAllDeps() (= histDep + j.deps[]), comme le dashboard.
+  // ⚠️  Les champs legacy j.ds/db/dc des seeds ne sont PAS utilisés ici
+  //     pour éviter le double-comptage.
   cashOutOnDate(date, k) {
     const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
-    const j = this.journees.find(x => x.date === date);
-    const dKey = { s: 'ds', b: 'db', c: 'dc' }[k];
-    const inJour = j ? (j[dKey] || 0) : 0;
-    const inHist = this.histDep
+    return this.getAllDeps()
       .filter(d => d.date === date && d.dept === dept)
       .reduce((s, d) => s + (d.montant || 0), 0);
-    return inJour + inHist;
   },
   // Toutes les dates portant un mouvement (journée ou dépense histo)
   _allCashDates() {
