@@ -57,6 +57,70 @@ const App = {
     if (tb) tb.textContent = titles[pageId] || 'MEIJI';
   },
 
+  // ===================== SYNCHRONISATION FORCÉE =====================
+  // Pousse toutes les données en mémoire vers Supabase. Utile pour rassurer
+  // l'utilisateur ou réparer une éventuelle désynchro silencieuse.
+  async syncAll() {
+    const btn = document.getElementById('btn-sync');
+    const icon = btn?.querySelector('i');
+    const origIcon = icon?.className;
+    if (icon) icon.className = 'ti ti-loader-2';
+    if (btn) btn.disabled = true;
+
+    if (typeof Config === 'undefined' || !Config.isAuthEnabled || !Config.isAuthEnabled()) {
+      alert('ℹ️ Mode public (sans Supabase) : tes données restent uniquement dans ce navigateur.');
+      if (icon) icon.className = origIcon;
+      if (btn) btn.disabled = false;
+      return;
+    }
+    if (typeof Auth === 'undefined' || !Auth.profile) {
+      alert('🔒 Tu n\'es pas connecté. Connecte-toi pour synchroniser avec le cloud.');
+      if (icon) icon.className = origIcon;
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    const report = [];
+    const tryStep = async (label, fn) => {
+      try { await fn(); report.push(`✅ ${label}`); }
+      catch (e) { console.error('Sync ' + label, e); report.push(`❌ ${label} : ${e.message || 'erreur'}`); }
+    };
+
+    // Modules basés sur app_state (AppDB.save direct, robuste)
+    if (typeof Depenses !== 'undefined' && Depenses.persist) await tryStep(
+      `${Data.histDep.filter(d => d.userId).length} dépense(s)`,
+      () => Depenses.persist()
+    );
+    if (typeof Banque   !== 'undefined' && Banque.save)   await tryStep('Banque (solde + mouvements)',         () => Banque.save());
+    if (typeof Mobile   !== 'undefined' && Mobile.save)   await tryStep('Mobile Money (solde + mouvements)',   () => Mobile.save());
+    if (typeof Suivi    !== 'undefined' && Suivi.persist) await tryStep(`${(Data.cheques||[]).length} chèque(s)`,   () => Suivi.persist());
+    if (typeof Credits  !== 'undefined' && Credits.persist) await tryStep(`${(Data.credits||[]).length} crédit(s)`,  () => Credits.persist());
+    if (typeof Employes !== 'undefined' && Employes.save)  await tryStep(`${(Data.employes||[]).length} employé(s)`, () => Employes.save());
+    if (typeof Clotures !== 'undefined' && Clotures.persist) await tryStep('Clôtures', () => Clotures.persist());
+    if (Data.fondInit && typeof Pointage !== 'undefined' && Pointage.SEED_KEY) {
+      await tryStep('Soldes d\'ouverture', () => AppDB.save(Pointage.SEED_KEY, Data.fondInit));
+    }
+
+    // Journées (Supabase table dédiée)
+    if (typeof JourneesDB !== 'undefined' && JourneesDB.enabled && JourneesDB.enabled()) {
+      const userJ = Data.journees.filter(j => j.userRec);
+      let okJ = 0, failJ = 0;
+      for (const j of userJ) {
+        try {
+          const ok = await JourneesDB.upsertOne(j);
+          if (ok) okJ++; else failJ++;
+        } catch { failJ++; }
+      }
+      report.push(failJ === 0
+        ? `✅ ${okJ} journée(s) validée(s)`
+        : `❌ Journées : ${okJ} OK / ${failJ} en échec`);
+    }
+
+    if (icon) icon.className = origIcon;
+    if (btn) btn.disabled = false;
+    alert('📤 Synchronisation Supabase\n\n' + report.join('\n'));
+  },
+
   // ===================== THEME =====================
   initTheme() {
     const saved = localStorage.getItem('meiji-theme');
@@ -311,6 +375,9 @@ const App = {
 
     // Theme
     this.initTheme();
+
+    // Synchronisation forcée vers Supabase
+    document.getElementById('btn-sync')?.addEventListener('click', () => this.syncAll());
 
     if (typeof Pointage !== 'undefined') Pointage.init();
 
