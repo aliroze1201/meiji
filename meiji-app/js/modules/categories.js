@@ -26,53 +26,72 @@ const Categories = {
   byId(id)         { return Data.categories.find(c => c.id === id); },
 
   // ===================== MODAL =====================
-  openModal(id) {
+  // Si parentIdHint est fourni, on ouvre le formulaire en mode "sous-catégorie"
+  // (parent verrouillé sur cette valeur). Sinon on ouvre en mode "catégorie".
+  // En édition, le mode est déduit du parentId existant.
+  openModal(id, parentIdHint = null) {
     this.editId = id;
     const c = id ? this.byId(id) : null;
     const isEdit = !!c;
+    const isSub  = isEdit ? !!c.parentId : (parentIdHint !== null);
+    // Le sentinel -1 signifie "mode sous-cat sans parent pré-sélectionné"
+    const effectiveParentHint = (parentIdHint === -1) ? null : parentIdHint;
 
-    // Parents possibles : tous les "racine" du même type (dépense ou recette).
-    // Si on édite une sous-catégorie, son parent actuel doit rester visible.
-    const buildParentOptions = () => {
-      const opts = ['<option value="">— Aucun (catégorie racine)</option>'];
+    // Liste des catégories racines (parents possibles)
+    const buildParentOptions = (selectedId) => {
+      const opts = [];
       Data.categories
         .filter(x => this.isRoot(x) && (!isEdit || x.id !== c.id))
         .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''))
         .forEach(p => {
-          const sel = c?.parentId === p.id ? 'selected' : '';
-          opts.push(`<option value="${p.id}" ${sel}>${this._esc(p.nom)} (${p.type === 'dep' ? 'Dép.' : p.type === 'rec' ? 'Rec.' : 'Mixte'})</option>`);
+          const sel = selectedId === p.id ? 'selected' : '';
+          opts.push(`<option value="${p.id}" ${sel}>${this._esc(p.nom)} — ${p.type === 'dep' ? 'Dépense' : p.type === 'rec' ? 'Recette' : 'Mixte'}</option>`);
         });
-      return opts.join('');
+      return opts.join('') || '<option value="">— Aucune catégorie disponible —</option>';
     };
+
+    const parentSelectedId = isEdit ? c.parentId : effectiveParentHint;
+    const headerTitle = isSub
+      ? (isEdit ? 'Modifier sous-catégorie' : 'Nouvelle sous-catégorie')
+      : (isEdit ? 'Modifier catégorie'     : 'Nouvelle catégorie');
+
+    // Bloc "Catégorie parente" : visible uniquement en mode sous-catégorie
+    const parentBlock = isSub ? `
+      <div class="fg">
+        <label class="fl">Catégorie *</label>
+        <select id="cat-parent" required>${buildParentOptions(parentSelectedId)}</select>
+        <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+          Cette sous-catégorie sera rattachée à la catégorie sélectionnée.
+        </div>
+      </div>
+    ` : '<input type="hidden" id="cat-parent" value="">';
+
+    // Bloc Type : éditable seulement pour les catégories racines.
+    // En sous-catégorie, le type est hérité du parent (affiché en lecture seule).
+    const typeBlock = isSub
+      ? `<input type="hidden" id="cat-type" value="${c?.type || ''}">`
+      : `
+        <div class="fg"><label class="fl">Type</label>
+          <select id="cat-type">
+            <option value="dep"  ${c?.type === 'dep'  ? 'selected' : ''}>Dépense</option>
+            <option value="rec"  ${c?.type === 'rec'  ? 'selected' : ''}>Recette</option>
+            <option value="both" ${c?.type === 'both' ? 'selected' : ''}>Les deux</option>
+          </select>
+        </div>`;
 
     App.showModal(`
       <div class="modal-overlay">
         <div class="modal">
-          <div class="modal-title">${isEdit ? 'Modifier catégorie' : 'Nouvelle catégorie'}</div>
+          <div class="modal-title">${headerTitle}</div>
 
-          <div class="fg">
-            <label class="fl">Parent (sous-catégorie ?)</label>
-            <select id="cat-parent">${buildParentOptions()}</select>
-            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
-              Laisser vide pour créer une catégorie racine. Choisir un parent pour créer une sous-catégorie.
-            </div>
-          </div>
+          ${parentBlock}
 
           <div class="fg"><label class="fl">Nom *</label>
-            <input type="text" id="cat-nom" value="${this._esc(c?.nom || '')}" placeholder="Ex: Fruits de mer, Vins rouges...">
+            <input type="text" id="cat-nom" value="${this._esc(c?.nom || '')}" placeholder="${isSub ? 'Ex: Saumon, Fruits de mer...' : 'Ex: Matières premières, Boissons...'}">
           </div>
 
           <div class="fr">
-            <div class="fg"><label class="fl">Type</label>
-              <select id="cat-type">
-                <option value="dep"  ${c?.type === 'dep'  ? 'selected' : ''}>Dépense</option>
-                <option value="rec"  ${c?.type === 'rec'  ? 'selected' : ''}>Recette</option>
-                <option value="both" ${c?.type === 'both' ? 'selected' : ''}>Les deux</option>
-              </select>
-              <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
-                Hérité du parent automatiquement si sous-catégorie.
-              </div>
-            </div>
+            ${typeBlock}
             <div class="fg"><label class="fl">Couleur</label>
               <select id="cat-color">
                 <option value="#185FA5" ${c?.color === '#185FA5' ? 'selected' : ''}>🔵 Bleu</option>
@@ -109,24 +128,11 @@ const Categories = {
         </div>
       </div>`);
 
-    // Quand on choisit un parent, on force le type du parent dans le select
-    // et on le grise visuellement (la sous-catégorie hérite du type parent).
-    const onParentChange = () => {
-      const pid = parseInt(document.getElementById('cat-parent')?.value, 10);
-      const typeSel = document.getElementById('cat-type');
-      if (!typeSel) return;
-      if (pid) {
-        const parent = this.byId(pid);
-        if (parent) {
-          typeSel.value = parent.type;
-          typeSel.disabled = true;
-        }
-      } else {
-        typeSel.disabled = false;
-      }
-    };
-    document.getElementById('cat-parent')?.addEventListener('change', onParentChange);
-    onParentChange();
+    // Focus pertinent selon le mode
+    setTimeout(() => {
+      if (isSub && !parentSelectedId) document.getElementById('cat-parent')?.focus();
+      else                            document.getElementById('cat-nom')?.focus();
+    }, 30);
   },
 
   // ===================== SAVE / DELETE =====================
@@ -136,6 +142,14 @@ const Categories = {
 
     const parentRaw = document.getElementById('cat-parent')?.value;
     const parentId  = parentRaw ? parseInt(parentRaw, 10) : null;
+
+    // Si la modale a affiché le sélecteur Parent (mode sous-catégorie),
+    // on exige un parent valide.
+    const parentSel = document.getElementById('cat-parent');
+    if (parentSel && parentSel.tagName === 'SELECT' && !parentId) {
+      alert('Choisis une catégorie parente.');
+      return;
+    }
 
     // Type : si parent, hérite obligatoirement du parent (cohérence)
     let type = document.getElementById('cat-type')?.value;
@@ -285,16 +299,17 @@ const Categories = {
 
   // Ouverture rapide du modal "Nouvelle sous-catégorie" sur un parent donné
   addChild(parentId) {
-    this.editId = null;
-    this.openModal();
-    setTimeout(() => {
-      const sel = document.getElementById('cat-parent');
-      if (sel) {
-        sel.value = String(parentId);
-        sel.dispatchEvent(new Event('change'));
-      }
-      document.getElementById('cat-nom')?.focus();
-    }, 20);
+    this.openModal(null, parentId);
+  },
+
+  // Ouverture du modal de sous-catégorie sans parent pré-sélectionné
+  // (utilisé par le bouton « Nouvelle sous-catégorie » de la topbar de la page)
+  openSubModal() {
+    if (!Data.categories.some(c => this.isRoot(c))) {
+      alert('Crée d\'abord au moins une catégorie, puis tu pourras y ajouter des sous-catégories.');
+      return;
+    }
+    this.openModal(null, -1); // -1 = mode sous-cat sans parent présélectionné
   },
 
   // ===================== PERSISTANCE =====================
