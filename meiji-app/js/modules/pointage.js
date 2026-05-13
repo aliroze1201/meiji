@@ -31,6 +31,7 @@ const Pointage = {
       if (card.style.display !== 'none') this._fillSeedForm();
     });
     document.getElementById('btn-pt-seed-save')?.addEventListener('click', () => this.saveSeed());
+    document.getElementById('btn-pt-seed-auto')?.addEventListener('click', () => this.autoSeed());
 
     // Date par défaut = dernière journée saisie ou aujourd'hui
     const dateEl = document.getElementById('pt-date');
@@ -72,6 +73,61 @@ const Pointage = {
     const can = this.canEditSeed();
     ['pt-seed-date', 'pt-seed-s', 'pt-seed-b', 'pt-seed-c', 'btn-pt-seed-save']
       .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !can; });
+  },
+
+  // Calcule, pour chaque caisse, le solde minimal d'ouverture qui ramène
+  // tous les cumuls journaliers à zéro ou plus (= aucun jour négatif).
+  // Pratique pour caler le fondInit sans connaître l'historique exact du
+  // cash physiquement présent au démarrage de l'app.
+  async autoSeed() {
+    if (!this.canEditSeed()) {
+      alert('🔒 Seul un admin ou responsable peut modifier les soldes d\'ouverture.');
+      return;
+    }
+    // Avec la règle « reset mensuel », le fondInit ne couvre que le 1er mois
+    // (mois du seed). On calcule donc le matelas minimum nécessaire pour
+    // que ce mois-là ne contienne aucun cumul négatif.
+    const allDates = Data._allCashDates();
+    const seedDate = Data.fondInit?.date || allDates[0] || null;
+    if (!seedDate) {
+      alert('Aucune donnée à analyser.');
+      return;
+    }
+    const seedMonth = seedDate.slice(0, 7);
+    const monthDates = allDates.filter(d => d.slice(0, 7) === seedMonth && d >= seedDate);
+    const need = { s: 0, b: 0, c: 0 };
+    ['s', 'b', 'c'].forEach(k => {
+      let bal = 0;
+      let minBal = 0;
+      monthDates.forEach(d => {
+        bal += Data.cashInOnDate(d, k) - Data.cashOutOnDate(d, k);
+        if (bal < minBal) minBal = bal;
+      });
+      need[k] = Math.max(0, -minBal);
+    });
+    const labels = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+    const monthLbl = (() => {
+      const mois = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+      const [y, m] = seedMonth.split('-');
+      return `${mois[parseInt(m)]} ${y}`;
+    })();
+    const lines = [
+      `Soldes d'ouverture recommandés pour le mois de ${monthLbl}`,
+      '(le cumul repart à 0 le 1er de chaque mois suivant) :',
+      '',
+    ];
+    ['s', 'b', 'c'].forEach(k => lines.push(`• ${labels[k]} : ${Data.fmt(need[k])}`));
+    lines.push('', 'Appliquer ces valeurs ?');
+    if (!confirm(lines.join('\n'))) return;
+    Data.fondInit = {
+      s: need.s, b: need.b, c: need.c,
+      date: seedDate,
+    };
+    await AppDB.save(this.SEED_KEY, Data.fondInit);
+    this._fillSeedForm();
+    this.render();
+    if (typeof App !== 'undefined') App.renderAll();
+    alert('✅ Soldes d\'ouverture mis à jour.');
   },
 
   async saveSeed() {

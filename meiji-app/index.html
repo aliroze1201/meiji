@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563EB">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260512cash2">
+  <link rel="stylesheet" href="css/styles.css?v=20260512cash8">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -246,7 +246,7 @@
             <button class="btn" id="btn-pt-seed-toggle" type="button"><i class="ti ti-adjustments"></i> Soldes d'ouverture</button>
           </div>
           <div style="font-size:12px;color:var(--c-muted);margin-top:4px">
-            <i class="ti ti-info-circle"></i> Le solde espèces de chaque caisse est <b>cumulé</b> jour après jour : le solde restant en fin de journée devient le report du jour suivant.
+            <i class="ti ti-info-circle"></i> Le solde espèces de chaque caisse est <b>cumulé jour après jour à l'intérieur du mois</b>. Le bénéfice mensuel étant prélevé en fin de mois, le cumul est <b>remis à zéro au 1er de chaque mois</b>.
           </div>
         </div>
 
@@ -276,7 +276,10 @@
               <input type="number" id="pt-seed-c" placeholder="0" style="padding:8px 12px;border-radius:8px;border:1px solid var(--c-border);background:var(--c-surface);width:100%">
             </div>
           </div>
-          <div style="margin-top:10px;display:flex;justify-content:flex-end">
+          <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="btn-pt-seed-auto" title="Calcule le solde d'ouverture minimum par caisse pour qu'aucun cumul journalier ne soit négatif">
+              <i class="ti ti-wand"></i> Calculer automatiquement
+            </button>
             <button class="btn btn-primary" id="btn-pt-seed-save"><i class="ti ti-check"></i> Enregistrer les soldes d'ouverture</button>
           </div>
         </div>
@@ -339,6 +342,11 @@
           <div class="mc blue"><div class="mc-label blue"><i class="ti ti-fish"></i> CA SUSHI</div><div class="mc-val blue" id="r-s">0</div></div>
           <div class="mc green"><div class="mc-label green"><i class="ti ti-glass-cocktail"></i> CA BAR</div><div class="mc-val green" id="r-b">0</div></div>
           <div class="mc amber"><div class="mc-label amber"><i class="ti ti-flame"></i> CA CHICHA</div><div class="mc-val amber" id="r-c">0</div></div>
+        </div>
+        <div class="g3">
+          <div class="mc blue"><div class="mc-label blue"><i class="ti ti-cash"></i> Cumul espèces SUSHI</div><div class="mc-val blue" id="r-cum-s">0</div><div class="mc-sub" id="r-cum-s-sub">au —</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-cash"></i> Cumul espèces BAR</div><div class="mc-val green" id="r-cum-b">0</div><div class="mc-sub" id="r-cum-b-sub">au —</div></div>
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-cash"></i> Cumul espèces CHICHA</div><div class="mc-val amber" id="r-cum-c">0</div><div class="mc-sub" id="r-cum-c-sub">au —</div></div>
         </div>
         <div class="g3">
           <div class="mc"><div class="mc-label"><i class="ti ti-cash"></i> Espèces</div><div class="mc-val" id="r-esp">0</div></div>
@@ -416,6 +424,7 @@
                   <th class="text-right" style="width:70px">Qté</th>
                   <th class="text-right" style="width:120px">P.U.</th>
                   <th class="text-right" style="width:140px">Montant</th>
+                  <th style="width:110px">Mode</th>
                   <th>Observation</th>
                   <th style="width:34px"></th>
                 </tr>
@@ -441,7 +450,7 @@
           </div>
           <div style="overflow-x:auto">
             <table>
-              <thead><tr><th>Date</th><th>Catégorie</th><th class="text-right">Qté</th><th class="text-right">P.U.</th><th class="text-right">Montant</th><th>Dept</th><th>Observation</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Catégorie</th><th class="text-right">Qté</th><th class="text-right">P.U.</th><th class="text-right">Montant</th><th>Dept</th><th>Mode</th><th>Observation</th><th></th></tr></thead>
               <tbody id="dep-table"></tbody>
             </table>
           </div>
@@ -783,28 +792,28 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/config.js?v=20260512cash2"></script>
-<script src="js/auth.js?v=20260512cash2"></script>
-<script src="js/data.js?v=20260512cash2"></script>
-<script src="js/journees-db.js?v=20260512cash2"></script>
-<script src="js/app-db.js?v=20260512cash2"></script>
-<script src="js/charts.js?v=20260512cash2"></script>
-<script src="js/modules/dashboard.js?v=20260512cash2"></script>
-<script src="js/modules/pointage.js?v=20260512cash2"></script>
-<script src="js/modules/recettes.js?v=20260512cash2"></script>
-<script src="js/modules/depenses.js?v=20260512cash2"></script>
-<script src="js/modules/analyse.js?v=20260512cash2"></script>
-<script src="js/modules/banque.js?v=20260512cash2"></script>
-<script src="js/modules/mobile.js?v=20260512cash2"></script>
-<script src="js/modules/categories.js?v=20260512cash2"></script>
-<script src="js/modules/employes.js?v=20260512cash2"></script>
-<script src="js/modules/comptes-emp.js?v=20260512cash2"></script>
-<script src="js/modules/credits.js?v=20260512cash2"></script>
-<script src="js/modules/suivi.js?v=20260512cash2"></script>
-<script src="js/modules/fournisseurs.js?v=20260512cash2"></script>
-<script src="js/modules/bilan.js?v=20260512cash2"></script>
-<script src="js/modules/clotures.js?v=20260512cash2"></script>
-<script src="js/modules/utilisateurs.js?v=20260512cash2"></script>
-<script src="js/main.js?v=20260512cash2"></script>
+<script src="js/config.js?v=20260512cash8"></script>
+<script src="js/auth.js?v=20260512cash8"></script>
+<script src="js/data.js?v=20260512cash8"></script>
+<script src="js/journees-db.js?v=20260512cash8"></script>
+<script src="js/app-db.js?v=20260512cash8"></script>
+<script src="js/charts.js?v=20260512cash8"></script>
+<script src="js/modules/dashboard.js?v=20260512cash8"></script>
+<script src="js/modules/pointage.js?v=20260512cash8"></script>
+<script src="js/modules/recettes.js?v=20260512cash8"></script>
+<script src="js/modules/depenses.js?v=20260512cash8"></script>
+<script src="js/modules/analyse.js?v=20260512cash8"></script>
+<script src="js/modules/banque.js?v=20260512cash8"></script>
+<script src="js/modules/mobile.js?v=20260512cash8"></script>
+<script src="js/modules/categories.js?v=20260512cash8"></script>
+<script src="js/modules/employes.js?v=20260512cash8"></script>
+<script src="js/modules/comptes-emp.js?v=20260512cash8"></script>
+<script src="js/modules/credits.js?v=20260512cash8"></script>
+<script src="js/modules/suivi.js?v=20260512cash8"></script>
+<script src="js/modules/fournisseurs.js?v=20260512cash8"></script>
+<script src="js/modules/bilan.js?v=20260512cash8"></script>
+<script src="js/modules/clotures.js?v=20260512cash8"></script>
+<script src="js/modules/utilisateurs.js?v=20260512cash8"></script>
+<script src="js/main.js?v=20260512cash8"></script>
 </body>
 </html>

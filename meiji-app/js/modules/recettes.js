@@ -36,6 +36,21 @@ const Recettes = {
     this._set('r-chq', Data.fmt(tChq));
     this._set('r-mob', Data.fmt(tMob));
 
+    // Cumul espèces restantes (fin de la dernière journée de la période)
+    const lastDate = jj.length
+      ? jj.map(j => j.date).sort().slice(-1)[0]
+      : null;
+    const cumS = lastDate ? Data.cashEndOfDay(lastDate, 's') : 0;
+    const cumB = lastDate ? Data.cashEndOfDay(lastDate, 'b') : 0;
+    const cumC = lastDate ? Data.cashEndOfDay(lastDate, 'c') : 0;
+    this._set('r-cum-s', Data.fmt(cumS));
+    this._set('r-cum-b', Data.fmt(cumB));
+    this._set('r-cum-c', Data.fmt(cumC));
+    const sub = lastDate ? 'au ' + Data.fmtD(lastDate) : 'au —';
+    this._set('r-cum-s-sub', sub);
+    this._set('r-cum-b-sub', sub);
+    this._set('r-cum-c-sub', sub);
+
     const tb = document.getElementById('rec-table');
     if (!tb) return;
     if (!jj.length) { tb.innerHTML = '<tr><td colspan="10" class="empty">Aucune recette</td></tr>'; return; }

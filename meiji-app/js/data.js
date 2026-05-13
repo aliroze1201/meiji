@@ -153,16 +153,23 @@ const Data = {
     const j = this.journees.find(x => x.date === date);
     return j ? (j[k]?.esp || 0) : 0;
   },
-  // Dépenses espèces d'une caisse sur une date (deps journée + histDep du dept)
+  // Dépenses espèces d'une caisse sur une date.
+  // Source unique : getAllDeps() (= histDep + j.deps[]), comme le dashboard.
+  // Seules les dépenses dont paiement = 'esp' (par défaut si non renseigné)
+  // sont déduites du cumul cash. Les paiements banque/mobile sortent du
+  // solde correspondant, pas des espèces.
   cashOutOnDate(date, k) {
     const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
-    const j = this.journees.find(x => x.date === date);
-    const dKey = { s: 'ds', b: 'db', c: 'dc' }[k];
-    const inJour = j ? (j[dKey] || 0) : 0;
-    const inHist = this.histDep
-      .filter(d => d.date === date && d.dept === dept)
+    return this.getAllDeps()
+      .filter(d => d.date === date && d.dept === dept && this.isCashDep(d))
       .reduce((s, d) => s + (d.montant || 0), 0);
-    return inJour + inHist;
+  },
+
+  // Renvoie true si la dépense est payée en espèces.
+  // Par défaut (champ paiement absent) → espèces, car à ce jour toutes les
+  // dépenses du restaurant sont réglées en cash.
+  isCashDep(d) {
+    return !d.paiement || d.paiement === 'esp';
   },
   // Toutes les dates portant un mouvement (journée ou dépense histo)
   _allCashDates() {
@@ -171,12 +178,22 @@ const Data = {
     this.histDep.forEach(d => { if (d.date) set.add(d.date); });
     return [...set].sort();
   },
-  // Solde espèces reporté au DÉBUT d'une date pour la caisse k (cumulatif depuis le seed)
+  // Solde espèces reporté au DÉBUT d'une date pour la caisse k.
+  // Règle métier : le bénéfice mensuel est prélevé à la fin de chaque mois,
+  // donc le cumul espèces est REMIS À ZÉRO au 1er de chaque mois. Pour une
+  // date donnée, on ne cumule que les dates antérieures du MÊME mois.
+  // fondInit ne s'applique qu'au mois du seed (mois d'ouverture initial).
   cashCarryover(date, k) {
-    const seedDate = this.fondInit?.date || null;
-    let bal = this.fondInit?.[k] || 0;
+    const targetMonth = (date || '').slice(0, 7);
+    if (!targetMonth) return 0;
+    const seedDate  = this.fondInit?.date || null;
+    const seedMonth = seedDate ? seedDate.slice(0, 7) : null;
+
+    let bal = (seedMonth === targetMonth) ? (this.fondInit?.[k] || 0) : 0;
+
     this._allCashDates().forEach(d => {
       if (d >= date) return;
+      if (d.slice(0, 7) !== targetMonth) return;          // reset mensuel
       if (seedDate && d < seedDate) return;
       bal += this.cashInOnDate(d, k) - this.cashOutOnDate(d, k);
     });
