@@ -49,6 +49,7 @@ const App = {
       credits: 'Crédits clients',
       suivi: 'Suivi des chèques',
       fournisseurs: 'Fournisseurs',
+      stock: 'Gestion de stock',
       bilan: 'Bilan',
       clotures: 'Clôtures mensuelles',
       utilisateurs: 'Utilisateurs',
@@ -97,6 +98,8 @@ const App = {
     if (typeof Credits  !== 'undefined' && Credits.persist) await tryStep(`${(Data.credits||[]).length} crédit(s)`,  () => Credits.persist());
     if (typeof Employes !== 'undefined' && Employes.save)  await tryStep(`${(Data.employes||[]).length} employé(s)`, () => Employes.save());
     if (typeof Clotures !== 'undefined' && Clotures.persist) await tryStep('Clôtures', () => Clotures.persist());
+    if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep('Articles + mouvements stock',          () => Stock.save());
+    if (typeof Stock    !== 'undefined' && Stock.save)       await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
     if (Data.fondInit && typeof Pointage !== 'undefined' && Pointage.SEED_KEY) {
       await tryStep('Soldes d\'ouverture', () => AppDB.save(Pointage.SEED_KEY, Data.fondInit));
     }
@@ -295,6 +298,7 @@ const App = {
     Bilan.render();
     if (typeof Clotures !== 'undefined') Clotures.render();
     if (typeof Pointage !== 'undefined') Pointage.render();
+    if (typeof Stock !== 'undefined') Stock.render();
   },
 
   // ===================== INIT =====================
@@ -380,6 +384,7 @@ const App = {
     document.getElementById('btn-sync')?.addEventListener('click', () => this.syncAll());
 
     if (typeof Pointage !== 'undefined') Pointage.init();
+    if (typeof Stock !== 'undefined' && Stock.initOnce) Stock.initOnce();
 
     // Tous les modules sont async (Supabase). Premier rendu immédiat avec
     // les seeds, puis re-render dès que les données serveur arrivent.
@@ -393,6 +398,7 @@ const App = {
       Employes.restore(),
       (typeof Clotures !== 'undefined' ? Clotures.restore() : Promise.resolve()),
       (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
+      (typeof Stock !== 'undefined' && Stock.restore ? Stock.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
     .then(() => this.renderAll())

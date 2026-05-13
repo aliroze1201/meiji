@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#F97316">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260513sync">
+  <link rel="stylesheet" href="css/styles.css?v=20260513stock">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -42,6 +42,7 @@
     <div class="nav-item" data-page="comptes-emp"><i class="ti ti-user-dollar"></i><span class="label">Comptes employés</span></div>
     <div class="nav-item" data-page="credits"><i class="ti ti-receipt-2"></i><span class="label">Crédits clients</span></div>
     <div class="nav-item" data-page="fournisseurs"><i class="ti ti-truck-delivery"></i><span class="label">Fournisseurs</span></div>
+    <div class="nav-item" data-page="stock"><i class="ti ti-box-seam"></i><span class="label">Stock</span></div>
     <div class="nav-item" data-page="bilan"><i class="ti ti-report-analytics"></i><span class="label">Bilan</span></div>
     <div class="nav-item" data-page="clotures"><i class="ti ti-calendar-check"></i><span class="label">Clôtures</span></div>
 
@@ -662,6 +663,49 @@
       </div>
     </div>
 
+    <!-- STOCK -->
+    <div class="page" id="page-stock">
+      <div class="period-bar"><span class="period-bar-title"><i class="ti ti-box-seam"></i> Gestion de stock</span>
+        <button class="btn btn-primary" id="btn-stk-new-art"><i class="ti ti-plus"></i> Nouvel article</button>
+        <button class="btn btn-success" id="btn-stk-new-mvt"><i class="ti ti-transfer"></i> Mouvement</button>
+        <button class="btn" id="btn-stk-inv"><i class="ti ti-clipboard-check"></i> Inventaire</button>
+        <button class="btn btn-ghost" id="btn-stk-export"><i class="ti ti-file-spreadsheet"></i> Export Excel</button>
+      </div>
+      <div class="content">
+        <div class="g4">
+          <div class="mc"><div class="mc-label"><i class="ti ti-box"></i> Articles total</div><div class="mc-val" id="stk-nb">0</div></div>
+          <div class="mc green"><div class="mc-label green"><i class="ti ti-coin"></i> Valeur stock</div><div class="mc-val green" id="stk-valeur">0 FCFA</div></div>
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-alert-triangle"></i> Sous seuil</div><div class="mc-val amber" id="stk-bas">0</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-alert-octagon"></i> Ruptures</div><div class="mc-val red" id="stk-rupture">0</div></div>
+        </div>
+        <div class="tabs" id="stk-tabs">
+          <div class="tab active" data-filter="all">Tous</div>
+          <div class="tab" data-filter="SUSHI">SUSHI</div>
+          <div class="tab" data-filter="BAR">BAR</div>
+          <div class="tab" data-filter="CHICHA">CHICHA</div>
+          <div class="tab" data-filter="RESTAURANT">RESTAURANT</div>
+        </div>
+        <div class="card" style="padding:10px">
+          <input type="text" id="stk-search" placeholder="🔎 Rechercher par nom, référence, catégorie, fournisseur..." style="width:100%;padding:8px 10px;border:1px solid var(--c-border);border-radius:6px;background:var(--c-bg)">
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table><thead><tr>
+            <th>Nom</th><th>Réf</th><th>Catégorie</th><th>Dept</th>
+            <th style="text-align:right">Stock courant</th><th>Unité</th>
+            <th style="text-align:right">Seuil</th><th style="text-align:right">Prix U.</th>
+            <th style="text-align:right">Valeur</th><th>Fournisseur</th><th>Actions</th>
+          </tr></thead><tbody id="stk-art-table"></tbody></table>
+        </div>
+        <h3 style="margin:18px 0 8px"><i class="ti ti-history"></i> Derniers mouvements</h3>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table><thead><tr>
+            <th>Date</th><th>Type</th><th>Article</th>
+            <th style="text-align:right">Quantité</th><th>Motif</th><th>Réf</th><th>Actions</th>
+          </tr></thead><tbody id="stk-mvt-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+
     <!-- BILAN -->
     <div class="page" id="page-bilan">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-report-analytics"></i> Bilan — MEIJI</span></div>
@@ -793,28 +837,29 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/config.js?v=20260513sync"></script>
-<script src="js/auth.js?v=20260513sync"></script>
-<script src="js/data.js?v=20260513sync"></script>
-<script src="js/journees-db.js?v=20260513sync"></script>
-<script src="js/app-db.js?v=20260513sync"></script>
-<script src="js/charts.js?v=20260513sync"></script>
-<script src="js/modules/dashboard.js?v=20260513sync"></script>
-<script src="js/modules/pointage.js?v=20260513sync"></script>
-<script src="js/modules/recettes.js?v=20260513sync"></script>
-<script src="js/modules/depenses.js?v=20260513sync"></script>
-<script src="js/modules/analyse.js?v=20260513sync"></script>
-<script src="js/modules/banque.js?v=20260513sync"></script>
-<script src="js/modules/mobile.js?v=20260513sync"></script>
-<script src="js/modules/categories.js?v=20260513sync"></script>
-<script src="js/modules/employes.js?v=20260513sync"></script>
-<script src="js/modules/comptes-emp.js?v=20260513sync"></script>
-<script src="js/modules/credits.js?v=20260513sync"></script>
-<script src="js/modules/suivi.js?v=20260513sync"></script>
-<script src="js/modules/fournisseurs.js?v=20260513sync"></script>
-<script src="js/modules/bilan.js?v=20260513sync"></script>
-<script src="js/modules/clotures.js?v=20260513sync"></script>
-<script src="js/modules/utilisateurs.js?v=20260513sync"></script>
-<script src="js/main.js?v=20260513sync"></script>
+<script src="js/config.js?v=20260513stock"></script>
+<script src="js/auth.js?v=20260513stock"></script>
+<script src="js/data.js?v=20260513stock"></script>
+<script src="js/journees-db.js?v=20260513stock"></script>
+<script src="js/app-db.js?v=20260513stock"></script>
+<script src="js/charts.js?v=20260513stock"></script>
+<script src="js/modules/dashboard.js?v=20260513stock"></script>
+<script src="js/modules/pointage.js?v=20260513stock"></script>
+<script src="js/modules/recettes.js?v=20260513stock"></script>
+<script src="js/modules/depenses.js?v=20260513stock"></script>
+<script src="js/modules/analyse.js?v=20260513stock"></script>
+<script src="js/modules/banque.js?v=20260513stock"></script>
+<script src="js/modules/mobile.js?v=20260513stock"></script>
+<script src="js/modules/categories.js?v=20260513stock"></script>
+<script src="js/modules/employes.js?v=20260513stock"></script>
+<script src="js/modules/comptes-emp.js?v=20260513stock"></script>
+<script src="js/modules/credits.js?v=20260513stock"></script>
+<script src="js/modules/suivi.js?v=20260513stock"></script>
+<script src="js/modules/fournisseurs.js?v=20260513stock"></script>
+<script src="js/modules/stock.js?v=20260513stock"></script>
+<script src="js/modules/bilan.js?v=20260513stock"></script>
+<script src="js/modules/clotures.js?v=20260513stock"></script>
+<script src="js/modules/utilisateurs.js?v=20260513stock"></script>
+<script src="js/main.js?v=20260513stock"></script>
 </body>
 </html>

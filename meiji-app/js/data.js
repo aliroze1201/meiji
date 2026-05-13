@@ -124,6 +124,10 @@ const Data = {
   mvtsBanque: [],
   mvtsMobile: [],
 
+  // ===================== STOCK =====================
+  stockArticles: [],
+  stockMouvements: [],
+
   // ===================== FOND DE CAISSE INITIAL (report espèces) =====================
   // Solde d'ouverture par caisse, à partir duquel le cash se cumule jour après jour.
   // Modifiable depuis la page Pointage par admin/responsable.
