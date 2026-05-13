@@ -1223,7 +1223,8 @@ label {
   z-index: 50;
   box-shadow: var(--sh-lg);
 }
-.dep-dd-menu.show { display: flex; }
+.dep-dd-menu.show,
+.dep-dd.open .dep-dd-menu { display: flex; }
 .dep-dd-item {
   display: flex;
   align-items: center;
