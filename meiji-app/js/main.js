@@ -367,15 +367,7 @@ const App = {
       e.target.value = '';
     });
     document.getElementById('btn-new-cat')?.addEventListener('click', () => Categories.openModal(null));
-    document.getElementById('btn-new-subcat')?.addEventListener('click', () => {
-      if (!Data.categories.some(c => !c.parentId)) {
-        alert('Crée d\'abord au moins une catégorie racine, puis tu pourras y ajouter des sous-catégories.');
-        return;
-      }
-      Categories.openModal(null);
-      // Focus immédiat sur le select Parent pour guider l'utilisateur
-      setTimeout(() => document.getElementById('cat-parent')?.focus(), 30);
-    });
+    document.getElementById('btn-new-subcat')?.addEventListener('click', () => Categories.openSubModal());
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
     document.getElementById('btn-new-emp')?.addEventListener('click', () => Employes.openModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
