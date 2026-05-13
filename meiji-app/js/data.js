@@ -124,6 +124,11 @@ const Data = {
   mvtsBanque: [],
   mvtsMobile: [],
 
+  // ===================== FOND DE CAISSE INITIAL (report espèces) =====================
+  // Solde d'ouverture par caisse, à partir duquel le cash se cumule jour après jour.
+  // Modifiable depuis la page Pointage par admin/responsable.
+  fondInit: { s: 0, b: 0, c: 0, date: null },
+
   // ===================== COMPTEUR ID =====================
   nextId: 1000,
   newId() { return this.nextId++; },
@@ -140,6 +145,48 @@ const Data = {
 
   depTotal(j) {
     return (j.ds || 0) + (j.db || 0) + (j.dc || 0);
+  },
+
+  // ===================== ESPÈCES — REPORT CUMULÉ PAR CAISSE =====================
+  // Encaissements espèces d'une caisse sur une date
+  cashInOnDate(date, k) {
+    const j = this.journees.find(x => x.date === date);
+    return j ? (j[k]?.esp || 0) : 0;
+  },
+  // Dépenses espèces d'une caisse sur une date (deps journée + histDep du dept)
+  cashOutOnDate(date, k) {
+    const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
+    const j = this.journees.find(x => x.date === date);
+    const dKey = { s: 'ds', b: 'db', c: 'dc' }[k];
+    const inJour = j ? (j[dKey] || 0) : 0;
+    const inHist = this.histDep
+      .filter(d => d.date === date && d.dept === dept)
+      .reduce((s, d) => s + (d.montant || 0), 0);
+    return inJour + inHist;
+  },
+  // Toutes les dates portant un mouvement (journée ou dépense histo)
+  _allCashDates() {
+    const set = new Set();
+    this.journees.forEach(j => { if (j.date) set.add(j.date); });
+    this.histDep.forEach(d => { if (d.date) set.add(d.date); });
+    return [...set].sort();
+  },
+  // Solde espèces reporté au DÉBUT d'une date pour la caisse k (cumulatif depuis le seed)
+  cashCarryover(date, k) {
+    const seedDate = this.fondInit?.date || null;
+    let bal = this.fondInit?.[k] || 0;
+    this._allCashDates().forEach(d => {
+      if (d >= date) return;
+      if (seedDate && d < seedDate) return;
+      bal += this.cashInOnDate(d, k) - this.cashOutOnDate(d, k);
+    });
+    return bal;
+  },
+  // Solde espèces théorique en FIN de journée pour la caisse k
+  cashEndOfDay(date, k) {
+    return this.cashCarryover(date, k)
+         + this.cashInOnDate(date, k)
+         - this.cashOutOnDate(date, k);
   },
 
   getAllDeps() {

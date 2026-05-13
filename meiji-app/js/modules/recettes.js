@@ -38,7 +38,7 @@ const Recettes = {
 
     const tb = document.getElementById('rec-table');
     if (!tb) return;
-    if (!jj.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Aucune recette</td></tr>'; return; }
+    if (!jj.length) { tb.innerHTML = '<tr><td colspan="10" class="empty">Aucune recette</td></tr>'; return; }
 
     tb.innerHTML = jj.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => {
       const total = Data.caTotal(j);
@@ -48,12 +48,22 @@ const Recettes = {
       if (allPays.chq) pays.push(`<span class="badge b-purple">Chq ${Data.fmts(allPays.chq)}</span>`);
       if (allPays.mob) pays.push(`<span class="badge b-green">Mob ${Data.fmts(allPays.mob)}</span>`);
       if (allPays.cred) pays.push(`<span class="badge b-amber">Créd ${Data.fmts(allPays.cred)}</span>`);
+      // Cumul espèces restantes en FIN de cette journée (par caisse + total)
+      const cumS = Data.cashEndOfDay(j.date, 's');
+      const cumB = Data.cashEndOfDay(j.date, 'b');
+      const cumC = Data.cashEndOfDay(j.date, 'c');
+      const cumT = cumS + cumB + cumC;
+      const colorCum = (n) => n >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
       return `<tr>
         <td>${Data.fmtD(j.date)}</td>
         <td class="text-right text-blue">${Data.fmts(Data.caisse(j,'s'))}</td>
         <td class="text-right text-green">${Data.fmts(Data.caisse(j,'b'))}</td>
         <td class="text-right" style="color:var(--c-chicha)">${Data.fmts(Data.caisse(j,'c'))}</td>
         <td class="text-right fw-bold">${Data.fmts(total)}</td>
+        <td class="text-right" style="color:${colorCum(cumS)}">${Data.fmts(cumS)}</td>
+        <td class="text-right" style="color:${colorCum(cumB)}">${Data.fmts(cumB)}</td>
+        <td class="text-right" style="color:${colorCum(cumC)}">${Data.fmts(cumC)}</td>
+        <td class="text-right fw-bold" style="color:${colorCum(cumT)}">${Data.fmts(cumT)}</td>
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">${pays.join('')}</div></td>
       </tr>`;
     }).join('');
@@ -241,6 +251,14 @@ const Recettes = {
 
   commitDrafts() {
     if (!this.drafts.length) return alert('Aucune saisie à valider.');
+
+    if (typeof Clotures !== 'undefined') {
+      const blocked = this.drafts.find(d => d.date && this._draftTotal(d) && Clotures.isMonthClosed(d.date));
+      if (blocked) {
+        alert(`🔒 Impossible : la journée du ${Data.fmtD(blocked.date)} appartient au mois de ${Clotures.monthLabel(Clotures.ymOf(blocked.date))}, qui est clôturé.`);
+        return;
+      }
+    }
 
     const invalid = this.drafts.filter(d => !d.date || !this._draftTotal(d)).length;
     if (invalid) {

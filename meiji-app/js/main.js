@@ -50,6 +50,7 @@ const App = {
       suivi: 'Suivi des chèques',
       fournisseurs: 'Fournisseurs',
       bilan: 'Bilan',
+      clotures: 'Clôtures mensuelles',
       utilisateurs: 'Utilisateurs',
     };
     const tb = document.getElementById('tb-title');
@@ -228,6 +229,7 @@ const App = {
     Suivi.render();
     Fournisseurs.render();
     Bilan.render();
+    if (typeof Clotures !== 'undefined') Clotures.render();
     if (typeof Pointage !== 'undefined') Pointage.render();
   },
 
@@ -322,6 +324,8 @@ const App = {
       Banque.restore(),
       Mobile.restore(),
       Employes.restore(),
+      (typeof Clotures !== 'undefined' ? Clotures.restore() : Promise.resolve()),
+      (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
     .then(() => this.renderAll())
