@@ -84,28 +84,44 @@ const Pointage = {
       alert('🔒 Seul un admin ou responsable peut modifier les soldes d\'ouverture.');
       return;
     }
-    // On ignore le fondInit en cours pour faire un calcul absolu : ce que
-    // l'utilisateur attend, c'est « combien aurait-il dû y avoir au départ ».
-    const seedDate = Data.fondInit?.date || null;
-    const dates = Data._allCashDates().filter(d => !seedDate || d >= seedDate);
+    // Avec la règle « reset mensuel », le fondInit ne couvre que le 1er mois
+    // (mois du seed). On calcule donc le matelas minimum nécessaire pour
+    // que ce mois-là ne contienne aucun cumul négatif.
+    const allDates = Data._allCashDates();
+    const seedDate = Data.fondInit?.date || allDates[0] || null;
+    if (!seedDate) {
+      alert('Aucune donnée à analyser.');
+      return;
+    }
+    const seedMonth = seedDate.slice(0, 7);
+    const monthDates = allDates.filter(d => d.slice(0, 7) === seedMonth && d >= seedDate);
     const need = { s: 0, b: 0, c: 0 };
     ['s', 'b', 'c'].forEach(k => {
       let bal = 0;
       let minBal = 0;
-      dates.forEach(d => {
+      monthDates.forEach(d => {
         bal += Data.cashInOnDate(d, k) - Data.cashOutOnDate(d, k);
         if (bal < minBal) minBal = bal;
       });
       need[k] = Math.max(0, -minBal);
     });
     const labels = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
-    const lines = ['Soldes d\'ouverture recommandés pour éviter tout cumul négatif :', ''];
+    const monthLbl = (() => {
+      const mois = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+      const [y, m] = seedMonth.split('-');
+      return `${mois[parseInt(m)]} ${y}`;
+    })();
+    const lines = [
+      `Soldes d'ouverture recommandés pour le mois de ${monthLbl}`,
+      '(le cumul repart à 0 le 1er de chaque mois suivant) :',
+      '',
+    ];
     ['s', 'b', 'c'].forEach(k => lines.push(`• ${labels[k]} : ${Data.fmt(need[k])}`));
     lines.push('', 'Appliquer ces valeurs ?');
     if (!confirm(lines.join('\n'))) return;
     Data.fondInit = {
       s: need.s, b: need.b, c: need.c,
-      date: seedDate || (Data._allCashDates()[0] || null),
+      date: seedDate,
     };
     await AppDB.save(this.SEED_KEY, Data.fondInit);
     this._fillSeedForm();

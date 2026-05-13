@@ -178,12 +178,22 @@ const Data = {
     this.histDep.forEach(d => { if (d.date) set.add(d.date); });
     return [...set].sort();
   },
-  // Solde espèces reporté au DÉBUT d'une date pour la caisse k (cumulatif depuis le seed)
+  // Solde espèces reporté au DÉBUT d'une date pour la caisse k.
+  // Règle métier : le bénéfice mensuel est prélevé à la fin de chaque mois,
+  // donc le cumul espèces est REMIS À ZÉRO au 1er de chaque mois. Pour une
+  // date donnée, on ne cumule que les dates antérieures du MÊME mois.
+  // fondInit ne s'applique qu'au mois du seed (mois d'ouverture initial).
   cashCarryover(date, k) {
-    const seedDate = this.fondInit?.date || null;
-    let bal = this.fondInit?.[k] || 0;
+    const targetMonth = (date || '').slice(0, 7);
+    if (!targetMonth) return 0;
+    const seedDate  = this.fondInit?.date || null;
+    const seedMonth = seedDate ? seedDate.slice(0, 7) : null;
+
+    let bal = (seedMonth === targetMonth) ? (this.fondInit?.[k] || 0) : 0;
+
     this._allCashDates().forEach(d => {
       if (d >= date) return;
+      if (d.slice(0, 7) !== targetMonth) return;          // reset mensuel
       if (seedDate && d < seedDate) return;
       bal += this.cashInOnDate(d, k) - this.cashOutOnDate(d, k);
     });
