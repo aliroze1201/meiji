@@ -100,6 +100,7 @@ const App = {
     if (typeof Clotures !== 'undefined' && Clotures.persist) await tryStep('Clôtures', () => Clotures.persist());
     if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep('Articles + mouvements stock',          () => Stock.save());
     if (typeof Stock    !== 'undefined' && Stock.save)       await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
+    if (typeof Categories !== 'undefined' && Categories.persist) await tryStep(`${(Data.categories||[]).length} catégorie(s)`, () => Categories.persist());
     if (Data.fondInit && typeof Pointage !== 'undefined' && Pointage.SEED_KEY) {
       await tryStep('Soldes d\'ouverture', () => AppDB.save(Pointage.SEED_KEY, Data.fondInit));
     }
@@ -399,6 +400,7 @@ const App = {
       (typeof Clotures !== 'undefined' ? Clotures.restore() : Promise.resolve()),
       (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
       (typeof Stock !== 'undefined' && Stock.restore ? Stock.restore() : Promise.resolve()),
+      (typeof Categories !== 'undefined' && Categories.restore ? Categories.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
     .then(() => this.renderAll())
