@@ -44,11 +44,13 @@ const Banque = {
   // Solde "live" d'une banque = solde de référence (saisi par l'utilisateur)
   //                           + Σ mouvements 'in' sur cette banque
   //                           − Σ mouvements 'out' sur cette banque
-  // (tous les mouvements, pas filtrés par période — c'est un solde courant)
+  // Note : les mouvements 'pending' (ex. chèque émis non encore débité)
+  // sont EXCLUS du calcul. Ils apparaissent dans l'historique grisés et
+  // ne sont comptés qu'une fois confirmés depuis Suivi des chèques.
   soldeOfBank(bankNom) {
     const b = (Data.banques || []).find(x => x.nom === bankNom);
     const base = Number(b?.solde) || 0;
-    const mvts = (Data.mvtsBanque || []).filter(m => (m.op || '') === bankNom);
+    const mvts = (Data.mvtsBanque || []).filter(m => (m.op || '') === bankNom && !m.pending);
     const inn  = mvts.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     const out  = mvts.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     return base + inn - out;
@@ -59,7 +61,7 @@ const Banque = {
     let total = (Data.banques || []).reduce((s,b) => s + this.soldeOfBank(b.nom), 0);
     // Mouvements sans `op` ou avec une banque non listée : on les ajoute aussi
     const knownNames = new Set((Data.banques || []).map(b => b.nom));
-    const orphelin = (Data.mvtsBanque || []).filter(m => !m.op || !knownNames.has(m.op));
+    const orphelin = (Data.mvtsBanque || []).filter(m => !m.pending && (!m.op || !knownNames.has(m.op)));
     const inn = orphelin.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     const out = orphelin.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     total += inn - out;
@@ -219,21 +221,28 @@ const Banque = {
     const caisseLabel = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
     tb.innerHTML = list.map(m => {
       const s = solde;
-      solde -= (m.type === 'in' ? m.mnt : -m.mnt);
+      if (!m.pending) solde -= (m.type === 'in' ? m.mnt : -m.mnt);
       const cBadge = m.caisse
         ? `<span class="badge ${m.caisse==='s'?'b-blue':m.caisse==='b'?'b-green':'b-amber'}" title="Impact cumul cash">${caisseLabel[m.caisse]}</span>`
         : '<span style="color:var(--c-muted);font-size:11px">—</span>';
       const lockIcon = m.relPrelv
         ? ' <i class="ti ti-lock" title="Lié à un prélèvement associé — supprime-le depuis la page Associés" style="color:var(--c-warning);font-size:13px"></i>'
         : '';
-      return `<tr>
+      const pendBadge = m.pending
+        ? ' <span class="badge b-amber" title="En attente de confirmation depuis Suivi chèques">⏳ Pending</span>'
+        : '';
+      const rowStyle = m.pending ? 'style="opacity:0.55"' : '';
+      const soldeCell = m.pending
+        ? '<span class="text-muted" style="font-style:italic">—</span>'
+        : Data.fmts(s) + ' FCFA';
+      return `<tr ${rowStyle}>
         <td class="nowrap">${Data.fmtDs(m.date)}</td>
-        <td>${this._esc(m.lib || '')}${lockIcon}</td>
+        <td>${this._esc(m.lib || '')}${lockIcon}${pendBadge}</td>
         <td style="color:#aaa">${this._esc(m.op || '-')}</td>
         <td>${cBadge}</td>
         <td class="text-right text-green fw-bold">${m.type === 'in' ? '+' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right text-red fw-bold">${m.type === 'out' ? '-' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
-        <td class="text-right fw-bold">${Data.fmts(s)} FCFA</td>
+        <td class="text-right fw-bold">${soldeCell}</td>
         <td class="nowrap">
           <button class="btn btn-sm btn-danger" title="Supprimer ce mouvement" onclick="Banque.removeMvt(${m.id})"><i class="ti ti-trash"></i></button>
         </td>
@@ -247,6 +256,10 @@ const Banque = {
     if (!m) return;
     if (m.relPrelv) {
       alert('🔒 Ce mouvement est lié à un prélèvement associé.\n\nPour le supprimer, va sur la page Associés et supprime le prélèvement correspondant — le mouvement bancaire disparaîtra automatiquement.');
+      return;
+    }
+    if (m.relCheque) {
+      alert('🔒 Ce mouvement est lié à un chèque émis.\n\nPour l\'annuler, va sur la page Suivi des chèques et marque le chèque comme « Rejeté » ou supprime-le — le mouvement bancaire disparaîtra automatiquement.');
       return;
     }
     const lbl = `${Data.fmtDs(m.date)} · ${m.lib || ''} · ${Data.fmt(m.mnt)} (${m.type === 'in' ? '+' : '−'})`;

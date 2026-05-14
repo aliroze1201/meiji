@@ -206,6 +206,234 @@ const Fournisseurs = {
     else this.render();
   },
 
+  // ===================== RÈGLEMENT FOURNISSEUR =====================
+  openReglement(factureId) {
+    const fa = (Data.fournisseurs || []).find(x => x.id === factureId);
+    if (!fa) return;
+    const restant = Math.max(0, (Number(fa.deb)||0) - (Number(fa.cred)||0));
+    if (restant <= 0) {
+      alert('Cette facture est déjà soldée.');
+      return;
+    }
+    this._reglementFactureId = factureId;
+    const banks = (Data.banques || []).filter(b => b.actif !== false);
+    const ops   = (Data.operateursMobile || []).filter(o => o.actif !== false);
+    const bankOpts = banks.length
+      ? banks.map(b => `<option value="${this._esc(b.nom)}">${this._esc(b.nom)}</option>`).join('')
+      : '<option value="" disabled>Aucune banque — gère depuis Banque</option>';
+    const opOpts = ops.length
+      ? ops.map(o => `<option value="${this._esc(o.nom)}">${this._esc(o.nom)}</option>`).join('')
+      : '<option value="" disabled>Aucun opérateur — gère depuis Mobile Money</option>';
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:580px">
+          <div class="modal-title">💳 Règlement facture · ${this._esc(fa.four || '')}</div>
+          <div style="font-size:12px;color:var(--c-muted);margin-bottom:10px">
+            Facture ${this._esc(fa.num || '')} · Solde restant à régler : <b style="color:var(--c-text)">${Data.fmt(restant)}</b>
+          </div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Date du règlement</label>
+              <input type="date" id="reg-date" value="${Data.today()}"></div>
+            <div class="fg"><label class="fl">Montant (FCFA) *</label>
+              <input type="number" id="reg-mnt" value="${restant}" min="1" step="100"></div>
+          </div>
+          <div class="fg"><label class="fl">Mode de règlement</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+                <input type="radio" name="reg-mode" value="esp" checked onchange="Fournisseurs._onRegMode()"> 💵 Espèces
+              </label>
+              <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+                <input type="radio" name="reg-mode" value="banque" onchange="Fournisseurs._onRegMode()"> 🏦 Banque
+              </label>
+              <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+                <input type="radio" name="reg-mode" value="mobile" onchange="Fournisseurs._onRegMode()"> 📱 Mobile
+              </label>
+              <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+                <input type="radio" name="reg-mode" value="cheque" onchange="Fournisseurs._onRegMode()"> 🧾 Chèque
+              </label>
+            </div>
+          </div>
+
+          <!-- Espèces : caisse impactée -->
+          <div class="fg" id="reg-row-esp">
+            <label class="fl">Caisse impactée (cash)</label>
+            <select id="reg-caisse">
+              <option value="b">🍸 BAR</option>
+              <option value="s">🍱 SUSHI</option>
+              <option value="c">💨 CHICHA</option>
+            </select>
+          </div>
+
+          <!-- Banque -->
+          <div class="fg" id="reg-row-bk" style="display:none">
+            <label class="fl">Banque à débiter *</label>
+            <select id="reg-bk">${bankOpts}</select>
+          </div>
+
+          <!-- Mobile -->
+          <div class="fg" id="reg-row-mb" style="display:none">
+            <label class="fl">Opérateur Mobile *</label>
+            <select id="reg-mb">${opOpts}</select>
+          </div>
+
+          <!-- Chèque -->
+          <div id="reg-row-chq" style="display:none">
+            <div class="fr">
+              <div class="fg"><label class="fl">N° du chèque *</label>
+                <input type="text" id="reg-chq-num" placeholder="0000000"></div>
+              <div class="fg"><label class="fl">Banque tirée *</label>
+                <select id="reg-chq-bk">${bankOpts}</select></div>
+            </div>
+            <div style="font-size:11px;color:var(--c-warning);margin-bottom:8px">
+              <i class="ti ti-info-circle"></i> Le chèque sera créé dans <b>Suivi des chèques</b> (statut « En attente »).
+              Un mouvement <b>« Pending »</b> apparaîtra dans Banque mais <b>n'affectera pas le solde</b>
+              tant que tu ne l'auras pas marqué « Encaissé » dans Suivi.
+            </div>
+          </div>
+
+          <div class="fg"><label class="fl">Observation</label>
+            <input type="text" id="reg-obs" placeholder="N° pièce, note..."></div>
+
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Fournisseurs.saveReglement()"><i class="ti ti-check"></i> Enregistrer le règlement</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  _onRegMode() {
+    const sel = document.querySelector('input[name="reg-mode"]:checked');
+    const v = sel ? sel.value : 'esp';
+    const ids = ['reg-row-esp', 'reg-row-bk', 'reg-row-mb', 'reg-row-chq'];
+    const map = { esp: 'reg-row-esp', banque: 'reg-row-bk', mobile: 'reg-row-mb', cheque: 'reg-row-chq' };
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === map[v] ? '' : 'none';
+    });
+  },
+
+  saveReglement() {
+    const factureId = this._reglementFactureId;
+    const fa = (Data.fournisseurs || []).find(x => x.id === factureId);
+    if (!fa) { App.closeModal(); return; }
+
+    const date    = document.getElementById('reg-date')?.value || Data.today();
+    const montant = parseFloat(document.getElementById('reg-mnt')?.value);
+    const obs     = (document.getElementById('reg-obs')?.value || '').trim() || null;
+    const modeRadio = document.querySelector('input[name="reg-mode"]:checked');
+    const mode = modeRadio ? modeRadio.value : 'esp';
+    if (isNaN(montant) || montant <= 0) { alert('Montant invalide.'); return; }
+
+    const fourNom = fa.four || 'Fournisseur';
+    const refFact = fa.num ? ` (${fa.num})` : '';
+
+    if (mode === 'esp') {
+      const caisseRaw = document.getElementById('reg-caisse')?.value || 'b';
+      const caisse = ['s','b','c'].includes(caisseRaw) ? caisseRaw : 'b';
+      const deptMap = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      if (!Array.isArray(Data.histDep)) Data.histDep = [];
+      Data.histDep.push({
+        userId: Data.newId(),
+        date, dept: deptMap[caisse],
+        label: `Règlement ${fourNom}${refFact}`,
+        groupe: 'Fournisseurs',
+        qte: null, prix: null,
+        montant, observation: obs,
+        paiement: 'esp',
+        relFacture: factureId,
+      });
+      if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+    }
+    else if (mode === 'banque') {
+      const bk = document.getElementById('reg-bk')?.value;
+      if (!bk) { alert('Choisis la banque à débiter.'); return; }
+      if (!Array.isArray(Data.mvtsBanque)) Data.mvtsBanque = [];
+      Data.mvtsBanque.unshift({
+        id: Data.newId(),
+        date,
+        lib: `Règlement ${fourNom}${refFact}`,
+        op: bk,
+        mnt: montant,
+        type: 'out',
+        ref: obs || '',
+        caisse: null,
+        relFacture: factureId,
+      });
+      if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
+    }
+    else if (mode === 'mobile') {
+      const op = document.getElementById('reg-mb')?.value;
+      if (!op) { alert('Choisis l\'opérateur Mobile.'); return; }
+      if (!Array.isArray(Data.mvtsMobile)) Data.mvtsMobile = [];
+      Data.mvtsMobile.unshift({
+        id: Data.newId(),
+        date,
+        lib: `Règlement ${fourNom}${refFact}`,
+        op,
+        mnt: montant,
+        type: 'out',
+        ref: obs || '',
+        caisse: null,
+        relFacture: factureId,
+      });
+      if (typeof Mobile !== 'undefined' && Mobile.save) Mobile.save();
+    }
+    else if (mode === 'cheque') {
+      const num = (document.getElementById('reg-chq-num')?.value || '').trim();
+      const bk  = document.getElementById('reg-chq-bk')?.value;
+      if (!num) { alert('N° de chèque requis.'); return; }
+      if (!bk)  { alert('Banque tirée requise.'); return; }
+      if (!Array.isArray(Data.cheques)) Data.cheques = [];
+      if (!Array.isArray(Data.mvtsBanque)) Data.mvtsBanque = [];
+
+      const chequeId = Data.newId();
+      Data.cheques.push({
+        id: chequeId,
+        sens: 'emis',                  // chèque ÉMIS au fournisseur (vs reçu d'un client)
+        date,
+        dept: 'BAR',                   // valeur par défaut (champ pas pertinent pour émis)
+        numero: num,
+        banque: bk,
+        tireur: fourNom,               // = bénéficiaire pour un chèque émis
+        montant,
+        notes: obs || `Règlement facture ${fa.num || ''}`.trim(),
+        statut: 'attente',
+        dateDepot: null,
+        dateEncaissement: null,
+        relFacture: factureId,
+      });
+      // Mouvement banque MIRROIR, PENDING jusqu'à confirmation dans Suivi
+      Data.mvtsBanque.unshift({
+        id: Data.newId(),
+        date,
+        lib: `Chèque ${num} · ${fourNom}${refFact}`,
+        op: bk,
+        mnt: montant,
+        type: 'out',
+        ref: num,
+        caisse: null,
+        relCheque: chequeId,           // lien vers le chèque
+        relFacture: factureId,
+        pending: true,                 // n'impacte PAS le solde tant que pending
+      });
+      if (typeof Suivi  !== 'undefined' && Suivi.persist)  Suivi.persist();
+      if (typeof Banque !== 'undefined' && Banque.save)    Banque.save();
+    }
+
+    // Mise à jour de la facture : on crédite le montant réglé
+    fa.cred = (Number(fa.cred) || 0) + montant;
+    fa.solde = (Number(fa.deb) || 0) - fa.cred;
+    if (!Array.isArray(fa.reglements)) fa.reglements = [];
+    fa.reglements.push({ id: Data.newId(), date, montant, mode, obs });
+    this.persist();
+
+    App.closeModal();
+    if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
+    else this.render();
+  },
+
   // ===================== RENDER =====================
   render() {
     const list = App.filterByDate(Data.fournisseurs || []);
@@ -241,7 +469,12 @@ const Fournisseurs = {
     if (!tb) return;
     if (!list.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Aucune facture sur cette période</td></tr>'; return; }
 
-    tb.innerHTML = list.map(f => `
+    tb.innerHTML = list.map(f => {
+      const solde = Number(f.solde) || 0;
+      const regBtn = f.id && solde > 0
+        ? `<button class="btn btn-sm btn-success" title="Régler la facture" onclick="Fournisseurs.openReglement(${f.id})"><i class="ti ti-credit-card"></i> Régler</button>`
+        : '';
+      return `
       <tr>
         <td class="nowrap">${Data.fmtDs(f.date)}</td>
         <td class="fw-bold">${this._esc(f.four || '')}</td>
@@ -250,12 +483,14 @@ const Fournisseurs = {
         <td class="text-right text-red">${Data.fmts(f.deb)}</td>
         <td class="text-right text-green">${Data.fmts(f.cred)}</td>
         <td class="text-right fw-bold">${Data.fmts(f.solde)}</td>
-        <td><span class="badge ${f.solde <= 0 ? 'b-green' : 'b-red'}">${f.solde <= 0 ? 'Soldé' : 'En cours'}</span></td>
+        <td><span class="badge ${solde <= 0 ? 'b-green' : 'b-red'}">${solde <= 0 ? 'Soldé' : 'En cours'}</span></td>
         <td class="nowrap">
-          ${f.id ? `<button class="btn btn-sm" title="Modifier" onclick="Fournisseurs.openModal(${f.id})">✏️</button>` : ''}
+          ${regBtn}
+          ${f.id ? `<button class="btn btn-sm" title="Modifier" onclick="Fournisseurs.openModal(${f.id})" style="margin-left:4px">✏️</button>` : ''}
           ${f.id ? `<button class="btn btn-sm btn-danger" title="Supprimer" onclick="Fournisseurs.removeFacture(${f.id})" style="margin-left:4px">🗑</button>` : ''}
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   },
 
   // ===================== PERSISTANCE =====================
