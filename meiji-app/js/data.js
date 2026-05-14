@@ -123,6 +123,7 @@ const Data = {
 
   // ===================== FOURNISSEURS =====================
   fournisseurs: [],
+  fournisseursListe: [],
 
   // ===================== CHEQUES (suivi bancaire) =====================
   cheques: [],
