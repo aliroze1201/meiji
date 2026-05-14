@@ -202,10 +202,10 @@ const Mobile = {
     const tb = document.getElementById('mobile-table');
     if (!tb) return;
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="7" class="empty">Aucun mouvement sur cette période.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" class="empty">Aucun mouvement sur cette période.</td></tr>';
       return;
     }
-    let solde = Data.soldes.mobile.montant;
+    let solde = this.soldeGlobal();
     const caisseLabel = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
     tb.innerHTML = list.map(m => {
       const s = solde;
@@ -213,16 +213,38 @@ const Mobile = {
       const cBadge = m.caisse
         ? `<span class="badge ${m.caisse==='s'?'b-blue':m.caisse==='b'?'b-green':'b-amber'}" title="Impact cumul cash">${caisseLabel[m.caisse]}</span>`
         : '<span style="color:var(--c-muted);font-size:11px">—</span>';
+      const lockIcon = m.relPrelv
+        ? ' <i class="ti ti-lock" title="Lié à un prélèvement associé — supprime-le depuis la page Associés" style="color:var(--c-warning);font-size:13px"></i>'
+        : '';
       return `<tr>
         <td class="nowrap">${Data.fmtDs(m.date)}</td>
-        <td>${m.lib}</td>
-        <td style="color:#aaa">${m.op || '-'}</td>
+        <td>${this._esc(m.lib || '')}${lockIcon}</td>
+        <td style="color:#aaa">${this._esc(m.op || '-')}</td>
         <td>${cBadge}</td>
         <td class="text-right text-green fw-bold">${m.type === 'in' ? '+' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right text-red fw-bold">${m.type === 'out' ? '-' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right fw-bold">${Data.fmts(s)} FCFA</td>
+        <td class="nowrap">
+          <button class="btn btn-sm btn-danger" title="Supprimer ce mouvement" onclick="Mobile.removeMvt(${m.id})"><i class="ti ti-trash"></i></button>
+        </td>
       </tr>`;
     }).join('');
+  },
+
+  // Supprimer un mouvement Mobile Money
+  removeMvt(id) {
+    const m = (Data.mvtsMobile || []).find(x => x.id === id);
+    if (!m) return;
+    if (m.relPrelv) {
+      alert('🔒 Ce mouvement est lié à un prélèvement associé.\n\nPour le supprimer, va sur la page Associés et supprime le prélèvement correspondant — le mouvement disparaîtra automatiquement.');
+      return;
+    }
+    const lbl = `${Data.fmtDs(m.date)} · ${m.lib || ''} · ${Data.fmt(m.mnt)} (${m.type === 'in' ? '+' : '−'})`;
+    if (!confirm('Supprimer ce mouvement Mobile Money ?\n\n' + lbl + '\n\nCette action est irréversible.')) return;
+    Data.mvtsMobile = Data.mvtsMobile.filter(x => x.id !== id);
+    this.save();
+    if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
+    else this.render();
   },
 
   // ===================== GESTION DE LA LISTE DES OPÉRATEURS =====================
