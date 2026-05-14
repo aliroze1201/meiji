@@ -110,6 +110,17 @@ const Data = {
     {id:2,date:'2026-04-19',ticket:'198',client:'ALI ROZE',dept:'SUSHI',montant:14500,statut:'ouvert'},
   ],
 
+  // ===================== ASSOCIÉS =====================
+  // Partage du bénéfice BAR + CHICHA entre l'utilisateur et son associé.
+  // SUSHI/RESTAURANT reste 100 % à l'utilisateur, hors calcul.
+  associes: [
+    { id: 1, nom: 'Moi',     part: 50, actif: true },
+    { id: 2, nom: 'Associé', part: 50, actif: true },
+  ],
+
+  // ===================== PRÉLÈVEMENTS (avances associés) =====================
+  prelevements: [],
+
   // ===================== FOURNISSEURS =====================
   fournisseurs: [],
 
@@ -164,9 +175,20 @@ const Data = {
   // solde correspondant, pas des espèces.
   cashOutOnDate(date, k) {
     const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
-    return this.getAllDeps()
+    let total = this.getAllDeps()
       .filter(d => d.date === date && d.dept === dept && this.isCashDep(d))
       .reduce((s, d) => s + (d.montant || 0), 0);
+    // Convention : les prélèvements en espèces ne sont pas attachés à une
+    // caisse SUSHI/BAR/CHICHA spécifique ; ils proviennent du pot commun
+    // BAR+CHICHA. Pour ne pas répartir arbitrairement, on les impute en
+    // totalité à la caisse BAR (k === 'b'). Le bénéfice n'est PAS impacté
+    // (un prélèvement est une distribution, pas une charge d'exploitation).
+    if (k === 'b' && Array.isArray(this.prelevements)) {
+      total += this.prelevements
+        .filter(p => p.date === date && p.paiement === 'esp')
+        .reduce((s, p) => s + (Number(p.montant) || 0), 0);
+    }
+    return total;
   },
 
   // Renvoie true si la dépense est payée en espèces.

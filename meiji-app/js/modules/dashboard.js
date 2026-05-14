@@ -151,7 +151,11 @@ const Dashboard = {
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
     const depBk = depsPeriode.filter(d => d.paiement === 'banque')
       .reduce((s,d) => s + (d.montant || 0), 0);
-    const bkTheo = baseBk + chqEnc + recChq + mvtBkIn - mvtBkOut - depBk;
+    // Prélèvements associés en banque sur la période -> sortie théorique
+    const prelvBk = (Data.prelevements || [])
+      .filter(p => p.paiement === 'banque' && App.inPeriod(p.date))
+      .reduce((s,p) => s + (Number(p.montant) || 0), 0);
+    const bkTheo = baseBk + chqEnc + recChq + mvtBkIn - mvtBkOut - depBk - prelvBk;
     this._set('d-bk-theo', Data.fmt(bkTheo));
     this._setDelta('d-bk-delta', baseBk, bkTheo);
 
@@ -165,7 +169,11 @@ const Dashboard = {
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
     const depMb = depsPeriode.filter(d => d.paiement === 'mobile')
       .reduce((s,d) => s + (d.montant || 0), 0);
-    const mbTheo = baseMb + recMob + mvtMbIn - mvtMbOut - depMb;
+    // Prélèvements associés en mobile sur la période -> sortie théorique
+    const prelvMb = (Data.prelevements || [])
+      .filter(p => p.paiement === 'mobile' && App.inPeriod(p.date))
+      .reduce((s,p) => s + (Number(p.montant) || 0), 0);
+    const mbTheo = baseMb + recMob + mvtMbIn - mvtMbOut - depMb - prelvMb;
     this._set('d-mb-theo', Data.fmt(mbTheo));
     this._setDelta('d-mb-delta', baseMb, mbTheo);
 

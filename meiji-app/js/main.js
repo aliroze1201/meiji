@@ -53,6 +53,7 @@ const App = {
       bilan: 'Bilan',
       clotures: 'Clôtures mensuelles',
       utilisateurs: 'Utilisateurs',
+      associes: 'Associés',
     };
     const tb = document.getElementById('tb-title');
     if (tb) tb.textContent = titles[pageId] || 'MEIJI';
@@ -101,6 +102,10 @@ const App = {
     if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep('Articles + mouvements stock',          () => Stock.save());
     if (typeof Stock    !== 'undefined' && Stock.save)       await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
     if (typeof Categories !== 'undefined' && Categories.persist) await tryStep(`${(Data.categories||[]).length} catégorie(s)`, () => Categories.persist());
+    if (typeof Associes !== 'undefined' && Associes.save) await tryStep(
+      `Associés (${(Data.associes||[]).length}) + prélèvements (${(Data.prelevements||[]).length})`,
+      () => Associes.save()
+    );
     if (Data.fondInit && typeof Pointage !== 'undefined' && Pointage.SEED_KEY) {
       await tryStep('Soldes d\'ouverture', () => AppDB.save(Pointage.SEED_KEY, Data.fondInit));
     }
@@ -300,6 +305,7 @@ const App = {
     if (typeof Clotures !== 'undefined') Clotures.render();
     if (typeof Pointage !== 'undefined') Pointage.render();
     if (typeof Stock !== 'undefined') Stock.render();
+    if (typeof Associes !== 'undefined') Associes.render();
   },
 
   // ===================== INIT =====================
@@ -379,6 +385,10 @@ const App = {
     document.getElementById('btn-save-banque')?.addEventListener('click', () => Banque.saveSolde());
     document.getElementById('btn-save-mobile')?.addEventListener('click', () => Mobile.saveSolde());
 
+    // Associés
+    document.getElementById('btn-new-assoc')?.addEventListener('click', () => Associes.openAssocModal(null));
+    document.getElementById('btn-new-prelv')?.addEventListener('click', () => Associes.openPrelvModal(null));
+
     // Theme
     this.initTheme();
 
@@ -402,6 +412,7 @@ const App = {
       (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
       (typeof Stock !== 'undefined' && Stock.restore ? Stock.restore() : Promise.resolve()),
       (typeof Categories !== 'undefined' && Categories.restore ? Categories.restore() : Promise.resolve()),
+      (typeof Associes !== 'undefined' && Associes.restore ? Associes.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
     .then(() => this.renderAll())
