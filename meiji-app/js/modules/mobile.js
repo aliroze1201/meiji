@@ -38,6 +38,42 @@ const Mobile = {
     Bilan.render();
   },
 
+  // ---------- Helpers solde par opérateur ----------
+  soldeOfOp(opNom) {
+    const o = (Data.operateursMobile || []).find(x => x.nom === opNom);
+    const base = Number(o?.solde) || 0;
+    const mvts = (Data.mvtsMobile || []).filter(m => (m.op || '') === opNom);
+    const inn  = mvts.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    const out  = mvts.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    return base + inn - out;
+  },
+
+  soldeGlobal() {
+    let total = (Data.operateursMobile || []).reduce((s,o) => s + this.soldeOfOp(o.nom), 0);
+    const knownNames = new Set((Data.operateursMobile || []).map(o => o.nom));
+    const orphelin = (Data.mvtsMobile || []).filter(m => !m.op || !knownNames.has(m.op));
+    const inn = orphelin.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    const out = orphelin.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    total += inn - out;
+    total += Number(Data.soldes?.mobile?.montant) || 0;
+    return total;
+  },
+
+  saveOpSolde(id) {
+    const el = document.getElementById('inp-mb-' + id);
+    if (!el) return;
+    const val = parseFloat(el.value);
+    if (isNaN(val)) { alert('Saisis un nombre valide.'); return; }
+    const o = (Data.operateursMobile || []).find(x => x.id === id);
+    if (!o) return;
+    o.solde = val;
+    o.soldeDate = new Date().toLocaleDateString('fr-FR');
+    this.saveList();
+    this.render();
+    if (typeof Dashboard !== 'undefined') Dashboard.render();
+    if (typeof Bilan !== 'undefined') Bilan.render();
+  },
+
   openMvtModal() {
     App.showModal(`
       <div class="modal-overlay">
@@ -121,11 +157,47 @@ const Mobile = {
     const totalOut = list.filter(m => m.type === 'out').reduce((s,m) => s + m.mnt, 0);
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('mobile-solde', Data.fmt(Data.soldes.mobile.montant));
-    set('mobile-update', Data.soldes.mobile.date ? 'Mis à jour le ' + Data.soldes.mobile.date : 'Non renseigné');
+    set('mobile-solde', Data.fmt(this.soldeGlobal()));
     set('mobile-in', Data.fmt(totalIn));
     set('mobile-out', Data.fmt(totalOut));
     set('mobile-nb', list.length);
+
+    // Grille de cartes par opérateur
+    const grid = document.getElementById('mobiles-grid');
+    if (grid) {
+      const ops = (Data.operateursMobile || []).filter(o => o.actif !== false);
+      if (!ops.length) {
+        grid.innerHTML = `
+          <div class="card" style="text-align:center;padding:18px;margin-bottom:16px">
+            <div style="color:var(--c-muted);font-size:13px;margin-bottom:8px">Aucun opérateur enregistré.</div>
+            <button class="btn btn-primary" onclick="Mobile.openListModal()"><i class="ti ti-plus"></i> Ajouter un opérateur</button>
+          </div>`;
+      } else {
+        grid.innerHTML = '<div class="g3" style="margin-bottom:16px">' + ops.map(o => {
+          const live = this.soldeOfOp(o.nom);
+          const base = Number(o.solde) || 0;
+          const mvts = (Data.mvtsMobile || []).filter(m => (m.op || '') === o.nom);
+          const inn = mvts.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+          const out = mvts.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+          return `
+            <div class="card" style="padding:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-weight:700;font-size:15px;color:var(--c-purple)"><i class="ti ti-device-mobile"></i> ${this._esc(o.nom)}</span>
+                <button class="btn btn-ghost" style="padding:4px 8px" onclick="Mobile.openOpForm(${o.id})" title="Modifier"><i class="ti ti-edit"></i></button>
+              </div>
+              <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--c-purple);font-variant-numeric:tabular-nums">${Data.fmt(live)}</div>
+              <div style="font-size:11px;color:var(--c-muted);margin-bottom:10px">
+                Référence : ${Data.fmt(base)}${o.soldeDate ? ' · ' + o.soldeDate : ''}<br>
+                + ${Data.fmts(inn)} entrées · − ${Data.fmts(out)} sorties
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="number" id="inp-mb-${o.id}" placeholder="Nouveau solde de référence..." style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-surface);font-size:13px">
+                <button class="btn btn-primary btn-sm" onclick="Mobile.saveOpSolde(${o.id})"><i class="ti ti-check"></i></button>
+              </div>
+            </div>`;
+        }).join('') + '</div>';
+      }
+    }
 
     const tb = document.getElementById('mobile-table');
     if (!tb) return;
@@ -202,6 +274,13 @@ const Mobile = {
           <div class="fg"><label class="fl">Observation</label>
             <input type="text" id="op-obs" value="${this._esc(o?.observation || '')}" placeholder="N° commerçant, contact...">
           </div>
+          <div class="fg"><label class="fl">Solde de référence (FCFA)</label>
+            <input type="number" id="op-solde" value="${o?.solde != null ? o.solde : ''}" placeholder="0">
+            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+              Point de départ du calcul. Les entrées et sorties s'ajoutent automatiquement.
+              ${o?.soldeDate ? 'Dernière mise à jour : ' + this._esc(o.soldeDate) : ''}
+            </div>
+          </div>
           <div class="fg" style="display:flex;align-items:center;gap:8px">
             <input type="checkbox" id="op-actif" ${o?.actif === false ? '' : 'checked'} style="width:auto">
             <label for="op-actif" style="margin:0">Opérateur actif</label>
@@ -219,16 +298,24 @@ const Mobile = {
     if (!nom) { alert('Nom obligatoire.'); return; }
     const observation = (document.getElementById('op-obs')?.value || '').trim() || null;
     const actif = !!document.getElementById('op-actif')?.checked;
+    const soldeRaw = document.getElementById('op-solde')?.value;
+    const solde = soldeRaw !== '' && soldeRaw != null ? parseFloat(soldeRaw) : 0;
+    const soldeDate = soldeRaw !== '' && soldeRaw != null ? new Date().toLocaleDateString('fr-FR') : null;
     if (!Array.isArray(Data.operateursMobile)) Data.operateursMobile = [];
     if (this.editOpId) {
       const o = Data.operateursMobile.find(x => x.id === this.editOpId);
-      if (o) Object.assign(o, { nom, observation, actif });
+      if (o) {
+        const update = { nom, observation, actif, solde };
+        if (o.solde !== solde) update.soldeDate = soldeDate || o.soldeDate;
+        Object.assign(o, update);
+      }
     } else {
-      Data.operateursMobile.push({ id: Data.newId(), nom, observation, actif });
+      Data.operateursMobile.push({ id: Data.newId(), nom, observation, actif, solde, soldeDate });
     }
     this.editOpId = null;
     this.saveList();
     this.openListModal();
+    if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
   },
 
   removeOp(id) {
