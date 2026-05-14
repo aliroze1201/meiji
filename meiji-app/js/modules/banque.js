@@ -29,6 +29,8 @@ const Banque = {
   },
 
   saveSolde() {
+    // Legacy : si l'utilisateur écrit dans le champ global (anciens écrans),
+    // on conserve le comportement historique.
     const val = parseFloat(document.getElementById('inp-banque')?.value) || 0;
     Data.soldes.banque = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
     document.getElementById('inp-banque').value = '';
@@ -36,6 +38,50 @@ const Banque = {
     this.render();
     Dashboard.render();
     Bilan.render();
+  },
+
+  // ---------- Helpers solde par banque ----------
+  // Solde "live" d'une banque = solde de référence (saisi par l'utilisateur)
+  //                           + Σ mouvements 'in' sur cette banque
+  //                           − Σ mouvements 'out' sur cette banque
+  // (tous les mouvements, pas filtrés par période — c'est un solde courant)
+  soldeOfBank(bankNom) {
+    const b = (Data.banques || []).find(x => x.nom === bankNom);
+    const base = Number(b?.solde) || 0;
+    const mvts = (Data.mvtsBanque || []).filter(m => (m.op || '') === bankNom);
+    const inn  = mvts.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    const out  = mvts.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    return base + inn - out;
+  },
+
+  // Solde total = Σ soldes par banque + solde des mouvements sans banque attribuée
+  soldeGlobal() {
+    let total = (Data.banques || []).reduce((s,b) => s + this.soldeOfBank(b.nom), 0);
+    // Mouvements sans `op` ou avec une banque non listée : on les ajoute aussi
+    const knownNames = new Set((Data.banques || []).map(b => b.nom));
+    const orphelin = (Data.mvtsBanque || []).filter(m => !m.op || !knownNames.has(m.op));
+    const inn = orphelin.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    const out = orphelin.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+    total += inn - out;
+    // Compat : ajoute aussi le solde legacy global s'il existe
+    total += Number(Data.soldes?.banque?.montant) || 0;
+    return total;
+  },
+
+  // Mise à jour du solde de référence d'une banque
+  saveBankSolde(id) {
+    const el = document.getElementById('inp-bk-' + id);
+    if (!el) return;
+    const val = parseFloat(el.value);
+    if (isNaN(val)) { alert('Saisis un nombre valide.'); return; }
+    const b = (Data.banques || []).find(x => x.id === id);
+    if (!b) return;
+    b.solde = val;
+    b.soldeDate = new Date().toLocaleDateString('fr-FR');
+    this.saveList();
+    this.render();
+    if (typeof Dashboard !== 'undefined') Dashboard.render();
+    if (typeof Bilan !== 'undefined') Bilan.render();
   },
 
   openMvtModal() {
@@ -121,11 +167,47 @@ const Banque = {
     const totalOut = list.filter(m => m.type === 'out').reduce((s,m) => s + m.mnt, 0);
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('banque-solde', Data.fmt(Data.soldes.banque.montant));
-    set('banque-update', Data.soldes.banque.date ? 'Mis à jour le ' + Data.soldes.banque.date : 'Non renseigné');
+    set('banque-solde', Data.fmt(this.soldeGlobal()));
     set('banque-in', Data.fmt(totalIn));
     set('banque-out', Data.fmt(totalOut));
     set('banque-nb', list.length);
+
+    // Grille de cartes par banque
+    const grid = document.getElementById('banques-grid');
+    if (grid) {
+      const banks = (Data.banques || []).filter(b => b.actif !== false);
+      if (!banks.length) {
+        grid.innerHTML = `
+          <div class="card" style="text-align:center;padding:18px;margin-bottom:16px">
+            <div style="color:var(--c-muted);font-size:13px;margin-bottom:8px">Aucune banque enregistrée.</div>
+            <button class="btn btn-primary" onclick="Banque.openListModal()"><i class="ti ti-plus"></i> Ajouter une banque</button>
+          </div>`;
+      } else {
+        grid.innerHTML = '<div class="g3" style="margin-bottom:16px">' + banks.map(b => {
+          const live = this.soldeOfBank(b.nom);
+          const base = Number(b.solde) || 0;
+          const mvts = (Data.mvtsBanque || []).filter(m => (m.op || '') === b.nom);
+          const inn = mvts.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+          const out = mvts.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
+          return `
+            <div class="card" style="padding:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-weight:700;font-size:15px;color:var(--c-sushi)"><i class="ti ti-building-bank"></i> ${this._esc(b.nom)}</span>
+                <button class="btn btn-ghost" style="padding:4px 8px" onclick="Banque.openBankForm(${b.id})" title="Modifier"><i class="ti ti-edit"></i></button>
+              </div>
+              <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--c-sushi);font-variant-numeric:tabular-nums">${Data.fmt(live)}</div>
+              <div style="font-size:11px;color:var(--c-muted);margin-bottom:10px">
+                Référence : ${Data.fmt(base)}${b.soldeDate ? ' · ' + b.soldeDate : ''}<br>
+                + ${Data.fmts(inn)} entrées · − ${Data.fmts(out)} sorties
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="number" id="inp-bk-${b.id}" placeholder="Nouveau solde de référence..." style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-surface);font-size:13px">
+                <button class="btn btn-primary btn-sm" onclick="Banque.saveBankSolde(${b.id})"><i class="ti ti-check"></i></button>
+              </div>
+            </div>`;
+        }).join('') + '</div>';
+      }
+    }
 
     const tb = document.getElementById('banque-table');
     if (!tb) return;
@@ -202,6 +284,13 @@ const Banque = {
           <div class="fg"><label class="fl">Observation</label>
             <input type="text" id="bk-obs" value="${this._esc(b?.observation || '')}" placeholder="N° de compte, agence...">
           </div>
+          <div class="fg"><label class="fl">Solde de référence (FCFA)</label>
+            <input type="number" id="bk-solde" value="${b?.solde != null ? b.solde : ''}" placeholder="0">
+            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+              Point de départ du calcul. Les entrées et sorties suivantes s'ajoutent automatiquement.
+              ${b?.soldeDate ? 'Dernière mise à jour : ' + this._esc(b.soldeDate) : ''}
+            </div>
+          </div>
           <div class="fg" style="display:flex;align-items:center;gap:8px">
             <input type="checkbox" id="bk-actif" ${b?.actif === false ? '' : 'checked'} style="width:auto">
             <label for="bk-actif" style="margin:0">Banque active (visible dans les menus déroulants)</label>
@@ -219,16 +308,25 @@ const Banque = {
     if (!nom) { alert('Nom de banque requis.'); return; }
     const observation = (document.getElementById('bk-obs')?.value || '').trim() || null;
     const actif = !!document.getElementById('bk-actif')?.checked;
+    const soldeRaw = document.getElementById('bk-solde')?.value;
+    const solde = soldeRaw !== '' && soldeRaw != null ? parseFloat(soldeRaw) : 0;
+    const soldeDate = soldeRaw !== '' && soldeRaw != null ? new Date().toLocaleDateString('fr-FR') : null;
     if (!Array.isArray(Data.banques)) Data.banques = [];
     if (this.editBkId) {
       const b = Data.banques.find(x => x.id === this.editBkId);
-      if (b) Object.assign(b, { nom, observation, actif });
+      if (b) {
+        // Ne mettre à jour soldeDate que si la valeur a changé
+        const update = { nom, observation, actif, solde };
+        if (b.solde !== solde) update.soldeDate = soldeDate || b.soldeDate;
+        Object.assign(b, update);
+      }
     } else {
-      Data.banques.push({ id: Data.newId(), nom, observation, actif });
+      Data.banques.push({ id: Data.newId(), nom, observation, actif, solde, soldeDate });
     }
     this.editBkId = null;
     this.saveList();
     this.openListModal();
+    if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
   },
 
   removeBank(id) {
