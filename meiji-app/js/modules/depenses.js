@@ -52,6 +52,9 @@ const Depenses = {
       const deleteBtn = d.userId
         ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
         : '';
+      const editBtn = d.userId
+        ? `<button class="btn-ghost" title="Modifier" onclick="Depenses.editLine(${d.userId})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`
+        : '';
       const pay = d.paiement || 'esp';
       const payCell = d.userId
         ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${d.userId}, this.value)" style="font-size:12px">
@@ -70,9 +73,49 @@ const Depenses = {
         <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
         <td>${payCell}</td>
         <td>${obsCell}</td>
-        <td>${deleteBtn}</td>
+        <td class="nowrap">${editBtn}${deleteBtn}</td>
       </tr>`;
     }).join('');
+  },
+
+  // Charge une dépense validée comme brouillon pour la modifier.
+  // L'enregistrement réel se fait au moment du Valider (commitDrafts) :
+  //   si d.editingUserId existe → on met à jour l'entrée existante ;
+  //   sinon → on crée une nouvelle dépense.
+  editLine(userId) {
+    const dep = Data.histDep.find(x => x.userId === userId);
+    if (!dep) return alert('Dépense introuvable.');
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(dep.date)) {
+      alert(`🔒 Mois clôturé : la dépense du ${Data.fmtD(dep.date)} ne peut pas être modifiée.`);
+      return;
+    }
+    if (this.drafts.some(d => d.editingUserId === userId)) {
+      alert('Cette dépense est déjà en cours de modification dans la zone de saisie.');
+      const card = document.getElementById('draft-card');
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const draft = {
+      id:       this._draftSeq++,
+      date:     dep.date,
+      dept:     dep.dept,
+      cat:      dep.groupe || dep.label || '',
+      qte:      dep.qte != null ? String(dep.qte) : '',
+      prix:     dep.prix != null ? String(dep.prix) : '',
+      montant:  dep.montant != null ? String(dep.montant) : '',
+      obs:      dep.observation || '',
+      paiement: dep.paiement || 'esp',
+      editingUserId: userId,
+    };
+    this.drafts.unshift(draft);
+    this.persistDrafts();
+    this.renderDrafts();
+    if (App.currentPage !== 'depenses') App.nav('depenses');
+    setTimeout(() => {
+      const card = document.getElementById('draft-card');
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector(`#draft-tbody tr[data-draft-id="${draft.id}"] input.fld-cat`)?.focus();
+    }, 50);
   },
 
   // Met à jour le mode de paiement d'une dépense utilisateur déjà validée.
@@ -165,7 +208,7 @@ const Depenses = {
     if (empty) empty.style.display = 'none';
 
     tb.innerHTML = this.drafts.map(d => `
-      <tr data-draft-id="${d.id}">
+      <tr data-draft-id="${d.id}" ${d.editingUserId ? 'style="background:color-mix(in srgb, var(--c-primary-soft) 60%, transparent)" title="Modification d\'une dépense existante"' : ''}>
         <td><input type="date"   class="fld-date"    value="${this._escape(d.date)}"
               onchange="Depenses.updateDraft(${d.id},'date',this.value)"></td>
         <td><select class="fld-dept"
@@ -226,12 +269,15 @@ const Depenses = {
       }
     }
 
-    if (!confirm(`Valider ${this.drafts.length} dépense(s) ? Elles seront ajoutées à l'historique.`)) return;
+    const nbEdit = this.drafts.filter(d => d.editingUserId).length;
+    const nbNew  = this.drafts.length - nbEdit;
+    const parts = [];
+    if (nbNew)  parts.push(`${nbNew} nouvelle(s)`);
+    if (nbEdit) parts.push(`${nbEdit} modifiée(s)`);
+    if (!confirm(`Valider la saisie ? (${parts.join(' + ')})`)) return;
 
     this.drafts.forEach(d => {
-      const id = Data.newId();
-      Data.histDep.push({
-        userId: id,
+      const payload = {
         date:   d.date,
         dept:   d.dept,
         label:  d.cat,
@@ -241,7 +287,19 @@ const Depenses = {
         montant: parseFloat(d.montant),
         observation: d.obs || null,
         paiement: d.paiement || 'esp',
-      });
+      };
+      if (d.editingUserId) {
+        // Mise à jour d'une dépense existante : on conserve son userId
+        const idx = Data.histDep.findIndex(x => x.userId === d.editingUserId);
+        if (idx >= 0) {
+          Data.histDep[idx] = { ...Data.histDep[idx], ...payload, userId: d.editingUserId };
+        } else {
+          // Si l'original a disparu entre-temps, on crée une nouvelle entrée
+          Data.histDep.push({ ...payload, userId: Data.newId() });
+        }
+      } else {
+        Data.histDep.push({ ...payload, userId: Data.newId() });
+      }
     });
 
     this.drafts = [];
