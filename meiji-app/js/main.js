@@ -94,7 +94,9 @@ const App = {
       () => Depenses.persist()
     );
     if (typeof Banque   !== 'undefined' && Banque.save)   await tryStep('Banque (solde + mouvements)',         () => Banque.save());
+    if (typeof Banque   !== 'undefined' && Banque.saveList) await tryStep(`Liste banques (${(Data.banques||[]).length})`, () => Banque.saveList());
     if (typeof Mobile   !== 'undefined' && Mobile.save)   await tryStep('Mobile Money (solde + mouvements)',   () => Mobile.save());
+    if (typeof Mobile   !== 'undefined' && Mobile.saveList) await tryStep(`Liste opérateurs (${(Data.operateursMobile||[]).length})`, () => Mobile.saveList());
     if (typeof Suivi    !== 'undefined' && Suivi.persist) await tryStep(`${(Data.cheques||[]).length} chèque(s)`,   () => Suivi.persist());
     if (typeof Credits  !== 'undefined' && Credits.persist) await tryStep(`${(Data.credits||[]).length} crédit(s)`,  () => Credits.persist());
     if (typeof Employes !== 'undefined' && Employes.save)  await tryStep(`${(Data.employes||[]).length} employé(s)`, () => Employes.save());
@@ -382,6 +384,8 @@ const App = {
     document.getElementById('btn-new-fourn')?.addEventListener('click', () => Fournisseurs.openModal());
     document.getElementById('btn-new-mvt-banque')?.addEventListener('click', () => Banque.openMvtModal());
     document.getElementById('btn-new-mvt-mobile')?.addEventListener('click', () => Mobile.openMvtModal());
+    document.getElementById('btn-list-banques')?.addEventListener('click', () => Banque.openListModal());
+    document.getElementById('btn-list-mobiles')?.addEventListener('click', () => Mobile.openListModal());
     document.getElementById('btn-save-banque')?.addEventListener('click', () => Banque.saveSolde());
     document.getElementById('btn-save-mobile')?.addEventListener('click', () => Mobile.saveSolde());
 

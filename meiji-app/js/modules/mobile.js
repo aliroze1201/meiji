@@ -4,6 +4,8 @@
 
 const Mobile = {
   STORAGE_KEY: 'meiji-mobile',
+  STORAGE_LIST: 'meiji-operateurs-mobile',
+  editOpId: null,
 
   save() {
     AppDB.save(this.STORAGE_KEY, {
@@ -12,11 +14,18 @@ const Mobile = {
     });
   },
 
+  saveList() {
+    AppDB.save(this.STORAGE_LIST, Data.operateursMobile || []);
+  },
+
   async restore() {
     const data = await AppDB.load(this.STORAGE_KEY);
-    if (!data) return;
-    if (data.solde) Data.soldes.mobile = data.solde;
-    if (Array.isArray(data.mvts)) Data.mvtsMobile = data.mvts;
+    if (data) {
+      if (data.solde) Data.soldes.mobile = data.solde;
+      if (Array.isArray(data.mvts)) Data.mvtsMobile = data.mvts;
+    }
+    const list = await AppDB.load(this.STORAGE_LIST);
+    if (Array.isArray(list)) Data.operateursMobile = list;
   },
 
   saveSolde() {
@@ -40,7 +49,18 @@ const Mobile = {
           </div>
           <div class="fr">
             <div class="fg"><label class="fl">Date</label><input type="date" id="mmvt-date" value="${Data.today()}"></div>
-            <div class="fg"><label class="fl">Opérateur</label><input type="text" id="mmvt-op" placeholder="Ex: MTN, Airtel, Orange..."></div>
+            <div class="fg">
+              <label class="fl">Opérateur</label>
+              <select id="mmvt-op">${(() => {
+                const ops = (Data.operateursMobile || []).filter(o => o.actif !== false);
+                return ops.length
+                  ? ops.map(o => `<option value="${this._esc(o.nom)}">${this._esc(o.nom)}</option>`).join('')
+                  : '<option value="" disabled>Aucun opérateur — clique "Gérer opérateurs"</option>';
+              })()}</select>
+              <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+                <a href="#" onclick="App.closeModal();Mobile.openListModal();return false">Gérer la liste des opérateurs</a>
+              </div>
+            </div>
           </div>
           <div class="fg">
             <label class="fl">Caisse source / destination (impact cash)</label>
@@ -131,5 +151,96 @@ const Mobile = {
         <td class="text-right fw-bold">${Data.fmts(s)} FCFA</td>
       </tr>`;
     }).join('');
+  },
+
+  // ===================== GESTION DE LA LISTE DES OPÉRATEURS =====================
+  openListModal() {
+    if (!Array.isArray(Data.operateursMobile)) Data.operateursMobile = [];
+    const rows = Data.operateursMobile.length
+      ? Data.operateursMobile.map(o => `
+          <tr>
+            <td><b>${this._esc(o.nom)}</b></td>
+            <td>${o.actif === false ? '<span class="badge b-red">Inactif</span>' : '<span class="badge b-green">Actif</span>'}</td>
+            <td>${this._esc(o.observation || '')}</td>
+            <td class="nowrap">
+              <button class="btn btn-sm" onclick="Mobile.openOpForm(${o.id})">✏️</button>
+              <button class="btn btn-sm btn-danger" onclick="Mobile.removeOp(${o.id})" style="margin-left:4px">🗑</button>
+            </td>
+          </tr>`).join('')
+      : '<tr><td colspan="4" class="empty">Aucun opérateur enregistré</td></tr>';
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:640px">
+          <div class="modal-title">📱 Gérer les opérateurs Mobile Money</div>
+          <div style="font-size:13px;color:var(--c-muted);margin-bottom:10px">
+            Les opérateurs de cette liste apparaissent dans le formulaire « Nouveau mouvement ».
+          </div>
+          <div style="margin-bottom:12px">
+            <button class="btn btn-primary" onclick="Mobile.openOpForm(null)"><i class="ti ti-plus"></i> Nouvel opérateur</button>
+          </div>
+          <table>
+            <thead><tr><th>Nom</th><th>Statut</th><th>Observation</th><th>Actions</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-primary" onclick="App.closeModal()">Fermer</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  openOpForm(id) {
+    this.editOpId = id;
+    const o = id ? (Data.operateursMobile || []).find(x => x.id === id) : null;
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-title">${id ? 'Modifier opérateur' : 'Nouvel opérateur'}</div>
+          <div class="fg"><label class="fl">Nom *</label>
+            <input type="text" id="op-nom" value="${this._esc(o?.nom || '')}" placeholder="Ex: MTN, Airtel, Orange Money...">
+          </div>
+          <div class="fg"><label class="fl">Observation</label>
+            <input type="text" id="op-obs" value="${this._esc(o?.observation || '')}" placeholder="N° commerçant, contact...">
+          </div>
+          <div class="fg" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="op-actif" ${o?.actif === false ? '' : 'checked'} style="width:auto">
+            <label for="op-actif" style="margin:0">Opérateur actif</label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="Mobile.openListModal()">Retour à la liste</button>
+            <button class="btn btn-primary" onclick="Mobile.saveOp()">Enregistrer</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  saveOp() {
+    const nom = (document.getElementById('op-nom')?.value || '').trim();
+    if (!nom) { alert('Nom obligatoire.'); return; }
+    const observation = (document.getElementById('op-obs')?.value || '').trim() || null;
+    const actif = !!document.getElementById('op-actif')?.checked;
+    if (!Array.isArray(Data.operateursMobile)) Data.operateursMobile = [];
+    if (this.editOpId) {
+      const o = Data.operateursMobile.find(x => x.id === this.editOpId);
+      if (o) Object.assign(o, { nom, observation, actif });
+    } else {
+      Data.operateursMobile.push({ id: Data.newId(), nom, observation, actif });
+    }
+    this.editOpId = null;
+    this.saveList();
+    this.openListModal();
+  },
+
+  removeOp(id) {
+    const o = (Data.operateursMobile || []).find(x => x.id === id);
+    if (!o) return;
+    if (!confirm(`Supprimer l'opérateur « ${o.nom} » ?\n\nLes mouvements existants conservent son nom, seule la liste de choix est nettoyée.`)) return;
+    Data.operateursMobile = Data.operateursMobile.filter(x => x.id !== id);
+    this.saveList();
+    this.openListModal();
+  },
+
+  _esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   },
 };

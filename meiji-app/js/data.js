@@ -135,6 +135,12 @@ const Data = {
   mvtsBanque: [],
   mvtsMobile: [],
 
+  // ===================== LISTES DE RÉFÉRENCE =====================
+  // Banques actives (utilisées comme dropdown sur les mouvements bancaires)
+  banques: [],            // [{ id, nom, observation, actif }]
+  // Opérateurs Mobile Money (MTN, Airtel, Orange...)
+  operateursMobile: [],   // [{ id, nom, observation, actif }]
+
   // ===================== STOCK =====================
   stockArticles: [],
   stockMouvements: [],
