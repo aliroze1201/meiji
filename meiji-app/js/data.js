@@ -163,10 +163,23 @@ const Data = {
   },
 
   // ===================== ESPÈCES — REPORT CUMULÉ PAR CAISSE =====================
-  // Encaissements espèces d'une caisse sur une date
+  // Encaissements espèces d'une caisse sur une date.
+  // Inclut aussi les retraits banque/mobile vers cette caisse (type='out',
+  // caisse=k) → ils alimentent le cash de la caisse en question.
   cashInOnDate(date, k) {
     const j = this.journees.find(x => x.date === date);
-    return j ? (j[k]?.esp || 0) : 0;
+    let total = j ? (j[k]?.esp || 0) : 0;
+    if (Array.isArray(this.mvtsBanque)) {
+      total += this.mvtsBanque
+        .filter(m => m.date === date && m.type === 'out' && m.caisse === k)
+        .reduce((s, m) => s + (Number(m.mnt) || 0), 0);
+    }
+    if (Array.isArray(this.mvtsMobile)) {
+      total += this.mvtsMobile
+        .filter(m => m.date === date && m.type === 'out' && m.caisse === k)
+        .reduce((s, m) => s + (Number(m.mnt) || 0), 0);
+    }
+    return total;
   },
   // Dépenses espèces d'une caisse sur une date.
   // Source unique : getAllDeps() (= histDep + j.deps[]), comme le dashboard.
@@ -187,6 +200,17 @@ const Data = {
       total += this.prelevements
         .filter(p => p.date === date && p.paiement === 'esp')
         .reduce((s, p) => s + (Number(p.montant) || 0), 0);
+    }
+    // Versements cash → banque/mobile : type='in' avec caisse=k → cash sort
+    if (Array.isArray(this.mvtsBanque)) {
+      total += this.mvtsBanque
+        .filter(m => m.date === date && m.type === 'in' && m.caisse === k)
+        .reduce((s, m) => s + (Number(m.mnt) || 0), 0);
+    }
+    if (Array.isArray(this.mvtsMobile)) {
+      total += this.mvtsMobile
+        .filter(m => m.date === date && m.type === 'in' && m.caisse === k)
+        .reduce((s, m) => s + (Number(m.mnt) || 0), 0);
     }
     return total;
   },

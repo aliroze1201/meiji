@@ -42,6 +42,20 @@ const Banque = {
             <div class="fg"><label class="fl">Date</label><input type="date" id="mvt-date" value="${Data.today()}"></div>
             <div class="fg"><label class="fl">Banque / Référence</label><input type="text" id="mvt-op" placeholder="Ex: LCBG, chèque n°..."></div>
           </div>
+          <div class="fg">
+            <label class="fl">Caisse source / destination (impact cash)</label>
+            <select id="mvt-caisse">
+              <option value="">— Aucune (banque uniquement) —</option>
+              <option value="s">🍱 SUSHI</option>
+              <option value="b">🍸 BAR</option>
+              <option value="c">💨 CHICHA</option>
+            </select>
+            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+              <b>Entrée + caisse</b> : versement cash <i>de la caisse</i> vers la banque (le cumul cash de la caisse diminue).<br>
+              <b>Sortie + caisse</b> : retrait banque vers la caisse (le cumul cash de la caisse augmente).<br>
+              Laisse vide si le mouvement n'implique aucune caisse (virement, etc.).
+            </div>
+          </div>
           <div class="fg"><label class="fl">Libellé</label><input type="text" id="mvt-lib" placeholder="Description du mouvement..."></div>
           <div class="fg"><label class="fl">Montant (FCFA)</label><input type="number" id="mvt-mnt" placeholder="0"></div>
           <div class="fg"><label class="fl">Référence</label><input type="text" id="mvt-ref" placeholder="N° chèque, virement..."></div>
@@ -62,6 +76,7 @@ const Banque = {
   },
 
   saveMvt() {
+    const caisseRaw = document.getElementById('mvt-caisse')?.value || '';
     const mvt = {
       id: Data.newId(),
       date: document.getElementById('mvt-date')?.value,
@@ -70,6 +85,7 @@ const Banque = {
       mnt: parseFloat(document.getElementById('mvt-mnt')?.value) || 0,
       type: this._mvtType,
       ref: document.getElementById('mvt-ref')?.value,
+      caisse: ['s','b','c'].includes(caisseRaw) ? caisseRaw : null,
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
     Data.mvtsBanque.unshift(mvt);
@@ -95,17 +111,22 @@ const Banque = {
     const tb = document.getElementById('banque-table');
     if (!tb) return;
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun mouvement sur cette période.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="7" class="empty">Aucun mouvement sur cette période.</td></tr>';
       return;
     }
     let solde = Data.soldes.banque.montant;
+    const caisseLabel = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
     tb.innerHTML = list.map(m => {
       const s = solde;
       solde -= (m.type === 'in' ? m.mnt : -m.mnt);
+      const cBadge = m.caisse
+        ? `<span class="badge ${m.caisse==='s'?'b-blue':m.caisse==='b'?'b-green':'b-amber'}" title="Impact cumul cash">${caisseLabel[m.caisse]}</span>`
+        : '<span style="color:var(--c-muted);font-size:11px">—</span>';
       return `<tr>
         <td class="nowrap">${Data.fmtDs(m.date)}</td>
         <td>${m.lib}</td>
         <td style="color:#aaa">${m.op || '-'}</td>
+        <td>${cBadge}</td>
         <td class="text-right text-green fw-bold">${m.type === 'in' ? '+' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right text-red fw-bold">${m.type === 'out' ? '-' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right fw-bold">${Data.fmts(s)} FCFA</td>

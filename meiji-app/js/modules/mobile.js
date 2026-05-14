@@ -42,6 +42,19 @@ const Mobile = {
             <div class="fg"><label class="fl">Date</label><input type="date" id="mmvt-date" value="${Data.today()}"></div>
             <div class="fg"><label class="fl">Opérateur</label><input type="text" id="mmvt-op" placeholder="Ex: MTN, Airtel, Orange..."></div>
           </div>
+          <div class="fg">
+            <label class="fl">Caisse source / destination (impact cash)</label>
+            <select id="mmvt-caisse">
+              <option value="">— Aucune (mobile uniquement) —</option>
+              <option value="s">🍱 SUSHI</option>
+              <option value="b">🍸 BAR</option>
+              <option value="c">💨 CHICHA</option>
+            </select>
+            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+              <b>Entrée + caisse</b> : versement cash de la caisse vers mobile money (cumul cash de la caisse ↓).<br>
+              <b>Sortie + caisse</b> : retrait mobile vers la caisse (cumul cash ↑).
+            </div>
+          </div>
           <div class="fg"><label class="fl">Libellé</label><input type="text" id="mmvt-lib" placeholder="Description du mouvement..."></div>
           <div class="fg"><label class="fl">Montant (FCFA)</label><input type="number" id="mmvt-mnt" placeholder="0"></div>
           <div class="fg"><label class="fl">N° Transaction</label><input type="text" id="mmvt-ref" placeholder="Référence transaction..."></div>
@@ -62,6 +75,7 @@ const Mobile = {
   },
 
   saveMvt() {
+    const caisseRaw = document.getElementById('mmvt-caisse')?.value || '';
     const mvt = {
       id: Data.newId(),
       date: document.getElementById('mmvt-date')?.value,
@@ -70,6 +84,7 @@ const Mobile = {
       mnt: parseFloat(document.getElementById('mmvt-mnt')?.value) || 0,
       type: this._mvtType,
       ref: document.getElementById('mmvt-ref')?.value,
+      caisse: ['s','b','c'].includes(caisseRaw) ? caisseRaw : null,
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
     Data.mvtsMobile.unshift(mvt);
@@ -95,17 +110,22 @@ const Mobile = {
     const tb = document.getElementById('mobile-table');
     if (!tb) return;
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">Aucun mouvement sur cette période.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="7" class="empty">Aucun mouvement sur cette période.</td></tr>';
       return;
     }
     let solde = Data.soldes.mobile.montant;
+    const caisseLabel = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
     tb.innerHTML = list.map(m => {
       const s = solde;
       solde -= (m.type === 'in' ? m.mnt : -m.mnt);
+      const cBadge = m.caisse
+        ? `<span class="badge ${m.caisse==='s'?'b-blue':m.caisse==='b'?'b-green':'b-amber'}" title="Impact cumul cash">${caisseLabel[m.caisse]}</span>`
+        : '<span style="color:var(--c-muted);font-size:11px">—</span>';
       return `<tr>
         <td class="nowrap">${Data.fmtDs(m.date)}</td>
         <td>${m.lib}</td>
         <td style="color:#aaa">${m.op || '-'}</td>
+        <td>${cBadge}</td>
         <td class="text-right text-green fw-bold">${m.type === 'in' ? '+' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right text-red fw-bold">${m.type === 'out' ? '-' + Data.fmts(m.mnt) + ' FCFA' : '-'}</td>
         <td class="text-right fw-bold">${Data.fmts(s)} FCFA</td>
