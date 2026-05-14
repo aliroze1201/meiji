@@ -25,11 +25,11 @@ const Auth = {
     return email.endsWith(this.USER_DOMAIN) ? email.slice(0, -this.USER_DOMAIN.length) : email;
   },
 
-  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','bilan','clotures'],
+  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','associes','bilan','clotures'],
 
   ROLE_PERMISSIONS: {
     admin:       ['*'],
-    responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','bilan','clotures'],
+    responsable: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','associes','bilan','clotures'],
     gerant:      ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','bilan'],
     // 'utilisateurs' réservé à admin (couvert par '*')
     caissier:    ['dashboard','pointage','recettes','depenses','stock'],
