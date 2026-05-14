@@ -316,17 +316,23 @@ const Associes = {
     if (isNaN(montant) || montant <= 0) { alert('Montant doit être supérieur à 0.'); return; }
 
     if (!Array.isArray(Data.prelevements)) Data.prelevements = [];
+    let prelv;
     if (this.editPrelvId) {
-      const p = Data.prelevements.find(x => x.id === this.editPrelvId);
-      if (p) Object.assign(p, { date, associeId, montant, paiement, observation });
+      prelv = Data.prelevements.find(x => x.id === this.editPrelvId);
+      if (prelv) Object.assign(prelv, { date, associeId, montant, paiement, observation });
     } else {
-      Data.prelevements.push({
+      prelv = {
         id: Data.newId(),
-        date, associeId, montant, paiement, observation
-      });
+        date, associeId, montant, paiement, observation,
+      };
+      Data.prelevements.push(prelv);
     }
+    if (prelv) this._syncMvtForPrelv(prelv);
+
     this.editPrelvId = null;
     this.save();
+    if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
+    if (typeof Mobile !== 'undefined' && Mobile.save) Mobile.save();
     App.closeModal();
     // Re-render global : le cash et les soldes théoriques dépendent des prélèvements
     if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
@@ -338,9 +344,51 @@ const Associes = {
     if (!p) return;
     if (!confirm('Supprimer ce prélèvement de ' + Data.fmt(p.montant) + ' ?')) return;
     Data.prelevements = Data.prelevements.filter(x => x.id !== id);
+    this._removeMvtForPrelv(id);
     this.save();
+    if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
+    if (typeof Mobile !== 'undefined' && Mobile.save) Mobile.save();
     if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
     else this.render();
+  },
+
+  // ===================== Mirroir Banque/Mobile =====================
+  // Un prélèvement en mode 'banque' (ou 'mobile') doit aussi apparaître
+  // comme une sortie dans la page Banque (ou Mobile) pour que le solde
+  // réel et l'historique soient cohérents.
+  _associeNom(id) {
+    return (Data.associes || []).find(a => a.id === id)?.nom || 'Associé';
+  },
+  _removeMvtForPrelv(prelvId) {
+    if (Array.isArray(Data.mvtsBanque)) {
+      Data.mvtsBanque = Data.mvtsBanque.filter(m => m.relPrelv !== prelvId);
+    }
+    if (Array.isArray(Data.mvtsMobile)) {
+      Data.mvtsMobile = Data.mvtsMobile.filter(m => m.relPrelv !== prelvId);
+    }
+  },
+  _syncMvtForPrelv(prelv) {
+    // 1) Nettoie tout mouvement précédent lié à ce prélèvement
+    this._removeMvtForPrelv(prelv.id);
+    // 2) Si le mode est 'banque' ou 'mobile', crée le mouvement miroir
+    if (prelv.paiement !== 'banque' && prelv.paiement !== 'mobile') return;
+    const arr = prelv.paiement === 'banque' ? Data.mvtsBanque : Data.mvtsMobile;
+    if (!Array.isArray(arr)) {
+      if (prelv.paiement === 'banque') Data.mvtsBanque = [];
+      else Data.mvtsMobile = [];
+    }
+    const target = prelv.paiement === 'banque' ? Data.mvtsBanque : Data.mvtsMobile;
+    target.unshift({
+      id: Data.newId(),
+      date: prelv.date,
+      lib: `Prélèvement ${this._associeNom(prelv.associeId)}`,
+      op: 'Associé',
+      mnt: Number(prelv.montant) || 0,
+      type: 'out',
+      ref: '',
+      caisse: null,            // Pas de caisse cash : prélèvement = sortie banque/mobile pure
+      relPrelv: prelv.id,      // Lien vers le prélèvement source
+    });
   },
 
   // ===================== Persistance =====================
