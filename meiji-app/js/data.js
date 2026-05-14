@@ -221,11 +221,17 @@ const Data = {
   isCashDep(d) {
     return !d.paiement || d.paiement === 'esp';
   },
-  // Toutes les dates portant un mouvement (journée ou dépense histo)
+  // Toutes les dates portant un mouvement de cash (journée, dépense histo,
+  // mouvement banque/mobile lié à une caisse, ou prélèvement). Si on oublie
+  // une source ici, les mouvements correspondants ne sont pas pris en compte
+  // dans le cumul du jour où ils ont lieu.
   _allCashDates() {
     const set = new Set();
-    this.journees.forEach(j => { if (j.date) set.add(j.date); });
-    this.histDep.forEach(d => { if (d.date) set.add(d.date); });
+    (this.journees || []).forEach(j => { if (j.date) set.add(j.date); });
+    (this.histDep || []).forEach(d => { if (d.date) set.add(d.date); });
+    (this.mvtsBanque || []).forEach(m => { if (m.date && m.caisse) set.add(m.date); });
+    (this.mvtsMobile || []).forEach(m => { if (m.date && m.caisse) set.add(m.date); });
+    (this.prelevements || []).forEach(p => { if (p.date && p.paiement === 'esp') set.add(p.date); });
     return [...set].sort();
   },
   // Solde espèces reporté au DÉBUT d'une date pour la caisse k.
