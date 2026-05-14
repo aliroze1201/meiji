@@ -284,15 +284,43 @@ const Associes = {
           <div class="fg"><label class="fl">Mode de paiement</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
-                <input type="radio" name="prelv-pay" value="esp" ${pay === 'esp' ? 'checked' : ''}> 💵 Espèces
+                <input type="radio" name="prelv-pay" value="esp" ${pay === 'esp' ? 'checked' : ''} onchange="Associes._onPayChange()"> 💵 Espèces
               </label>
               <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
-                <input type="radio" name="prelv-pay" value="banque" ${pay === 'banque' ? 'checked' : ''}> 🏦 Banque
+                <input type="radio" name="prelv-pay" value="banque" ${pay === 'banque' ? 'checked' : ''} onchange="Associes._onPayChange()"> 🏦 Banque
               </label>
               <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
-                <input type="radio" name="prelv-pay" value="mobile" ${pay === 'mobile' ? 'checked' : ''}> 📱 Mobile
+                <input type="radio" name="prelv-pay" value="mobile" ${pay === 'mobile' ? 'checked' : ''} onchange="Associes._onPayChange()"> 📱 Mobile
               </label>
             </div></div>
+
+          <!-- Banque à prélever — visible si paiement === 'banque' -->
+          <div class="fg" id="prelv-bk-row" style="display:none">
+            <label class="fl">Banque à prélever *</label>
+            <select id="prelv-bk">${this._bankOpts(p?.banque)}</select>
+            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+              Le mouvement de sortie sera créé sur cette banque. <a href="#" onclick="App.closeModal();Banque.openListModal();return false">Gérer banques</a>
+            </div>
+          </div>
+
+          <!-- Opérateur Mobile — visible si paiement === 'mobile' -->
+          <div class="fg" id="prelv-mb-row" style="display:none">
+            <label class="fl">Opérateur Mobile *</label>
+            <select id="prelv-mb">${this._mobileOpts(p?.operateur)}</select>
+            <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+              Le mouvement de sortie sera créé sur cet opérateur. <a href="#" onclick="App.closeModal();Mobile.openListModal();return false">Gérer opérateurs</a>
+            </div>
+          </div>
+
+          <!-- Caisse impactée si paiement === 'esp' -->
+          <div class="fg" id="prelv-caisse-row" style="display:none">
+            <label class="fl">Caisse impactée (cash)</label>
+            <select id="prelv-caisse">
+              <option value="b" ${(p?.caisse || 'b') === 'b' ? 'selected' : ''}>🍸 BAR (par défaut)</option>
+              <option value="s" ${p?.caisse === 's' ? 'selected' : ''}>🍱 SUSHI</option>
+              <option value="c" ${p?.caisse === 'c' ? 'selected' : ''}>💨 CHICHA</option>
+            </select>
+          </div>
           <div class="fg"><label class="fl">Observation</label>
             <input type="text" id="prelv-obs" value="${this._esc(p?.observation || '')}" placeholder="Note (optionnelle)"></div>
           <div class="modal-actions">
@@ -301,6 +329,36 @@ const Associes = {
           </div>
         </div>
       </div>`);
+    // Initialise la visibilité conditionnelle des champs banque/mobile/caisse
+    setTimeout(() => this._onPayChange(), 10);
+  },
+
+  // Bascule les blocs banque / mobile / caisse selon le mode de paiement choisi
+  _onPayChange() {
+    const sel = document.querySelector('input[name="prelv-pay"]:checked');
+    const v = sel ? sel.value : 'esp';
+    const bk  = document.getElementById('prelv-bk-row');
+    const mb  = document.getElementById('prelv-mb-row');
+    const css = document.getElementById('prelv-caisse-row');
+    if (bk)  bk.style.display  = v === 'banque' ? '' : 'none';
+    if (mb)  mb.style.display  = v === 'mobile' ? '' : 'none';
+    if (css) css.style.display = v === 'esp'    ? '' : 'none';
+  },
+
+  _bankOpts(selectedNom) {
+    const banks = (Data.banques || []).filter(b => b.actif !== false || b.nom === selectedNom);
+    if (!banks.length) return '<option value="" disabled>Aucune banque — clique "Gérer banques"</option>';
+    return banks.map(b =>
+      `<option value="${this._esc(b.nom)}" ${b.nom === selectedNom ? 'selected' : ''}>${this._esc(b.nom)}</option>`
+    ).join('');
+  },
+
+  _mobileOpts(selectedNom) {
+    const ops = (Data.operateursMobile || []).filter(o => o.actif !== false || o.nom === selectedNom);
+    if (!ops.length) return '<option value="" disabled>Aucun opérateur — clique "Gérer opérateurs"</option>';
+    return ops.map(o =>
+      `<option value="${this._esc(o.nom)}" ${o.nom === selectedNom ? 'selected' : ''}>${this._esc(o.nom)}</option>`
+    ).join('');
   },
 
   savePrelv() {
@@ -311,19 +369,26 @@ const Associes = {
     const paiement = payRadio ? payRadio.value : 'esp';
     const observation = (document.getElementById('prelv-obs')?.value || '').trim() || null;
 
+    const banque    = paiement === 'banque' ? (document.getElementById('prelv-bk')?.value || '') : null;
+    const operateur = paiement === 'mobile' ? (document.getElementById('prelv-mb')?.value || '') : null;
+    const caisseRaw = paiement === 'esp'    ? (document.getElementById('prelv-caisse')?.value || 'b') : null;
+    const caisse    = ['s','b','c'].includes(caisseRaw) ? caisseRaw : null;
+
     if (!date) { alert('Date obligatoire.'); return; }
     if (!associeId) { alert('Associé obligatoire.'); return; }
     if (isNaN(montant) || montant <= 0) { alert('Montant doit être supérieur à 0.'); return; }
+    if (paiement === 'banque' && !banque) { alert('Choisis la banque à prélever (ou crée une banque via "Gérer banques").'); return; }
+    if (paiement === 'mobile' && !operateur) { alert('Choisis l\'opérateur Mobile (ou crée-en un via "Gérer opérateurs").'); return; }
 
     if (!Array.isArray(Data.prelevements)) Data.prelevements = [];
     let prelv;
     if (this.editPrelvId) {
       prelv = Data.prelevements.find(x => x.id === this.editPrelvId);
-      if (prelv) Object.assign(prelv, { date, associeId, montant, paiement, observation });
+      if (prelv) Object.assign(prelv, { date, associeId, montant, paiement, observation, banque, operateur, caisse });
     } else {
       prelv = {
         id: Data.newId(),
-        date, associeId, montant, paiement, observation,
+        date, associeId, montant, paiement, observation, banque, operateur, caisse,
       };
       Data.prelevements.push(prelv);
     }
@@ -378,11 +443,14 @@ const Associes = {
       else Data.mvtsMobile = [];
     }
     const target = prelv.paiement === 'banque' ? Data.mvtsBanque : Data.mvtsMobile;
+    const opLabel = prelv.paiement === 'banque'
+      ? (prelv.banque || 'Associé')
+      : (prelv.operateur || 'Associé');
     target.unshift({
       id: Data.newId(),
       date: prelv.date,
       lib: `Prélèvement ${this._associeNom(prelv.associeId)}`,
-      op: 'Associé',
+      op: opLabel,             // Banque ou opérateur effectivement prélevé
       mnt: Number(prelv.montant) || 0,
       type: 'out',
       ref: '',
