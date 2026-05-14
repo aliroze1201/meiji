@@ -36,9 +36,23 @@ const Recettes = {
     this._set('r-chq', Data.fmt(tChq));
     this._set('r-mob', Data.fmt(tMob));
 
-    // Cumul espèces restantes (fin de la dernière journée de la période)
-    const lastDate = jj.length
-      ? jj.map(j => j.date).sort().slice(-1)[0]
+    // Cumul espèces restantes (fin de la DERNIÈRE activité cash de la période)
+    // On regarde non seulement les journées validées, mais aussi les
+    // mouvements banque/mobile rattachés à une caisse et les prélèvements
+    // espèces — c'est ce qui produit en réalité le solde cash le plus récent.
+    const cashDates = new Set();
+    jj.forEach(j => cashDates.add(j.date));
+    (Data.mvtsBanque || []).forEach(m => {
+      if (m.caisse && App.inPeriod && App.inPeriod(m.date)) cashDates.add(m.date);
+    });
+    (Data.mvtsMobile || []).forEach(m => {
+      if (m.caisse && App.inPeriod && App.inPeriod(m.date)) cashDates.add(m.date);
+    });
+    (Data.prelevements || []).forEach(p => {
+      if (p.paiement === 'esp' && App.inPeriod && App.inPeriod(p.date)) cashDates.add(p.date);
+    });
+    const lastDate = cashDates.size
+      ? [...cashDates].sort().slice(-1)[0]
       : null;
     const cumS = lastDate ? Data.cashEndOfDay(lastDate, 's') : 0;
     const cumB = lastDate ? Data.cashEndOfDay(lastDate, 'b') : 0;
