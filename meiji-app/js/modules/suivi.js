@@ -92,10 +92,21 @@ const Suivi = {
   encaisser(id) {
     const c = Data.cheques.find(x => x.id === id);
     if (!c) return;
-    const date = prompt('Date d\'encaissement (AAAA-MM-JJ) :', Data.today());
+    const dft = c.sens === 'emis' ? 'Date de débit du compte' : 'Date d\'encaissement';
+    const date = prompt(`${dft} (AAAA-MM-JJ) :`, Data.today());
     if (!date) return;
     c.statut = 'encaisse';
     c.dateEncaissement = date;
+    // Chèque ÉMIS : le mouvement bancaire associé sort de l'état pending
+    // → il commence à impacter le solde de la banque.
+    if (c.sens === 'emis' && Array.isArray(Data.mvtsBanque)) {
+      const mvt = Data.mvtsBanque.find(m => m.relCheque === id);
+      if (mvt) {
+        mvt.pending = false;
+        mvt.date = date;
+        if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
+      }
+    }
     this.persist();
     App.renderAll();
   },
@@ -105,12 +116,24 @@ const Suivi = {
     if (!c) return;
     if (!confirm('Marquer ce chèque comme rejeté ?')) return;
     c.statut = 'rejete';
+    // Chèque ÉMIS rejeté = annulation → on supprime le mouvement bancaire
+    if (c.sens === 'emis' && Array.isArray(Data.mvtsBanque)) {
+      Data.mvtsBanque = Data.mvtsBanque.filter(m => m.relCheque !== id);
+      if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
+    }
     this.persist();
     App.renderAll();
   },
 
   remove(id) {
+    const c = Data.cheques.find(x => x.id === id);
+    if (!c) return;
     if (!confirm('Supprimer ce chèque ?')) return;
+    // Chèque ÉMIS : supprime aussi le mouvement bancaire miroir
+    if (c.sens === 'emis' && Array.isArray(Data.mvtsBanque)) {
+      Data.mvtsBanque = Data.mvtsBanque.filter(m => m.relCheque !== id);
+      if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
+    }
     Data.cheques = Data.cheques.filter(x => x.id !== id);
     this.persist();
     App.renderAll();
