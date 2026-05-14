@@ -104,6 +104,8 @@ const App = {
     if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep('Articles + mouvements stock',          () => Stock.save());
     if (typeof Stock    !== 'undefined' && Stock.save)       await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
     if (typeof Categories !== 'undefined' && Categories.persist) await tryStep(`${(Data.categories||[]).length} catégorie(s)`, () => Categories.persist());
+    if (typeof Fournisseurs !== 'undefined' && Fournisseurs.persist) await tryStep(`${(Data.fournisseurs||[]).length} facture(s) fournisseur`, () => Fournisseurs.persist());
+    if (typeof Fournisseurs !== 'undefined' && Fournisseurs.saveList) await tryStep(`Liste fournisseurs (${(Data.fournisseursListe||[]).length})`, () => Fournisseurs.saveList());
     if (typeof Associes !== 'undefined' && Associes.save) await tryStep(
       `Associés (${(Data.associes||[]).length}) + prélèvements (${(Data.prelevements||[]).length})`,
       () => Associes.save()
@@ -382,6 +384,8 @@ const App = {
     document.getElementById('btn-new-chq')?.addEventListener('click', () => Suivi.openModal());
     this.initTabs('suivi-tabs', f => { Suivi.filter = f; Suivi.render(); });
     document.getElementById('btn-new-fourn')?.addEventListener('click', () => Fournisseurs.openModal());
+    document.getElementById('btn-new-fournisseur')?.addEventListener('click', () => Fournisseurs.openFournForm(null));
+    document.getElementById('btn-list-fournisseurs')?.addEventListener('click', () => Fournisseurs.openListModal());
     document.getElementById('btn-new-mvt-banque')?.addEventListener('click', () => Banque.openMvtModal());
     document.getElementById('btn-new-mvt-mobile')?.addEventListener('click', () => Mobile.openMvtModal());
     document.getElementById('btn-list-banques')?.addEventListener('click', () => Banque.openListModal());
@@ -416,6 +420,7 @@ const App = {
       (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
       (typeof Stock !== 'undefined' && Stock.restore ? Stock.restore() : Promise.resolve()),
       (typeof Categories !== 'undefined' && Categories.restore ? Categories.restore() : Promise.resolve()),
+      (typeof Fournisseurs !== 'undefined' && Fournisseurs.restore ? Fournisseurs.restore() : Promise.resolve()),
       (typeof Associes !== 'undefined' && Associes.restore ? Associes.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
