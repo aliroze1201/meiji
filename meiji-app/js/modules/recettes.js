@@ -53,7 +53,7 @@ const Recettes = {
 
     const tb = document.getElementById('rec-table');
     if (!tb) return;
-    if (!jj.length) { tb.innerHTML = '<tr><td colspan="10" class="empty">Aucune recette</td></tr>'; return; }
+    if (!jj.length) { tb.innerHTML = '<tr><td colspan="11" class="empty">Aucune recette</td></tr>'; return; }
 
     tb.innerHTML = jj.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => {
       const total = Data.caTotal(j);
@@ -69,6 +69,7 @@ const Recettes = {
       const cumC = Data.cashEndOfDay(j.date, 'c');
       const cumT = cumS + cumB + cumC;
       const colorCum = (n) => n >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
+      const dateEsc = String(j.date).replace(/'/g, "\\'");
       return `<tr>
         <td>${Data.fmtD(j.date)}</td>
         <td class="text-right text-blue">${Data.fmts(Data.caisse(j,'s'))}</td>
@@ -80,6 +81,10 @@ const Recettes = {
         <td class="text-right" style="color:${colorCum(cumC)}">${Data.fmts(cumC)}</td>
         <td class="text-right fw-bold" style="color:${colorCum(cumT)}">${Data.fmts(cumT)}</td>
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">${pays.join('')}</div></td>
+        <td class="nowrap">
+          <button class="btn btn-sm" title="Modifier cette journée" onclick="Recettes.editJournee('${dateEsc}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn btn-sm btn-danger" title="Supprimer cette journée" onclick="Recettes.removeJournee('${dateEsc}')" style="margin-left:4px"><i class="ti ti-trash"></i></button>
+        </td>
       </tr>`;
     }).join('');
   },
@@ -262,6 +267,82 @@ const Recettes = {
       </div>`;
     }).join('');
     this._refreshHeader();
+  },
+
+  // ===================== ÉDITION / SUPPRESSION D'UNE JOURNÉE VALIDÉE =====================
+  // Charge une journée validée dans un brouillon pour la modifier puis revalider.
+  editJournee(date) {
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(date)) {
+      alert(`🔒 Mois clôturé : la journée du ${Data.fmtD(date)} ne peut pas être modifiée.`);
+      return;
+    }
+    const j = Data.journees.find(x => x.date === date);
+    if (!j) return alert('Journée introuvable.');
+
+    // Évite de recréer un brouillon déjà existant pour cette même date.
+    const existing = this.drafts.find(d => d.date === date);
+    if (existing) {
+      alert('Une saisie en cours existe déjà pour cette date. Termine-la ou supprime-la d\'abord.');
+      const card = document.querySelector(`[data-rec-draft="${existing.id}"]`);
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const toStr = v => (v == null || v === 0) ? '' : String(v);
+    const fromCaisse = (k) => {
+      const c = j[k] || {};
+      const esp = +c.esp || 0, chq = +c.chq || 0, mob = +c.mob || 0, cred = +c.cred || 0;
+      return {
+        verif: toStr(esp + chq + mob + cred),
+        esp:   toStr(esp),
+        chq:   toStr(chq),
+        mob:   toStr(mob),
+        cred:  toStr(cred),
+      };
+    };
+    const draft = {
+      id:   this._draftSeq++,
+      date: j.date,
+      s:    fromCaisse('s'),
+      b:    fromCaisse('b'),
+      c:    fromCaisse('c'),
+    };
+    this.drafts.unshift(draft);
+    this.persistDrafts();
+    this.renderDrafts();
+
+    // Navigation vers la page Recettes + scroll vers la zone de saisie
+    if (App.currentPage !== 'recettes') App.nav('recettes');
+    setTimeout(() => {
+      const card = document.querySelector(`[data-rec-draft="${draft.id}"]`);
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      card?.querySelector('input')?.focus();
+    }, 50);
+  },
+
+  // Supprime une journée validée (mémoire + Supabase si dispo + localStorage)
+  async removeJournee(date) {
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(date)) {
+      alert(`🔒 Mois clôturé : la journée du ${Data.fmtD(date)} ne peut pas être supprimée.`);
+      return;
+    }
+    if (!confirm(`Supprimer définitivement la journée du ${Data.fmtD(date)} ?\n\nCette action est irréversible.`)) return;
+
+    Data.journees = Data.journees.filter(j => j.date !== date);
+
+    // Supabase (silencieux si non connecté)
+    if (typeof JourneesDB !== 'undefined' && JourneesDB.enabled && JourneesDB.enabled()) {
+      try { await JourneesDB.deleteByDate(date); }
+      catch (e) { console.error('[Recettes] deleteByDate', e); }
+    }
+
+    // localStorage fallback : on resauve la liste user
+    try {
+      const userJ = Data.journees.filter(j => j.userRec);
+      localStorage.setItem(this.USER_KEY, JSON.stringify(userJ));
+    } catch (e) { /* noop */ }
+
+    App.renderAll();
   },
 
   commitDrafts() {
