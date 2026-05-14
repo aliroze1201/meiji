@@ -95,12 +95,20 @@
       </div>
 
       <div class="content">
-        <!-- KPIs -->
+        <!-- KPIs (ligne 1) -->
         <div class="g4">
           <div class="mc blue"><div class="mc-label blue"><i class="ti ti-trending-up"></i> CA Total</div><div class="mc-val blue" id="d-ca">0 FCFA</div><div class="mc-sub" id="d-ca-nb"></div></div>
-          <div class="mc red"><div class="mc-label red"><i class="ti ti-trending-down"></i> Charges</div><div class="mc-val red" id="d-charges">0 FCFA</div><div class="mc-sub">exploitation</div></div>
+          <div class="mc red"><div class="mc-label red"><i class="ti ti-trending-down"></i> Charges</div><div class="mc-val red" id="d-charges">0 FCFA</div><div class="mc-sub" id="d-charges-sub">exploitation</div></div>
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-cash"></i> Charges cash</div><div class="mc-val amber" id="d-charges-cash">0 FCFA</div><div class="mc-sub" id="d-charges-cash-sub">payées en espèces</div></div>
           <div class="mc green"><div class="mc-label green"><i class="ti ti-coin"></i> Résultat net</div><div class="mc-val green" id="d-net">0 FCFA</div><div class="mc-sub">CA - charges</div></div>
-          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-receipt-2"></i> Crédits ouverts</div><div class="mc-val amber" id="d-cred">0 FCFA</div><div class="mc-sub" id="d-cred-nb"></div></div>
+        </div>
+
+        <!-- KPIs (ligne 2) -->
+        <div class="g4">
+          <div class="mc purple"><div class="mc-label purple"><i class="ti ti-users"></i> Masse salariale</div><div class="mc-val purple" id="d-salaires">0 FCFA</div><div class="mc-sub" id="d-salaires-sub">net mensuel</div></div>
+          <div class="mc amber"><div class="mc-label amber"><i class="ti ti-receipt-2"></i> Crédits ouverts</div><div class="mc-val amber" id="d-cred">0 FCFA</div><div class="mc-sub" id="d-cred-nb"></div><div class="mc-sub" id="d-cred-retard" style="color:var(--c-red);font-weight:600"></div></div>
+          <div class="mc teal"><div class="mc-label teal"><i class="ti ti-checkbook"></i> Chèques en attente</div><div class="mc-val" style="color:var(--c-teal)" id="d-chq-attente">0 FCFA</div><div class="mc-sub" id="d-chq-attente-nb"></div></div>
+          <div class="mc blue" id="d-stock-tile" style="display:none"><div class="mc-label blue"><i class="ti ti-package"></i> Stock valorisé</div><div class="mc-val blue" id="d-stock-val">0 FCFA</div><div class="mc-sub" id="d-stock-nb"></div></div>
         </div>
 
         <!-- CAISSES -->
@@ -115,6 +123,9 @@
               <div class="cc-row"><span class="cc-row-key"><i class="ti ti-bookmark"></i> Crédit</span><span class="cc-row-val" id="dash-cs-cred">0 FCFA</span></div>
               <div class="cc-divider"></div>
               <div class="cc-row"><span class="cc-row-key" style="font-weight:700;color:var(--c-text)">Caisse restante</span><span class="cc-row-val" id="dash-cs-reste">0 FCFA</span></div>
+              <div class="cc-divider"></div>
+              <div class="cc-row"><span class="cc-row-key">% CA Espèces</span><span class="cc-row-val" id="dash-cs-pct-esp">0.0%</span></div>
+              <div class="cc-row"><span class="cc-row-key">% CA Crédit</span><span class="cc-row-val" id="dash-cs-pct-cred">0.0%</span></div>
             </div>
           </div>
           <div class="cc-card bar">
@@ -127,6 +138,9 @@
               <div class="cc-row"><span class="cc-row-key"><i class="ti ti-bookmark"></i> Crédit</span><span class="cc-row-val" id="dash-cb-cred">0 FCFA</span></div>
               <div class="cc-divider"></div>
               <div class="cc-row"><span class="cc-row-key" style="font-weight:700;color:var(--c-text)">Caisse restante</span><span class="cc-row-val" id="dash-cb-reste">0 FCFA</span></div>
+              <div class="cc-divider"></div>
+              <div class="cc-row"><span class="cc-row-key">% CA Espèces</span><span class="cc-row-val" id="dash-cb-pct-esp">0.0%</span></div>
+              <div class="cc-row"><span class="cc-row-key">% CA Crédit</span><span class="cc-row-val" id="dash-cb-pct-cred">0.0%</span></div>
             </div>
           </div>
           <div class="cc-card chicha">
@@ -139,18 +153,42 @@
               <div class="cc-row"><span class="cc-row-key"><i class="ti ti-bookmark"></i> Crédit</span><span class="cc-row-val" id="dash-cc-cred">0 FCFA</span></div>
               <div class="cc-divider"></div>
               <div class="cc-row"><span class="cc-row-key" style="font-weight:700;color:var(--c-text)">Caisse restante</span><span class="cc-row-val" id="dash-cc-reste">0 FCFA</span></div>
+              <div class="cc-divider"></div>
+              <div class="cc-row"><span class="cc-row-key">% CA Espèces</span><span class="cc-row-val" id="dash-cc-pct-esp">0.0%</span></div>
+              <div class="cc-row"><span class="cc-row-key">% CA Crédit</span><span class="cc-row-val" id="dash-cc-pct-cred">0.0%</span></div>
             </div>
+          </div>
+        </div>
+
+        <!-- VUE D'ENSEMBLE CASH -->
+        <div class="card">
+          <div class="card-header"><span class="card-title"><i class="ti ti-cash-banknote"></i> Vue d'ensemble cash (période)</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:6px 4px">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:var(--c-surface)"><span class="text-muted">Solde cash début de période (fonds initiaux)</span><span style="font-weight:700;font-variant-numeric:tabular-nums" id="d-cash-debut">0 FCFA</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:var(--c-surface)"><span class="text-muted">+ Recettes cash de la période</span><span style="font-weight:700;color:var(--c-bar);font-variant-numeric:tabular-nums" id="d-cash-in">0 FCFA</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:var(--c-surface)"><span class="text-muted">− Dépenses cash de la période</span><span style="font-weight:700;color:var(--c-red);font-variant-numeric:tabular-nums" id="d-cash-out">0 FCFA</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:var(--c-purple-soft);border:1px solid var(--c-border)"><span style="font-weight:700">= Solde cash théorique fin de période</span><span style="font-weight:800;font-size:18px;color:var(--c-purple);font-variant-numeric:tabular-nums" id="d-cash-fin">0 FCFA</span></div>
           </div>
         </div>
 
         <!-- Soldes -->
         <div class="g2">
           <div class="mc blue" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
-            <div><div class="mc-label blue"><i class="ti ti-building-bank"></i> Solde Bancaire</div><div class="mc-val blue" id="d-banque">0 FCFA</div><div class="mc-sub" id="d-banque-date">Non renseigné</div></div>
+            <div style="flex:1">
+              <div class="mc-label blue"><i class="ti ti-building-bank"></i> Solde Bancaire</div>
+              <div class="mc-val blue" id="d-banque">0 FCFA</div>
+              <div class="mc-sub" id="d-banque-date">Non renseigné</div>
+              <div class="mc-sub" style="margin-top:6px"><span style="font-weight:600">Théorique :</span> <span id="d-bk-theo" style="font-variant-numeric:tabular-nums">0 FCFA</span> <span id="d-bk-delta" class="badge" style="margin-left:6px"></span></div>
+            </div>
             <button class="btn btn-sm" onclick="App.nav('banque')">Gérer <i class="ti ti-arrow-right"></i></button>
           </div>
           <div class="mc purple" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
-            <div><div class="mc-label purple"><i class="ti ti-device-mobile"></i> Mobile Money</div><div class="mc-val" style="color:var(--c-purple)" id="d-mobile">0 FCFA</div><div class="mc-sub" id="d-mobile-date">Non renseigné</div></div>
+            <div style="flex:1">
+              <div class="mc-label purple"><i class="ti ti-device-mobile"></i> Mobile Money</div>
+              <div class="mc-val" style="color:var(--c-purple)" id="d-mobile">0 FCFA</div>
+              <div class="mc-sub" id="d-mobile-date">Non renseigné</div>
+              <div class="mc-sub" style="margin-top:6px"><span style="font-weight:600">Théorique :</span> <span id="d-mb-theo" style="font-variant-numeric:tabular-nums">0 FCFA</span> <span id="d-mb-delta" class="badge" style="margin-left:6px"></span></div>
+            </div>
             <button class="btn btn-sm" onclick="App.nav('mobile')">Gérer <i class="ti ti-arrow-right"></i></button>
           </div>
         </div>
@@ -201,7 +239,20 @@
 
         <div class="card">
           <div class="card-header"><span class="card-title"><i class="ti ti-chart-bar-popular"></i> Top catégories de charges</span></div>
-          <div id="charges-bars"></div>
+          <div class="g2">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--c-muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 0 8px"><i class="ti ti-cash"></i> Charges cash</div>
+              <div id="charges-bars-cash"></div>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--c-muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 0 8px"><i class="ti ti-building-bank"></i> Charges banque / mobile</div>
+              <div id="charges-bars-bkmb"></div>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <div style="font-size:12px;font-weight:700;color:var(--c-muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 0 8px"><i class="ti ti-stack"></i> Toutes catégories</div>
+            <div id="charges-bars"></div>
+          </div>
         </div>
 
         <!-- RÉCAP JOURNÉE -->
@@ -219,6 +270,11 @@
             <div class="mc"><div class="mc-label">💵 Espèces reçues</div><div class="mc-val" id="rj-esp">0 FCFA</div></div>
             <div class="mc red"><div class="mc-label red">📤 Dépenses du jour</div><div class="mc-val red" id="rj-dep">0 FCFA</div></div>
             <div class="mc green"><div class="mc-label green">✅ Solde espèces restant</div><div class="mc-val" id="rj-solde">0 FCFA</div></div>
+          </div>
+          <div class="g3" style="margin-top:12px">
+            <div class="mc blue"><div class="mc-label blue"><i class="ti ti-cash"></i> Solde fin jour SUSHI</div><div class="mc-val blue" id="rj-end-s">0 FCFA</div></div>
+            <div class="mc green"><div class="mc-label green"><i class="ti ti-cash"></i> Solde fin jour BAR</div><div class="mc-val green" id="rj-end-b">0 FCFA</div></div>
+            <div class="mc amber"><div class="mc-label amber"><i class="ti ti-cash"></i> Solde fin jour CHICHA</div><div class="mc-val amber" id="rj-end-c">0 FCFA</div></div>
           </div>
           <div class="card-header" style="margin-top:20px"><span class="card-title">Détail des dépenses du jour</span></div>
           <table>
