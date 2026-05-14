@@ -197,14 +197,13 @@ const Data = {
     let total = this.getAllDeps()
       .filter(d => d.date === date && d.dept === dept && this.isCashDep(d))
       .reduce((s, d) => s + (d.montant || 0), 0);
-    // Convention : les prélèvements en espèces ne sont pas attachés à une
-    // caisse SUSHI/BAR/CHICHA spécifique ; ils proviennent du pot commun
-    // BAR+CHICHA. Pour ne pas répartir arbitrairement, on les impute en
-    // totalité à la caisse BAR (k === 'b'). Le bénéfice n'est PAS impacté
-    // (un prélèvement est une distribution, pas une charge d'exploitation).
-    if (k === 'b' && Array.isArray(this.prelevements)) {
+    // Prélèvements en espèces : si une caisse précise est renseignée sur
+    // le prélèvement (p.caisse = 's'/'b'/'c'), on respecte ce choix.
+    // Sinon défaut sur BAR (k === 'b') — pot commun.
+    if (Array.isArray(this.prelevements)) {
       total += this.prelevements
-        .filter(p => p.date === date && p.paiement === 'esp')
+        .filter(p => p.date === date && p.paiement === 'esp'
+                  && ((p.caisse || 'b') === k))
         .reduce((s, p) => s + (Number(p.montant) || 0), 0);
     }
     // Versements cash → banque/mobile : type='in' avec caisse=k → cash sort
