@@ -510,6 +510,29 @@ const Fournisseurs = {
     if (Array.isArray(liste)) Data.fournisseursListe = liste;
     if (!Array.isArray(Data.fournisseursListe)) Data.fournisseursListe = [];
     if (!Array.isArray(Data.fournisseurs)) Data.fournisseurs = [];
+
+    // Migration : assigne un id aux anciennes factures qui n'en ont pas et
+    // recalcule le solde si manquant. Re-sauvegarde si on a touché.
+    let dirty = false;
+    Data.fournisseurs.forEach(f => {
+      if (!f.id) { f.id = Data.newId(); dirty = true; }
+      if (f.solde == null) {
+        f.solde = (Number(f.deb) || 0) - (Number(f.cred) || 0);
+        dirty = true;
+      }
+    });
+    if (dirty && typeof AppDB !== 'undefined') {
+      AppDB.save(this.STORAGE_FACTURE, Data.fournisseurs);
+    }
+
+    // Idem pour la liste des fournisseurs (assure un id à chaque entrée)
+    let dirtyList = false;
+    Data.fournisseursListe.forEach(f => {
+      if (!f.id) { f.id = Data.newId(); dirtyList = true; }
+    });
+    if (dirtyList && typeof AppDB !== 'undefined') {
+      AppDB.save(this.STORAGE_LIST, Data.fournisseursListe);
+    }
   },
 
   _esc(s) {
