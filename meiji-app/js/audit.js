@@ -108,6 +108,163 @@ const Audit = {
     }
   },
 
+  // Insertion directe d'une entrée d'audit avec un timestamp custom
+  // (utilisé pour le backfill rétroactif depuis les données existantes)
+  _pushBackfillEntry(action, module, entity, details, meta, ts) {
+    try {
+      const arr = this._safeArr();
+      const profile = (typeof Auth !== 'undefined' && Auth.profile) ? Auth.profile : null;
+      arr.unshift({
+        id: this._nextId(),
+        ts: ts || this._now(),
+        userId:   null,
+        userName: '(historique pré-existant)',
+        userRole: profile?.role || null,
+        action:   action || 'create',
+        module:   module || 'autre',
+        entity:   entity || '',
+        details:  details || null,
+        meta:     Object.assign({ backfilled: true }, meta || {}),
+      });
+    } catch (e) { /* noop */ }
+  },
+
+  // Génère des entrées d'audit pour toutes les données déjà présentes dans l'app
+  // au moment où l'audit log a été activé. À exécuter une seule fois.
+  async backfillFromData() {
+    if (!(typeof Auth === 'undefined' || Auth.profile?.role === 'admin')) {
+      alert('🔒 Seul un administrateur peut importer l\'historique.');
+      return;
+    }
+    // Anti double-import
+    const already = (Data.activityLog || []).some(e => e?.meta?.backfilled);
+    if (already && !confirm('Des entrées rétroactives existent déjà dans l\'historique.\n\nRecréer le backfill quand même ?\n(les anciennes entrées seront conservées, des doublons apparaîtront)')) return;
+
+    const fmtMnt = (n) => (typeof Data !== 'undefined' && Data.fmt) ? Data.fmt(n) : String(n);
+    const tsOf = (date) => {
+      if (!date) return this._now();
+      // YYYY-MM-DD → YYYY-MM-DDT12:00:00
+      return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date + 'T12:00:00' : date;
+    };
+    let count = 0;
+    const push = (action, module, entity, details, meta, ts) => {
+      this._pushBackfillEntry(action, module, entity, details, meta, ts);
+      count++;
+    };
+
+    // --- Journées ---
+    (Data.journees || []).forEach(j => {
+      if (!j.userRec) return; // on ne reimporte que les journées saisies utilisateur
+      const ca = Data.caTotal ? Data.caTotal(j) : 0;
+      push('create', 'recettes', `Journée ${j.date}`, `CA total ${fmtMnt(ca)}`, { id: j.id, date: j.date }, tsOf(j.date));
+    });
+
+    // --- Dépenses utilisateur ---
+    (Data.histDep || []).filter(d => d.userId).forEach(d => {
+      push('create', 'depenses',
+        `Dépense ${d.dept || ''} · ${fmtMnt(d.montant)}`,
+        `${d.label || d.groupe || ''}${d.paiement ? ' · ' + d.paiement : ''}`,
+        { id: d.userId, date: d.date }, tsOf(d.date));
+    });
+
+    // --- Mouvements banque ---
+    (Data.mvtsBanque || []).forEach(m => {
+      const sign = m.type === 'in' ? '+' : '−';
+      push('create', 'banque',
+        `Mvt ${sign} ${m.op || ''}`,
+        `${m.lib || ''} · ${fmtMnt(m.mnt)}${m.pending ? ' · pending' : ''}`,
+        { id: m.id, date: m.date }, tsOf(m.date));
+    });
+
+    // --- Mouvements mobile ---
+    (Data.mvtsMobile || []).forEach(m => {
+      const sign = m.type === 'in' ? '+' : '−';
+      push('create', 'mobile',
+        `Mvt ${sign} ${m.op || ''}`,
+        `${m.lib || ''} · ${fmtMnt(m.mnt)}`,
+        { id: m.id, date: m.date }, tsOf(m.date));
+    });
+
+    // --- Chèques ---
+    (Data.cheques || []).forEach(c => {
+      push('create', 'suivi',
+        `Chèque ${c.numero || ''} · ${c.tireur || ''}`,
+        `${fmtMnt(c.montant)} · statut ${c.statut || 'attente'}${c.sens === 'emis' ? ' (émis)' : ''}`,
+        { id: c.id, date: c.date }, tsOf(c.date));
+    });
+
+    // --- Crédits ---
+    (Data.credits || []).forEach(c => {
+      push('create', 'credits',
+        `Crédit ${c.client || ''}`,
+        `${fmtMnt(c.montant)} · ${c.statut || 'ouvert'}`,
+        { id: c.id, date: c.date }, tsOf(c.date));
+    });
+
+    // --- Employés ---
+    (Data.employes || []).forEach(e => {
+      push('create', 'employes', `Employé ${e.nom || ''}`, `${e.poste || ''} · ${e.dept || ''} · net ${fmtMnt(e.net || 0)}`, { id: e.id });
+    });
+
+    // --- Catégories ---
+    (Data.categories || []).forEach(c => {
+      push('create', 'categories', `Catégorie ${c.nom || ''}`, `${c.type || ''} · ${c.dept || ''}`, { id: c.id });
+    });
+
+    // --- Factures fournisseurs ---
+    (Data.fournisseurs || []).forEach(f => {
+      push('create', 'fournisseurs',
+        `Facture ${f.four || ''} ${f.num || ''}`,
+        `débit ${fmtMnt(f.deb || 0)} · crédit ${fmtMnt(f.cred || 0)} · solde ${fmtMnt(f.solde || 0)}`,
+        { id: f.id, date: f.date }, tsOf(f.date));
+    });
+    (Data.fournisseursListe || []).forEach(f => {
+      push('create', 'fournisseurs', `Fournisseur ${f.nom || ''}`, f.contact || f.telephone || (f.actif ? 'actif' : 'inactif'), { id: f.id });
+    });
+
+    // --- Stock ---
+    (Data.stockArticles || []).forEach(a => {
+      push('create', 'stock', `Article ${a.nom || ''}`, `${a.dept || ''} · ${a.categorie || ''} · ${a.unite || ''}`, { id: a.id });
+    });
+    (Data.stockMouvements || []).forEach(m => {
+      push('create', 'stock', `Mvt ${m.type || ''} article #${m.articleId}`, `qté ${m.quantite || 0}`, { id: m.id, date: m.date }, tsOf(m.date));
+    });
+
+    // --- Associés et prélèvements ---
+    (Data.associes || []).forEach(a => {
+      push('create', 'associes', `Associé ${a.nom || ''}`, `part ${a.part || 0}%`, { id: a.id });
+    });
+    (Data.prelevements || []).forEach(p => {
+      push('create', 'associes',
+        `Prélèvement associé #${p.associeId}`,
+        `${fmtMnt(p.montant)} · ${p.paiement || ''}${p.banque ? ' · ' + p.banque : ''}${p.operateur ? ' · ' + p.operateur : ''}`,
+        { id: p.id, date: p.date }, tsOf(p.date));
+    });
+
+    // --- Banques & opérateurs gérés ---
+    (Data.banques || []).forEach(b => {
+      push('create', 'banque', `Banque ${b.nom || ''}`, b.observation || (b.solde != null ? 'solde réf ' + fmtMnt(b.solde) : ''), { id: b.id });
+    });
+    (Data.operateursMobile || []).forEach(o => {
+      push('create', 'mobile', `Opérateur ${o.nom || ''}`, o.observation || (o.solde != null ? 'solde réf ' + fmtMnt(o.solde) : ''), { id: o.id });
+    });
+
+    // --- Clôtures ---
+    if (typeof Clotures !== 'undefined' && Array.isArray(Clotures.items)) {
+      Clotures.items.forEach(it => {
+        push('create', 'clotures', `Clôture ${it.ym}`, `résultat net ${fmtMnt(it.snapshot?.resultatNet || 0)}`, { ym: it.ym }, tsOf(it.closedAt));
+      });
+    }
+
+    // --- Tri final par ts décroissant ---
+    Data.activityLog.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+    if (Data.activityLog.length > this.MAX_ENTRIES) Data.activityLog.length = this.MAX_ENTRIES;
+
+    await this.save();
+    this.render();
+    alert(`✅ Backfill terminé : ${count} entrée(s) importée(s) dans l'historique.`);
+  },
+
   async clear() {
     try {
       if (!(typeof Auth === 'undefined' || Auth.profile?.role === 'admin')) {

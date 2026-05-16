@@ -408,8 +408,9 @@ const App = {
     document.getElementById('btn-sync')?.addEventListener('click', () => this.syncAll());
 
     // ===== Historique (audit log) =====
-    document.getElementById('btn-audit-export')?.addEventListener('click', () => { if (typeof Audit !== 'undefined') Audit.exportExcel(); });
-    document.getElementById('btn-audit-clear')?.addEventListener('click',  () => { if (typeof Audit !== 'undefined') Audit.clear(); });
+    document.getElementById('btn-audit-export')?.addEventListener('click',   () => { if (typeof Audit !== 'undefined') Audit.exportExcel(); });
+    document.getElementById('btn-audit-clear')?.addEventListener('click',    () => { if (typeof Audit !== 'undefined') Audit.clear(); });
+    document.getElementById('btn-audit-backfill')?.addEventListener('click', () => { if (typeof Audit !== 'undefined') Audit.backfillFromData(); });
     this.initTabs('au-tabs', f => { if (typeof Audit !== 'undefined') { Audit.filter = f; Audit.render(); } });
     document.getElementById('au-module')?.addEventListener('change', (e) => { if (typeof Audit !== 'undefined') { Audit.moduleFilter = e.target.value; Audit.render(); } });
     document.getElementById('au-search')?.addEventListener('input',  (e) => { if (typeof Audit !== 'undefined') { Audit.search       = e.target.value; Audit.render(); } });
