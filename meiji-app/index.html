@@ -14,46 +14,65 @@
 <body>
 
 <div class="app">
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-mark"><i class="ti ti-fish"></i></div>
-      <div class="sb-logo-text">
-        <div class="sb-logo-name">MEIJI</div>
-        <div class="sb-logo-sub">Sushi · Bar · Chicha</div>
-      </div>
-    </div>
-
-    <div class="sb-section">Principal</div>
-    <div class="nav-item active" data-page="dashboard"><i class="ti ti-layout-dashboard"></i><span class="label">Tableau de bord</span></div>
-    <div class="nav-item" data-page="pointage"><i class="ti ti-cash-register"></i><span class="label">Pointage journée</span></div>
-
-    <div class="sb-section">Finances</div>
-    <div class="nav-item" data-page="recettes"><i class="ti ti-trending-up"></i><span class="label">Recettes CA</span></div>
-    <div class="nav-item" data-page="depenses"><i class="ti ti-trending-down"></i><span class="label">Dépenses</span></div>
-    <div class="nav-item" data-page="analyse"><i class="ti ti-chart-pie"></i><span class="label">Analyse charges</span></div>
-    <div class="nav-item" data-page="banque"><i class="ti ti-building-bank"></i><span class="label">Banque</span></div>
-    <div class="nav-item" data-page="mobile"><i class="ti ti-device-mobile"></i><span class="label">Mobile Money</span></div>
-
-    <div class="sb-section">Gestion</div>
-    <div class="nav-item" data-page="suivi"><i class="ti ti-checks"></i><span class="label">Suivi chèques</span></div>
-    <div class="nav-item" data-page="categories"><i class="ti ti-tags"></i><span class="label">Catégories</span></div>
-    <div class="nav-item" data-page="employes"><i class="ti ti-users"></i><span class="label">Employés</span></div>
-    <div class="nav-item" data-page="comptes-emp"><i class="ti ti-user-dollar"></i><span class="label">Comptes employés</span></div>
-    <div class="nav-item" data-page="credits"><i class="ti ti-receipt-2"></i><span class="label">Crédits clients</span></div>
-    <div class="nav-item" data-page="fournisseurs"><i class="ti ti-truck-delivery"></i><span class="label">Fournisseurs</span></div>
-    <div class="nav-item" data-page="stock"><i class="ti ti-box-seam"></i><span class="label">Stock</span></div>
-    <div class="nav-item" data-page="associes"><i class="ti ti-users-group"></i><span class="label">Associés</span></div>
-    <div class="nav-item" data-page="bilan"><i class="ti ti-report-analytics"></i><span class="label">Bilan</span></div>
-    <div class="nav-item" data-page="clotures"><i class="ti ti-calendar-check"></i><span class="label">Clôtures</span></div>
-
-    <div class="sb-section">Administration</div>
-    <div class="nav-item" id="nav-users" data-page="utilisateurs" style="display:none"><i class="ti ti-user-shield"></i><span class="label">Utilisateurs</span></div>
-    <div class="nav-item" id="nav-audit" data-page="historique" style="display:none"><i class="ti ti-history"></i><span class="label">Historique</span></div>
-  </aside>
-
   <!-- MAIN -->
   <div class="main">
+
+    <!-- TOP NAVIGATION (anciennement sidebar) -->
+    <nav class="topnav">
+      <div class="tn-logo">
+        <div class="tn-logo-mark"><i class="ti ti-fish"></i></div>
+        <div class="tn-logo-text">
+          <div class="tn-logo-name">MEIJI</div>
+          <div class="tn-logo-sub">Sushi · Bar · Chicha</div>
+        </div>
+      </div>
+
+      <div class="tn-menus">
+        <div class="tn-group" data-group="principal">
+          <button class="tn-trigger" type="button"><i class="ti ti-home-2"></i><span>Principal</span><i class="ti ti-chevron-down tn-caret"></i></button>
+          <div class="tn-dropdown">
+            <div class="nav-item active" data-page="dashboard"><i class="ti ti-layout-dashboard"></i><span class="label">Tableau de bord</span></div>
+            <div class="nav-item" data-page="pointage"><i class="ti ti-cash-register"></i><span class="label">Pointage journée</span></div>
+          </div>
+        </div>
+
+        <div class="tn-group" data-group="finances">
+          <button class="tn-trigger" type="button"><i class="ti ti-coin"></i><span>Finances</span><i class="ti ti-chevron-down tn-caret"></i></button>
+          <div class="tn-dropdown">
+            <div class="nav-item" data-page="recettes"><i class="ti ti-trending-up"></i><span class="label">Recettes CA</span></div>
+            <div class="nav-item" data-page="depenses"><i class="ti ti-trending-down"></i><span class="label">Dépenses</span></div>
+            <div class="nav-item" data-page="analyse"><i class="ti ti-chart-pie"></i><span class="label">Analyse charges</span></div>
+            <div class="nav-item" data-page="banque"><i class="ti ti-building-bank"></i><span class="label">Banque</span></div>
+            <div class="nav-item" data-page="mobile"><i class="ti ti-device-mobile"></i><span class="label">Mobile Money</span></div>
+          </div>
+        </div>
+
+        <div class="tn-group" data-group="gestion">
+          <button class="tn-trigger" type="button"><i class="ti ti-briefcase"></i><span>Gestion</span><i class="ti ti-chevron-down tn-caret"></i></button>
+          <div class="tn-dropdown">
+            <div class="nav-item" data-page="suivi"><i class="ti ti-checks"></i><span class="label">Suivi chèques</span></div>
+            <div class="nav-item" data-page="categories"><i class="ti ti-tags"></i><span class="label">Catégories</span></div>
+            <div class="nav-item" data-page="employes"><i class="ti ti-users"></i><span class="label">Employés</span></div>
+            <div class="nav-item" data-page="comptes-emp"><i class="ti ti-user-dollar"></i><span class="label">Comptes employés</span></div>
+            <div class="nav-item" data-page="credits"><i class="ti ti-receipt-2"></i><span class="label">Crédits clients</span></div>
+            <div class="nav-item" data-page="fournisseurs"><i class="ti ti-truck-delivery"></i><span class="label">Fournisseurs</span></div>
+            <div class="nav-item" data-page="stock"><i class="ti ti-box-seam"></i><span class="label">Stock</span></div>
+            <div class="nav-item" data-page="associes"><i class="ti ti-users-group"></i><span class="label">Associés</span></div>
+            <div class="nav-item" data-page="bilan"><i class="ti ti-report-analytics"></i><span class="label">Bilan</span></div>
+            <div class="nav-item" data-page="clotures"><i class="ti ti-calendar-check"></i><span class="label">Clôtures</span></div>
+          </div>
+        </div>
+
+        <div class="tn-group" id="tn-admin" data-group="admin" style="display:none">
+          <button class="tn-trigger" type="button"><i class="ti ti-shield-lock"></i><span>Administration</span><i class="ti ti-chevron-down tn-caret"></i></button>
+          <div class="tn-dropdown">
+            <div class="nav-item" id="nav-users" data-page="utilisateurs" style="display:none"><i class="ti ti-user-shield"></i><span class="label">Utilisateurs</span></div>
+            <div class="nav-item" id="nav-audit" data-page="historique" style="display:none"><i class="ti ti-history"></i><span class="label">Historique</span></div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
 
     <!-- TOPBAR -->
     <header class="topbar">

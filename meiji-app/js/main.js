@@ -24,9 +24,14 @@ const App = {
   navFromEl(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.tn-group.has-active').forEach(g => g.classList.remove('has-active'));
     const page = document.getElementById('page-' + pageId);
     if (page) page.classList.add('active');
-    if (el) el.classList.add('active');
+    if (el) {
+      el.classList.add('active');
+      const grp = el.closest('.tn-group');
+      if (grp) grp.classList.add('has-active');
+    }
     this.currentPage = pageId;
     this.updateTopbarTitle(pageId);
     if (typeof Auth !== 'undefined' && Auth.applyPageMode) Auth.applyPageMode(pageId);
@@ -320,7 +325,31 @@ const App = {
   init() {
     // Navigation
     document.querySelectorAll('.nav-item').forEach(el => {
-      el.addEventListener('click', () => this.navFromEl(el.dataset.page, el));
+      el.addEventListener('click', () => {
+        this.navFromEl(el.dataset.page, el);
+        document.querySelectorAll('.tn-group.open').forEach(g => g.classList.remove('open'));
+      });
+    });
+
+    // Top-nav dropdowns
+    document.querySelectorAll('.tn-group .tn-trigger').forEach(trig => {
+      trig.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const group = trig.closest('.tn-group');
+        const wasOpen = group.classList.contains('open');
+        document.querySelectorAll('.tn-group.open').forEach(g => g.classList.remove('open'));
+        if (!wasOpen) group.classList.add('open');
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.tn-group')) {
+        document.querySelectorAll('.tn-group.open').forEach(g => g.classList.remove('open'));
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.tn-group.open').forEach(g => g.classList.remove('open'));
+      }
     });
 
     // Period bar
