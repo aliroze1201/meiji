@@ -184,33 +184,37 @@ const Depenses = {
     // Recalcul auto : à partir de 2 champs saisis, le 3ᵉ est déduit.
     // Priorité : qté + montant ⇒ prix unitaire calculé automatiquement.
     if (field === 'qte' || field === 'prix' || field === 'montant') {
-      const q = parseFloat(d.qte);
-      const p = parseFloat(d.prix);
-      const m = parseFloat(d.montant);
-      const hasQ = !isNaN(q) && q > 0;
-      const hasP = !isNaN(p) && p > 0;
-      const hasM = !isNaN(m) && m > 0;
-
-      let recalc = null;
-      if (field !== 'prix' && hasQ && hasM) {
-        d.prix = Math.round((m / q) * 100) / 100;
-        recalc = 'prix';
-      } else if (field !== 'montant' && hasQ && hasP) {
-        d.montant = Math.round(q * p);
-        recalc = 'montant';
-      } else if (field !== 'qte' && hasP && hasM) {
-        d.qte = Math.round((m / p) * 100) / 100;
-        recalc = 'qte';
-      }
-
-      if (recalc) {
-        const tr = document.querySelector(`#draft-tbody tr[data-draft-id="${id}"]`);
-        const inp = tr?.querySelector('input.fld-' + recalc);
-        if (inp) inp.value = d[recalc] || '';
+      this._recalcDraft(d);
+      const tr = document.querySelector(`#draft-tbody tr[data-draft-id="${id}"]`);
+      if (tr) {
+        ['qte','prix','montant'].forEach(f => {
+          if (f === field) return; // ne pas écraser ce que l'utilisateur tape
+          const inp = tr.querySelector('input.fld-' + f);
+          if (inp && document.activeElement !== inp) {
+            inp.value = d[f] !== '' && d[f] != null ? d[f] : '';
+          }
+        });
       }
     }
     this.persistDrafts();
     this._refreshDraftSummary();
+  },
+
+  // Calcule le 3ᵉ champ à partir des 2 autres : priorité au prix unitaire.
+  _recalcDraft(d) {
+    const q = parseFloat(d.qte);
+    const p = parseFloat(d.prix);
+    const m = parseFloat(d.montant);
+    const hasQ = !isNaN(q) && q > 0;
+    const hasP = !isNaN(p) && p > 0;
+    const hasM = !isNaN(m) && m > 0;
+    if (hasQ && hasM) {
+      d.prix = Math.round((m / q) * 100) / 100;
+    } else if (hasQ && hasP) {
+      d.montant = Math.round(q * p);
+    } else if (hasP && hasM) {
+      d.qte = Math.round((m / p) * 100) / 100;
+    }
   },
 
   _refreshDraftSummary() {
@@ -233,6 +237,10 @@ const Depenses = {
       return;
     }
     if (empty) empty.style.display = 'none';
+
+    // Recalcul défensif : si un brouillon a qté+montant mais pas de prix,
+    // on calcule le prix avant rendu pour qu'il s'affiche toujours.
+    this.drafts.forEach(d => this._recalcDraft(d));
 
     tb.innerHTML = this.drafts.map(d => `
       <tr data-draft-id="${d.id}" ${d.editingUserId ? 'style="background:color-mix(in srgb, var(--c-primary-soft) 60%, transparent)" title="Modification d\'une dépense existante"' : ''}>
