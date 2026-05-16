@@ -13,7 +13,11 @@ const Auth = {
   user: null,
   profile: null, // { id, email, nom, role }
 
-  USER_DOMAIN: '@meiji.local',
+  // Supabase rejette '.local' (TLD réservé mDNS). On utilise '.app' qui est un vrai TLD valide.
+  // L'app n'envoie jamais de mail — c'est juste l'identifiant interne Supabase.
+  USER_DOMAIN: '@meiji.app',
+  // Suffixes acceptés au login pour rétro-compat avec les anciens comptes (.local).
+  LEGACY_DOMAINS: ['@meiji.local'],
 
   toEmail(idOrEmail) {
     const v = (idOrEmail || '').trim().toLowerCase();
@@ -22,7 +26,11 @@ const Auth = {
   },
   toUsername(email) {
     if (!email) return '';
-    return email.endsWith(this.USER_DOMAIN) ? email.slice(0, -this.USER_DOMAIN.length) : email;
+    if (email.endsWith(this.USER_DOMAIN)) return email.slice(0, -this.USER_DOMAIN.length);
+    for (const d of this.LEGACY_DOMAINS) {
+      if (email.endsWith(d)) return email.slice(0, -d.length);
+    }
+    return email;
   },
 
   ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','associes','bilan','clotures','historique'],
@@ -96,12 +104,28 @@ const Auth = {
     document.body.appendChild(overlay);
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = this.toEmail(document.getElementById('login-email').value);
+      const rawId = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
       errEl.textContent = '';
-      const { error } = await this.client.auth.signInWithPassword({ email, password });
-      if (error) errEl.textContent = error.message;
+
+      // Essai 1 : domaine actuel (.app). Essai 2+ : domaines legacy (.local) si l'utilisateur
+      // a été créé avant la migration. On ne tente le fallback que si l'identifiant n'a pas
+      // déjà un '@' explicite.
+      const candidates = [this.toEmail(rawId)];
+      if (!String(rawId).includes('@')) {
+        for (const d of this.LEGACY_DOMAINS) candidates.push(rawId.trim().toLowerCase() + d);
+      }
+
+      let lastError = null;
+      for (const email of candidates) {
+        const { error } = await this.client.auth.signInWithPassword({ email, password });
+        if (!error) { lastError = null; break; }
+        lastError = error;
+        // Si l'erreur n'est pas un identifiant invalide, inutile d'essayer les autres candidats.
+        if (!/invalid login credentials|invalid email|user not found/i.test(error.message)) break;
+      }
+      if (lastError) errEl.textContent = lastError.message;
     });
   },
 

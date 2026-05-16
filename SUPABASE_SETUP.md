@@ -11,12 +11,34 @@ Tant que Supabase n'est pas configuré, l'app reste accessible **sans login** (m
 ## 📌 À savoir : pas besoin de vrais emails pour vos collègues
 
 L'app utilise des **identifiants simples** (ex: `ali`, `marie`, `jean`), pas des emails.
-En interne, le code ajoute automatiquement `@meiji.local` pour le stockage Supabase
+En interne, le code ajoute automatiquement `@meiji.app` pour le stockage Supabase
 (voir `meiji-app/js/auth.js`), mais vos collègues ne voient jamais d'email :
 ils se connectent avec leur identifiant + mot de passe.
 
+> ⚠️ **Pourquoi `.app` et pas `.local` ?** Supabase refuse `.local` (TLD réservé mDNS,
+> erreur *"Email address is invalid"*). On utilise `.app`, qui est un vrai TLD valide
+> que Supabase accepte. Aucun email réel n'est envoyé, c'est purement interne.
+
 Conséquence : la **section 6** ci-dessous (désactiver "Confirm email" + garder
 "Email Signups" activés) est **obligatoire** pour que ça marche.
+
+### Migration depuis un ancien projet (`.local` → `.app`)
+
+Si tu avais déjà créé des comptes en `@meiji.local` avant cette mise à jour, lance
+ce SQL dans **Supabase → SQL Editor** pour les renommer :
+
+```sql
+UPDATE auth.users
+   SET email = REPLACE(email, '@meiji.local', '@meiji.app')
+ WHERE email LIKE '%@meiji.local';
+
+UPDATE profiles
+   SET email = REPLACE(email, '@meiji.local', '@meiji.app')
+ WHERE email LIKE '%@meiji.local';
+```
+
+L'app gère aussi le login en fallback sur `.local` (le temps de la migration),
+mais à terme mieux vaut basculer toute la base sur `.app`.
 
 ## 1. Créer un projet Supabase (gratuit)
 
@@ -101,8 +123,8 @@ UPDATE profiles SET role = 'responsable' WHERE role = 'gerant';
 ## 3. Créer le premier compte admin
 
 1. Dans Supabase → **Authentication** → **Users** → "Add user" → "Create new user"
-2. Champ **Email** : tape un identifiant suivi de `@meiji.local`
-   → ex: `ali@meiji.local` (l'app affichera juste `ali` au login)
+2. Champ **Email** : tape un identifiant suivi de `@meiji.app`
+   → ex: `ali@meiji.app` (l'app affichera juste `ali` au login)
 3. Mot de passe (à mémoriser)
 4. Coche **"Auto Confirm User"** ✅ pour bypasser la vérification email
    (obligatoire — sinon Supabase enverra un email à une adresse qui n'existe pas)
@@ -110,7 +132,7 @@ UPDATE profiles SET role = 'responsable' WHERE role = 'gerant';
 
 6. Dans **SQL Editor**, lance :
 ```sql
-UPDATE profiles SET role = 'admin', nom = 'Mon Nom' WHERE email = 'ali@meiji.local';
+UPDATE profiles SET role = 'admin', nom = 'Mon Nom' WHERE email = 'ali@meiji.app';
 ```
 
 ## 4. Récupérer les clés d'API
@@ -136,13 +158,13 @@ Commit + push sur `main` → GitHub Pages redéploiera automatiquement.
 
 ## 6. Réglages indispensables côté Supabase (sans email)
 
-Pour que l'app fonctionne avec des identifiants `@meiji.local` (pas de vrais emails),
+Pour que l'app fonctionne avec des identifiants `@meiji.app` (pas de vrais emails),
 ajuste **Authentication → Providers → Email** :
 
 | Réglage | Valeur | Pourquoi |
 |---|---|---|
 | **Enable Email Signups** | ✅ **activé** | Permet à la page Utilisateurs de créer des comptes. Si tu désactives, le formulaire renverra "Inscriptions désactivées" et tu seras forcé de tout faire à la main dans le dashboard Supabase. |
-| **Confirm email** | ❌ **désactivé** | Sinon Supabase tente d'envoyer un email de confirmation à `marie@meiji.local` — adresse inexistante → ta collègue ne peut jamais se connecter. |
+| **Confirm email** | ❌ **désactivé** | Sinon Supabase tente d'envoyer un email de confirmation à `marie@meiji.app` — adresse inexistante → ta collègue ne peut jamais se connecter. |
 | **Secure email change** | ❌ désactivé | Idem — pas d'email réel pour confirmer. |
 
 > 🔒 **Sécurité** : avec "Email Signups" activé, n'importe qui qui connaît
@@ -173,17 +195,17 @@ Cette méthode requiert que **§6 ci-dessus soit configuré** (Signups activés 
 Si tu préfères garder "Email Signups" désactivé pour la sécurité :
 
 1. **Authentication** → **Users** → "Add user" → "Create new user"
-2. **Email** : `identifiant@meiji.local` (ex: `marie@meiji.local`)
+2. **Email** : `identifiant@meiji.app` (ex: `marie@meiji.app`)
 3. **Mot de passe** + ✅ **"Auto Confirm User"** (obligatoire)
 4. Dans **SQL Editor** :
 ```sql
 UPDATE profiles
    SET role = 'caissier',           -- ou 'admin' / 'responsable' / 'serveur'
        nom  = 'Prénom Nom'
- WHERE email = 'marie@meiji.local';
+ WHERE email = 'marie@meiji.app';
 ```
 
-Ton collègue se connecte ensuite avec juste `marie` (pas le `@meiji.local`) + son mot de passe.
+Ton collègue se connecte ensuite avec juste `marie` (pas le `@meiji.app`) + son mot de passe.
 
 ### Récap des accès par rôle
 
