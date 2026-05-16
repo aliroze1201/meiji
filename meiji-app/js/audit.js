@@ -424,6 +424,125 @@ const Audit = {
     }).join('');
   },
 
+  // Rapprochement entre l'historique audit (module 'depenses') et la base
+  // réelle Data.histDep pour identifier les divergences sur une plage de
+  // dates (par défaut hier + aujourd'hui).
+  reconcileDepenses() {
+    const today = new Date().toISOString().slice(0, 10);
+    const ydate = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const dates = [ydate, today];
+    const labels = { [ydate]: 'Hier · ' + ydate, [today]: 'Aujourd\'hui · ' + today };
+
+    const log = (Data.activityLog || []).filter(e => e.module === 'depenses');
+    const deps = (Data.histDep || []).filter(d => d.userId);
+
+    const sections = dates.map(date => {
+      const auditCreate = log.filter(e => e.action === 'create' && (e.meta?.date === date));
+      const auditDelete = log.filter(e => e.action === 'delete' && (e.meta?.date === date));
+      const auditUpdate = log.filter(e => e.action === 'update' && (e.meta?.date === date));
+      const current     = deps.filter(d => d.date === date);
+
+      const auditCreateIds = new Set(auditCreate.map(e => e.meta?.id).filter(Boolean));
+      const currentIds = new Set(current.map(d => d.userId));
+      const inAuditNotCurrent = [...auditCreateIds].filter(id => !currentIds.has(id));
+      const inCurrentNotAudit = [...currentIds].filter(id => !auditCreateIds.has(id));
+
+      const totalCurrent = current.reduce((s,d) => s + (d.montant || 0), 0);
+      const totalAudit   = auditCreate.reduce((s,e) => {
+        // tente d'extraire le montant depuis details ("Dépense X · 50 000")
+        // si meta.before / meta.after non dispo on prend l'entrée current
+        const dep = deps.find(d => d.userId === e.meta?.id);
+        return s + (dep?.montant || 0);
+      }, 0);
+
+      const rowsCurrent = current.length
+        ? current.map(d => `<tr><td>${this._esc(d.dept || '')}</td><td>${this._esc(d.label || d.groupe || '')}</td><td class="text-right fw-bold">${Data.fmt(d.montant)}</td><td>${this._esc(d.paiement || 'esp')}</td><td style="font-size:11px;color:var(--c-muted)">#${d.userId}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="empty">Aucune dépense</td></tr>';
+
+      const rowsAuditDelete = auditDelete.length
+        ? auditDelete.map(e => `<tr><td>${this._esc(e.entity || '')}</td><td>${this._esc(e.details || '')}</td><td style="font-size:11px;color:var(--c-muted)">${this._esc(this._fmtTs(e.ts))}</td><td>${this._esc(e.userName || '')}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="empty">Aucune suppression historisée</td></tr>';
+
+      const rowsAuditUpdate = auditUpdate.length
+        ? auditUpdate.map(e => `<tr><td>${this._esc(e.entity || '')}</td><td>${this._esc(e.details || '')}</td><td style="font-size:11px;color:var(--c-muted)">${this._esc(this._fmtTs(e.ts))}</td><td>${this._esc(e.userName || '')}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="empty">Aucune modification historisée</td></tr>';
+
+      const rowsDiffMissing = inAuditNotCurrent.length
+        ? inAuditNotCurrent.map(id => {
+            const e = auditCreate.find(x => x.meta?.id === id);
+            return `<tr><td>${this._esc(e?.entity || '?')}</td><td>${this._esc(e?.details || '')}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
+          }).join('')
+        : '<tr><td colspan="3" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les créations de l\'audit sont présentes en base ✓</td></tr>';
+
+      const rowsDiffExtra = inCurrentNotAudit.length
+        ? inCurrentNotAudit.map(id => {
+            const d = current.find(x => x.userId === id);
+            return `<tr><td>${this._esc(d?.dept || '?')}</td><td>${this._esc(d?.label || d?.groupe || '')}</td><td class="text-right fw-bold">${Data.fmt(d?.montant)}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
+          }).join('')
+        : '<tr><td colspan="4" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les dépenses présentes ont une trace audit ✓</td></tr>';
+
+      const okDiff = inAuditNotCurrent.length === 0 && inCurrentNotAudit.length === 0;
+      const statusBadge = okDiff
+        ? '<span class="badge b-green">✓ Tout est cohérent</span>'
+        : '<span class="badge b-red">⚠ Divergences détectées</span>';
+
+      return `
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <span class="card-title"><i class="ti ti-calendar"></i> ${labels[date]}</span>
+            ${statusBadge}
+          </div>
+          <div class="g4" style="margin-bottom:12px">
+            <div class="mc"><div class="mc-label">Dépenses en base</div><div class="mc-val">${current.length}</div><div class="mc-sub">${Data.fmt(totalCurrent)}</div></div>
+            <div class="mc green"><div class="mc-label green">Audit · création</div><div class="mc-val green">${auditCreate.length}</div></div>
+            <div class="mc amber"><div class="mc-label amber">Audit · modif</div><div class="mc-val amber">${auditUpdate.length}</div></div>
+            <div class="mc red"><div class="mc-label red">Audit · suppr</div><div class="mc-val red">${auditDelete.length}</div></div>
+          </div>
+
+          <details ${current.length ? 'open' : ''}>
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Dépenses actuellement en base (${current.length})</summary>
+            <table style="margin-bottom:12px"><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>Mode</th><th>ID</th></tr></thead><tbody>${rowsCurrent}</tbody></table>
+          </details>
+
+          <details ${auditUpdate.length ? 'open' : ''}>
+            <summary style="cursor:pointer;font-weight:600;margin:8px 0 6px;color:var(--c-warning)">⚙️ Modifications historisées (${auditUpdate.length})</summary>
+            <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th>Date</th><th>Par</th></tr></thead><tbody>${rowsAuditUpdate}</tbody></table>
+          </details>
+
+          <details ${auditDelete.length ? 'open' : ''}>
+            <summary style="cursor:pointer;font-weight:600;margin:8px 0 6px;color:var(--c-danger)">🗑 Suppressions historisées (${auditDelete.length})</summary>
+            <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th>Date</th><th>Par</th></tr></thead><tbody>${rowsAuditDelete}</tbody></table>
+          </details>
+
+          ${!okDiff ? `
+            <div style="border-top:2px dashed var(--c-danger);padding-top:10px;margin-top:6px">
+              <details open>
+                <summary style="cursor:pointer;font-weight:700;color:var(--c-danger)">⚠ Divergences (${inAuditNotCurrent.length + inCurrentNotAudit.length})</summary>
+                <div style="font-size:13px;color:var(--c-muted);margin:8px 0">Lignes audit dont la dépense a disparu de la base (sans trace de suppression) :</div>
+                <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th>ID</th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
+                <div style="font-size:13px;color:var(--c-muted);margin:8px 0">Dépenses en base sans trace de création dans l'audit :</div>
+                <table><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffExtra}</tbody></table>
+              </details>
+            </div>` : ''}
+        </div>`;
+    });
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:1000px;max-height:90vh;overflow-y:auto">
+          <div class="modal-title">⚖️ Rapprochement Dépenses · Historique ↔ Base</div>
+          <div style="font-size:12px;color:var(--c-muted);margin-bottom:14px">
+            Compare les entrées d'historique avec les dépenses effectivement en base pour <b>hier</b> et <b>aujourd'hui</b>.
+            Les divergences révèlent des suppressions non tracées (audit installé après) ou des saisies effectuées avant l'activation de l'audit.
+          </div>
+          ${sections.join('')}
+          <div class="modal-actions" style="margin-top:12px">
+            <button class="btn btn-primary" onclick="App.closeModal()">Fermer</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
   // Affiche un modal détaillé pour une entrée d'historique : avant / après
   showDetail(id) {
     const e = (Data.activityLog || []).find(x => x.id === id);
