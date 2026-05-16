@@ -154,6 +154,7 @@ const Recettes = {
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">${pays.join('')}</div></td>
         <td class="nowrap">
           <button class="btn btn-sm" title="Modifier cette journée" onclick="Recettes.editJournee('${dateEsc}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn btn-sm" title="Exporter cette journée en Excel" onclick="Recettes.exportDay('${dateEsc}')" style="margin-left:4px"><i class="ti ti-file-spreadsheet"></i></button>
           <button class="btn btn-sm btn-danger" title="Supprimer cette journée" onclick="Recettes.removeJournee('${dateEsc}')" style="margin-left:4px"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;
@@ -568,6 +569,112 @@ const Recettes = {
   },
 
   // ===================== EXPORT / IMPORT EXCEL =====================
+  // Export Excel d'UNE journée : récap + recettes + dépenses + mvts banque/mobile
+  // + prélèvements éventuels, le tout dans un seul classeur multi-onglets.
+  exportDay(date) {
+    if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
+    const j = Data.journees.find(x => x.date === date);
+
+    const wb = XLSX.utils.book_new();
+
+    // ===== Onglet RÉCAP =====
+    const cumS = Data.cashEndOfDay(date, 's');
+    const cumB = Data.cashEndOfDay(date, 'b');
+    const cumC = Data.cashEndOfDay(date, 'c');
+    const recap = [
+      ['MEIJI · Récapitulatif journée'],
+      ['Date', date],
+      [''],
+      ['RECETTES', 'SUSHI', 'BAR', 'CHICHA', 'TOTAL'],
+      ['Espèces',  j?.s.esp || 0, j?.b.esp || 0, j?.c.esp || 0, (j?.s.esp || 0) + (j?.b.esp || 0) + (j?.c.esp || 0)],
+      ['Chèque',   j?.s.chq || 0, j?.b.chq || 0, j?.c.chq || 0, (j?.s.chq || 0) + (j?.b.chq || 0) + (j?.c.chq || 0)],
+      ['Mobile',   j?.s.mob || 0, j?.b.mob || 0, j?.c.mob || 0, (j?.s.mob || 0) + (j?.b.mob || 0) + (j?.c.mob || 0)],
+      ['Crédit',   j?.s.cred|| 0, j?.b.cred|| 0, j?.c.cred|| 0, (j?.s.cred|| 0) + (j?.b.cred|| 0) + (j?.c.cred|| 0)],
+      ['CA TOTAL', j ? Data.caisse(j,'s') : 0, j ? Data.caisse(j,'b') : 0, j ? Data.caisse(j,'c') : 0, j ? Data.caTotal(j) : 0],
+      [''],
+      ['CUMUL ESPÈCES EN FIN DE JOURNÉE', cumS, cumB, cumC, cumS + cumB + cumC],
+    ];
+    const wsR = XLSX.utils.aoa_to_sheet(recap);
+    wsR['!cols'] = [{ wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsR, 'Récap');
+
+    // ===== Onglet DÉPENSES =====
+    const deps = (Data.getAllDeps() || []).filter(d => d.date === date);
+    const depRows = deps.map(d => ({
+      Catégorie: d.groupe || d.label || '',
+      Département: d.dept || '',
+      'Quantité': d.qte != null ? d.qte : '',
+      'Prix U.': d.prix != null ? d.prix : '',
+      Montant: d.montant || 0,
+      'Mode paiement': d.paiement || 'esp',
+      Observation: d.observation || d.label || '',
+    }));
+    if (depRows.length) {
+      const wsD = XLSX.utils.json_to_sheet(depRows);
+      wsD['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 36 }];
+      XLSX.utils.book_append_sheet(wb, wsD, 'Dépenses');
+    }
+
+    // ===== Onglet MOUVEMENTS BANQUE =====
+    const mvtsBk = (Data.mvtsBanque || []).filter(m => m.date === date);
+    if (mvtsBk.length) {
+      const cMap = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      const bkRows = mvtsBk.map(m => ({
+        Type: m.type === 'in' ? 'Entrée' : 'Sortie',
+        Banque: m.op || '',
+        Libellé: m.lib || '',
+        Caisse: m.caisse ? cMap[m.caisse] : '',
+        Montant: m.mnt || 0,
+        Référence: m.ref || '',
+        Pending: m.pending ? 'OUI' : '',
+      }));
+      const wsB = XLSX.utils.json_to_sheet(bkRows);
+      wsB['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 36 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
+      XLSX.utils.book_append_sheet(wb, wsB, 'Banque');
+    }
+
+    // ===== Onglet MOUVEMENTS MOBILE =====
+    const mvtsMb = (Data.mvtsMobile || []).filter(m => m.date === date);
+    if (mvtsMb.length) {
+      const cMap = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      const mbRows = mvtsMb.map(m => ({
+        Type: m.type === 'in' ? 'Entrée' : 'Sortie',
+        Opérateur: m.op || '',
+        Libellé: m.lib || '',
+        Caisse: m.caisse ? cMap[m.caisse] : '',
+        Montant: m.mnt || 0,
+        Référence: m.ref || '',
+      }));
+      const wsM = XLSX.utils.json_to_sheet(mbRows);
+      wsM['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 36 }, { wch: 10 }, { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsM, 'Mobile');
+    }
+
+    // ===== Onglet PRÉLÈVEMENTS =====
+    const prelvs = (Data.prelevements || []).filter(p => p.date === date);
+    if (prelvs.length) {
+      const findAssoc = id => (Data.associes || []).find(a => a.id === id)?.nom || '';
+      const prRows = prelvs.map(p => ({
+        Associé: findAssoc(p.associeId),
+        Mode: p.paiement === 'banque' ? 'Banque · ' + (p.banque || '')
+            : p.paiement === 'mobile' ? 'Mobile · ' + (p.operateur || '')
+            : 'Espèces · ' + ({ s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[p.caisse || 'b']),
+        Montant: p.montant || 0,
+        Observation: p.observation || '',
+      }));
+      const wsP = XLSX.utils.json_to_sheet(prRows);
+      wsP['!cols'] = [{ wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 36 }];
+      XLSX.utils.book_append_sheet(wb, wsP, 'Prélèvements');
+    }
+
+    XLSX.writeFile(wb, `meiji-journee-${date}.xlsx`);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'export',
+        `Export Excel journée ${date}`,
+        `Recettes + Dépenses + Mvts banque/mobile + Prélèvements`);
+    } catch (e) {}
+  },
+
   exportExcel() {
     if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
     const rows = Data.journees.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => ({
