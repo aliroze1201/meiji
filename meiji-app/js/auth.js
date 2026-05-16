@@ -153,6 +153,8 @@ const Auth = {
     if (usersNav) usersNav.style.display = isAdmin ? '' : 'none';
     const auditNav = document.getElementById('nav-audit');
     if (auditNav) auditNav.style.display = isAdmin ? '' : 'none';
+    const adminGroup = document.getElementById('tn-admin');
+    if (adminGroup) adminGroup.style.display = isAdmin ? '' : 'none';
   },
 
   _renderUserBadge() {
