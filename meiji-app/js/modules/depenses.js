@@ -401,6 +401,27 @@ const Depenses = {
         }
       }
     } catch (e) {}
+    this.backfillUnitPrices();
+  },
+
+  // Rétro-calcule le prix unitaire pour les dépenses existantes
+  // où la quantité et le montant sont saisis mais le prix est manquant.
+  backfillUnitPrices() {
+    let changed = 0;
+    Data.histDep.forEach(d => {
+      if (!d.userId) return; // ne touche pas aux dépenses issues des journées
+      const q = parseFloat(d.qte);
+      const m = parseFloat(d.montant);
+      const p = parseFloat(d.prix);
+      const hasQ = !isNaN(q) && q > 0;
+      const hasM = !isNaN(m) && m > 0;
+      const hasP = !isNaN(p) && p > 0;
+      if (hasQ && hasM && !hasP) {
+        d.prix = Math.round((m / q) * 100) / 100;
+        changed++;
+      }
+    });
+    if (changed > 0) this.persist();
   },
 
   // ===================== EXPORT / IMPORT EXCEL =====================
