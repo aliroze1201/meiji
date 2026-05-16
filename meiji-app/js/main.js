@@ -32,6 +32,7 @@ const App = {
     if (typeof Auth !== 'undefined' && Auth.applyPageMode) Auth.applyPageMode(pageId);
     this.renderAll();
     if (pageId === 'utilisateurs' && typeof Utilisateurs !== 'undefined') Utilisateurs.render();
+    if (pageId === 'historique'   && typeof Audit        !== 'undefined') Audit.render();
   },
 
   updateTopbarTitle(pageId) {
@@ -54,6 +55,7 @@ const App = {
       clotures: 'Clôtures mensuelles',
       utilisateurs: 'Utilisateurs',
       associes: 'Associés',
+      historique: 'Historique des activités',
     };
     const tb = document.getElementById('tb-title');
     if (tb) tb.textContent = titles[pageId] || 'MEIJI';
@@ -113,6 +115,7 @@ const App = {
     if (Data.fondInit && typeof Pointage !== 'undefined' && Pointage.SEED_KEY) {
       await tryStep('Soldes d\'ouverture', () => AppDB.save(Pointage.SEED_KEY, Data.fondInit));
     }
+    if (typeof Audit !== 'undefined' && Audit.save) await tryStep(`Historique (${(Data.activityLog||[]).length})`, () => Audit.save());
 
     // Journées (Supabase table dédiée)
     if (typeof JourneesDB !== 'undefined' && JourneesDB.enabled && JourneesDB.enabled()) {
@@ -310,6 +313,7 @@ const App = {
     if (typeof Pointage !== 'undefined') Pointage.render();
     if (typeof Stock !== 'undefined') Stock.render();
     if (typeof Associes !== 'undefined') Associes.render();
+    if (typeof Audit !== 'undefined' && Audit.render) Audit.render();
   },
 
   // ===================== INIT =====================
@@ -403,6 +407,15 @@ const App = {
     // Synchronisation forcée vers Supabase
     document.getElementById('btn-sync')?.addEventListener('click', () => this.syncAll());
 
+    // ===== Historique (audit log) =====
+    document.getElementById('btn-audit-export')?.addEventListener('click', () => { if (typeof Audit !== 'undefined') Audit.exportExcel(); });
+    document.getElementById('btn-audit-clear')?.addEventListener('click',  () => { if (typeof Audit !== 'undefined') Audit.clear(); });
+    this.initTabs('au-tabs', f => { if (typeof Audit !== 'undefined') { Audit.filter = f; Audit.render(); } });
+    document.getElementById('au-module')?.addEventListener('change', (e) => { if (typeof Audit !== 'undefined') { Audit.moduleFilter = e.target.value; Audit.render(); } });
+    document.getElementById('au-search')?.addEventListener('input',  (e) => { if (typeof Audit !== 'undefined') { Audit.search       = e.target.value; Audit.render(); } });
+    document.getElementById('au-from')?.addEventListener('change',   (e) => { if (typeof Audit !== 'undefined') { Audit.dateFrom     = e.target.value; Audit.render(); } });
+    document.getElementById('au-to')?.addEventListener('change',     (e) => { if (typeof Audit !== 'undefined') { Audit.dateTo       = e.target.value; Audit.render(); } });
+
     if (typeof Pointage !== 'undefined') Pointage.init();
     if (typeof Stock !== 'undefined' && Stock.initOnce) Stock.initOnce();
 
@@ -422,6 +435,7 @@ const App = {
       (typeof Categories !== 'undefined' && Categories.restore ? Categories.restore() : Promise.resolve()),
       (typeof Fournisseurs !== 'undefined' && Fournisseurs.restore ? Fournisseurs.restore() : Promise.resolve()),
       (typeof Associes !== 'undefined' && Associes.restore ? Associes.restore() : Promise.resolve()),
+      (typeof Audit !== 'undefined' && Audit.restore ? Audit.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
     .then(() => this.renderAll())

@@ -66,8 +66,15 @@ const Mobile = {
     if (isNaN(val)) { alert('Saisis un nombre valide.'); return; }
     const o = (Data.operateursMobile || []).find(x => x.id === id);
     if (!o) return;
+    const beforeSolde = o.solde;
     o.solde = val;
     o.soldeDate = new Date().toLocaleDateString('fr-FR');
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'mobile',
+        `Solde référence ${o.nom}`,
+        `${Data.fmt(beforeSolde || 0)} → ${Data.fmt(val)}`,
+        { id: o.id, before: { solde: beforeSolde }, after: { solde: val } });
+    } catch (e) {}
     this.saveList();
     this.render();
     if (typeof Dashboard !== 'undefined') Dashboard.render();
@@ -144,6 +151,12 @@ const Mobile = {
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
     Data.mvtsMobile.unshift(mvt);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'mobile',
+        `Mvt ${mvt.type === 'in' ? '+' : '−'} ${mvt.op || ''} · ${mvt.lib}`,
+        `${Data.fmt(mvt.mnt)} · ${mvt.type === 'in' ? 'entrée' : 'sortie'}${mvt.caisse ? ' · caisse ' + mvt.caisse : ''}`,
+        { id: mvt.id, after: mvt });
+    } catch (e) {}
     this.save();
     App.closeModal();
     this.render();
@@ -242,6 +255,12 @@ const Mobile = {
     const lbl = `${Data.fmtDs(m.date)} · ${m.lib || ''} · ${Data.fmt(m.mnt)} (${m.type === 'in' ? '+' : '−'})`;
     if (!confirm('Supprimer ce mouvement Mobile Money ?\n\n' + lbl + '\n\nCette action est irréversible.')) return;
     Data.mvtsMobile = Data.mvtsMobile.filter(x => x.id !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'mobile',
+        `Mvt ${m.op || ''} · ${m.lib || ''}`,
+        `${Data.fmt(m.mnt)} · ${m.type === 'in' ? 'entrée' : 'sortie'}`,
+        { id: m.id, before: m });
+    } catch (e) {}
     this.save();
     if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
     else this.render();
@@ -327,12 +346,26 @@ const Mobile = {
     if (this.editOpId) {
       const o = Data.operateursMobile.find(x => x.id === this.editOpId);
       if (o) {
+        const before = { ...o };
         const update = { nom, observation, actif, solde };
         if (o.solde !== solde) update.soldeDate = soldeDate || o.soldeDate;
         Object.assign(o, update);
+        try {
+          if (typeof Audit !== 'undefined') Audit.log('update', 'mobile',
+            `Opérateur ${nom}`,
+            `Solde de référence : ${Data.fmt(solde)}`,
+            { id: o.id, before, after: { ...o } });
+        } catch (e) {}
       }
     } else {
-      Data.operateursMobile.push({ id: Data.newId(), nom, observation, actif, solde, soldeDate });
+      const id = Data.newId();
+      Data.operateursMobile.push({ id, nom, observation, actif, solde, soldeDate });
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('create', 'mobile',
+          `Opérateur ${nom}`,
+          `Création · solde initial ${Data.fmt(solde)}`,
+          { id });
+      } catch (e) {}
     }
     this.editOpId = null;
     this.saveList();

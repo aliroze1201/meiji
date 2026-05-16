@@ -74,8 +74,15 @@ const Employes = {
       brut, prime, avance,
       net: brut + prime - avance,
     };
-    if (idx >= 0) Data.employes[idx] = entry;
+    const isUpdate = idx >= 0;
+    if (isUpdate) Data.employes[idx] = entry;
     else Data.employes.push(entry);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log(isUpdate ? 'update' : 'create', 'employes',
+        `Employé ${entry.nom}`,
+        `${entry.poste || ''} · ${entry.dept} · net ${Data.fmt(entry.net)}`,
+        { after: entry });
+    } catch (e) {}
     this.save();
     App.closeModal();
     this.render();
@@ -83,7 +90,14 @@ const Employes = {
 
   delete(idx) {
     if (!confirm('Supprimer cet employé ?')) return;
+    const removed = Data.employes[idx];
     Data.employes.splice(idx, 1);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'employes',
+        `Employé ${removed?.nom || ''}`,
+        removed ? `${removed.poste || ''} · ${removed.dept}` : null,
+        { before: removed });
+    } catch (e) {}
     this.save();
     this.render();
   },

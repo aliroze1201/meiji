@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#F97316">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260513ghostrows">
+  <link rel="stylesheet" href="css/styles.css?v=20260513audit">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -49,6 +49,7 @@
 
     <div class="sb-section">Administration</div>
     <div class="nav-item" id="nav-users" data-page="utilisateurs" style="display:none"><i class="ti ti-user-shield"></i><span class="label">Utilisateurs</span></div>
+    <div class="nav-item" id="nav-audit" data-page="historique" style="display:none"><i class="ti ti-history"></i><span class="label">Historique</span></div>
   </aside>
 
   <!-- MAIN -->
@@ -983,36 +984,114 @@
       </div>
     </div>
 
+    <div class="page" id="page-historique">
+      <div class="period-bar">
+        <span class="period-bar-title"><i class="ti ti-history"></i> Historique des activités</span>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+          <button id="btn-audit-export" class="btn"><i class="ti ti-file-export"></i> Export Excel</button>
+          <button id="btn-audit-clear"  class="btn btn-danger"><i class="ti ti-trash"></i> Vider l'historique</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="g4">
+          <div class="mc blue">
+            <div class="mc-label blue"><i class="ti ti-list"></i> Total entrées</div>
+            <div class="mc-val blue" id="au-total">0</div>
+          </div>
+          <div class="mc green">
+            <div class="mc-label green"><i class="ti ti-plus"></i> Créations</div>
+            <div class="mc-val green" id="au-create">0</div>
+          </div>
+          <div class="mc amber">
+            <div class="mc-label amber"><i class="ti ti-pencil"></i> Modifications</div>
+            <div class="mc-val amber" id="au-update">0</div>
+          </div>
+          <div class="mc red">
+            <div class="mc-label red"><i class="ti ti-trash"></i> Suppressions</div>
+            <div class="mc-val red" id="au-delete">0</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="tabs" id="au-tabs" style="margin-bottom:12px">
+            <div class="tab active" data-filter="all">Tous</div>
+            <div class="tab" data-filter="create">Créations</div>
+            <div class="tab" data-filter="update">Modifications</div>
+            <div class="tab" data-filter="delete">Suppressions</div>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:12px">
+            <div>
+              <label style="font-size:12px;color:var(--c-muted)">Module</label>
+              <select id="au-module" style="min-width:160px"><option value="all">Tous les modules</option></select>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <label style="font-size:12px;color:var(--c-muted)">Recherche</label>
+              <input id="au-search" type="text" placeholder="Entité, détails, utilisateur..." style="width:100%">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--c-muted)">Du</label>
+              <input id="au-from" type="date">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--c-muted)">Au</label>
+              <input id="au-to" type="date">
+            </div>
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Date / Heure</th>
+                <th>Utilisateur</th>
+                <th>Action</th>
+                <th>Module</th>
+                <th>Entité</th>
+                <th>Détails</th>
+              </tr>
+            </thead>
+            <tbody id="au-table">
+              <tr><td colspan="6" class="empty">Aucune activité enregistrée.</td></tr>
+            </tbody>
+          </table>
+          <div class="text-muted" style="font-size:11.5px;margin-top:8px">
+            Le journal conserve au maximum 2000 entrées (les plus anciennes sont supprimées automatiquement).
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- end main -->
 </div><!-- end app -->
 
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/config.js?v=20260513ghostrows"></script>
-<script src="js/auth.js?v=20260513ghostrows"></script>
-<script src="js/data.js?v=20260513ghostrows"></script>
-<script src="js/journees-db.js?v=20260513ghostrows"></script>
-<script src="js/app-db.js?v=20260513ghostrows"></script>
-<script src="js/charts.js?v=20260513ghostrows"></script>
-<script src="js/modules/dashboard.js?v=20260513ghostrows"></script>
-<script src="js/modules/pointage.js?v=20260513ghostrows"></script>
-<script src="js/modules/recettes.js?v=20260513ghostrows"></script>
-<script src="js/modules/depenses.js?v=20260513ghostrows"></script>
-<script src="js/modules/analyse.js?v=20260513ghostrows"></script>
-<script src="js/modules/banque.js?v=20260513ghostrows"></script>
-<script src="js/modules/mobile.js?v=20260513ghostrows"></script>
-<script src="js/modules/categories.js?v=20260513ghostrows"></script>
-<script src="js/modules/employes.js?v=20260513ghostrows"></script>
-<script src="js/modules/comptes-emp.js?v=20260513ghostrows"></script>
-<script src="js/modules/credits.js?v=20260513ghostrows"></script>
-<script src="js/modules/suivi.js?v=20260513ghostrows"></script>
-<script src="js/modules/fournisseurs.js?v=20260513ghostrows"></script>
-<script src="js/modules/stock.js?v=20260513ghostrows"></script>
-<script src="js/modules/associes.js?v=20260513ghostrows"></script>
-<script src="js/modules/bilan.js?v=20260513ghostrows"></script>
-<script src="js/modules/clotures.js?v=20260513ghostrows"></script>
-<script src="js/modules/utilisateurs.js?v=20260513ghostrows"></script>
-<script src="js/main.js?v=20260513ghostrows"></script>
+<script src="js/config.js?v=20260513audit"></script>
+<script src="js/auth.js?v=20260513audit"></script>
+<script src="js/data.js?v=20260513audit"></script>
+<script src="js/journees-db.js?v=20260513audit"></script>
+<script src="js/app-db.js?v=20260513audit"></script>
+<script src="js/audit.js?v=20260513audit"></script>
+<script src="js/charts.js?v=20260513audit"></script>
+<script src="js/modules/dashboard.js?v=20260513audit"></script>
+<script src="js/modules/pointage.js?v=20260513audit"></script>
+<script src="js/modules/recettes.js?v=20260513audit"></script>
+<script src="js/modules/depenses.js?v=20260513audit"></script>
+<script src="js/modules/analyse.js?v=20260513audit"></script>
+<script src="js/modules/banque.js?v=20260513audit"></script>
+<script src="js/modules/mobile.js?v=20260513audit"></script>
+<script src="js/modules/categories.js?v=20260513audit"></script>
+<script src="js/modules/employes.js?v=20260513audit"></script>
+<script src="js/modules/comptes-emp.js?v=20260513audit"></script>
+<script src="js/modules/credits.js?v=20260513audit"></script>
+<script src="js/modules/suivi.js?v=20260513audit"></script>
+<script src="js/modules/fournisseurs.js?v=20260513audit"></script>
+<script src="js/modules/stock.js?v=20260513audit"></script>
+<script src="js/modules/associes.js?v=20260513audit"></script>
+<script src="js/modules/bilan.js?v=20260513audit"></script>
+<script src="js/modules/clotures.js?v=20260513audit"></script>
+<script src="js/modules/utilisateurs.js?v=20260513audit"></script>
+<script src="js/main.js?v=20260513audit"></script>
 </body>
 </html>

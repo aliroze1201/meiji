@@ -62,15 +62,30 @@ const Suivi = {
     if (id) {
       const c = Data.cheques.find(x => x.id === id);
       if (!c) return;
+      const before = { ...c };
       Object.assign(c, { date, dept, numero, banque, tireur, montant, notes });
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('update', 'suivi',
+          `Chèque ${numero || ''} · ${tireur || ''}`,
+          `${Data.fmt(montant)} · ${dept}`,
+          { id, before, after: { ...c } });
+      } catch (e) {}
     } else {
-      Data.cheques.push({
-        id: Data.newId(),
+      const newId = Data.newId();
+      const c = {
+        id: newId,
         date, dept, numero, banque, tireur, montant, notes,
         statut: 'attente',
         dateDepot: null,
         dateEncaissement: null,
-      });
+      };
+      Data.cheques.push(c);
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('create', 'suivi',
+          `Chèque ${numero || ''} · ${tireur || ''}`,
+          `${Data.fmt(montant)} · ${dept} · en attente`,
+          { id: newId, after: c });
+      } catch (e) {}
     }
     this.persist();
     App.closeModal();
@@ -85,6 +100,12 @@ const Suivi = {
     if (!date) return;
     c.statut = 'depose';
     c.dateDepot = date;
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'suivi',
+        `Chèque ${c.numero || ''} · ${c.tireur || ''}`,
+        `Déposé le ${Data.fmtD(date)}`,
+        { id: c.id, after: { statut: 'depose', dateDepot: date } });
+    } catch (e) {}
     this.persist();
     App.renderAll();
   },
@@ -97,6 +118,12 @@ const Suivi = {
     if (!date) return;
     c.statut = 'encaisse';
     c.dateEncaissement = date;
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'suivi',
+        `Chèque ${c.numero || ''} · ${c.tireur || ''}`,
+        `Encaissé le ${Data.fmtD(date)} · ${Data.fmt(c.montant)}`,
+        { id: c.id, after: { statut: 'encaisse', dateEncaissement: date } });
+    } catch (e) {}
     // Chèque ÉMIS : le mouvement bancaire associé sort de l'état pending
     // → il commence à impacter le solde de la banque.
     if (c.sens === 'emis' && Array.isArray(Data.mvtsBanque)) {
@@ -116,6 +143,12 @@ const Suivi = {
     if (!c) return;
     if (!confirm('Marquer ce chèque comme rejeté ?')) return;
     c.statut = 'rejete';
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'suivi',
+        `Chèque ${c.numero || ''} · ${c.tireur || ''}`,
+        `Rejeté · ${Data.fmt(c.montant)}`,
+        { id: c.id, after: { statut: 'rejete' } });
+    } catch (e) {}
     // Chèque ÉMIS rejeté = annulation → on supprime le mouvement bancaire
     if (c.sens === 'emis' && Array.isArray(Data.mvtsBanque)) {
       Data.mvtsBanque = Data.mvtsBanque.filter(m => m.relCheque !== id);
@@ -135,6 +168,12 @@ const Suivi = {
       if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
     }
     Data.cheques = Data.cheques.filter(x => x.id !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'suivi',
+        `Chèque ${c.numero || ''} · ${c.tireur || ''}`,
+        `${Data.fmt(c.montant)} · ${c.statut}`,
+        { id: c.id, before: c });
+    } catch (e) {}
     this.persist();
     App.renderAll();
   },

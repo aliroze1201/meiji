@@ -174,6 +174,12 @@ const Clotures = {
     };
     this.items.push(item);
     this.items.sort((a,b) => a.ym.localeCompare(b.ym));
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'clotures',
+        `Clôture ${this.monthLabel(ym)}`,
+        `Mois clôturé par ${item.closedBy}`,
+        { ym, closedAt: item.closedAt });
+    } catch (e) {}
     await this.persist();
 
     try { this.exportExcel(item); } catch (e) { console.error('Export Excel clôture:', e); }
@@ -187,6 +193,12 @@ const Clotures = {
     if (!this.canReopen()) return alert("Réouverture réservée à l'administrateur.");
     if (!confirm(`Rouvrir le mois de ${this.monthLabel(ym)} ? Les saisies redeviendront modifiables.`)) return;
     this.items = this.items.filter(c => c.ym !== ym);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'clotures',
+        `Réouverture ${this.monthLabel(ym)}`,
+        'Mois rouvert',
+        { ym });
+    } catch (e) {}
     await this.persist();
     App.renderAll();
   },

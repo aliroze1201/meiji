@@ -151,6 +151,9 @@ const Data = {
   // Modifiable depuis la page Pointage par admin/responsable.
   fondInit: { s: 0, b: 0, c: 0, date: null },
 
+  // ===================== JOURNAL D'ACTIVITÉS =====================
+  activityLog: [],
+
   // ===================== COMPTEUR ID =====================
   nextId: 1000,
   newId() { return this.nextId++; },

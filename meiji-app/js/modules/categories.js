@@ -182,12 +182,19 @@ const Categories = {
       parentId,
     };
 
+    const wasEdit = !!this.editId;
     if (this.editId) {
       const idx = Data.categories.findIndex(c => c.id === this.editId);
       if (idx >= 0) Data.categories[idx] = cat;
     } else {
       Data.categories.push(cat);
     }
+    try {
+      if (typeof Audit !== 'undefined') Audit.log(wasEdit ? 'update' : 'create', 'categories',
+        `Catégorie ${cat.nom}`,
+        `${cat.type} · ${cat.dept}${cat.parentId ? ' · sous-catégorie' : ''}`,
+        { id: cat.id, after: cat });
+    } catch (e) {}
     this.editId = null;
     App.closeModal();
     this.persist();
@@ -200,7 +207,17 @@ const Categories = {
     if (kids.length) msg = `Cette catégorie a ${kids.length} sous-catégorie(s). Toutes seront supprimées avec elle.\n\nContinuer ?`;
     if (!confirm(msg)) return;
     const toRemove = new Set([id, ...this._descendantIds(id)]);
+    const removed = Data.categories.filter(c => toRemove.has(c.id));
     Data.categories = Data.categories.filter(c => !toRemove.has(c.id));
+    try {
+      if (typeof Audit !== 'undefined') {
+        const main = removed.find(c => c.id === id) || removed[0];
+        Audit.log('delete', 'categories',
+          `Catégorie ${main?.nom || ''}`,
+          removed.length > 1 ? `${removed.length} catégorie(s) supprimée(s)` : null,
+          { id, before: removed });
+      }
+    } catch (e) {}
     this.persist();
     this.render();
   },

@@ -127,7 +127,14 @@ const Depenses = {
       App.renderAll();
       return;
     }
+    const before = d.paiement;
     d.paiement = value;
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
+        `Dépense ${d.dept} · ${d.label}`,
+        `Mode de paiement : ${before || 'esp'} → ${value}`,
+        { id: userId, before: { paiement: before }, after: { paiement: value } });
+    } catch (e) {}
     this.persist();
     App.renderAll();
   },
@@ -297,8 +304,21 @@ const Depenses = {
           // Si l'original a disparu entre-temps, on crée une nouvelle entrée
           Data.histDep.push({ ...payload, userId: Data.newId() });
         }
+        try {
+          if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
+            `Dépense ${payload.dept} · ${payload.label}`,
+            `${Data.fmt(payload.montant)} · ${payload.paiement}`,
+            { id: d.editingUserId, after: payload });
+        } catch (e) {}
       } else {
-        Data.histDep.push({ ...payload, userId: Data.newId() });
+        const newId = Data.newId();
+        Data.histDep.push({ ...payload, userId: newId });
+        try {
+          if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
+            `Dépense ${payload.dept} · ${payload.label}`,
+            `${Data.fmt(payload.montant)} · ${payload.paiement}`,
+            { id: newId, after: payload });
+        } catch (e) {}
       }
     });
 
@@ -315,6 +335,12 @@ const Depenses = {
     if (typeof Clotures !== 'undefined' && Clotures.guard(dep.date, 'La suppression de cette dépense')) return;
     if (!confirm('Supprimer cette dépense ?')) return;
     Data.histDep.splice(idx, 1);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'depenses',
+        `Dépense ${dep.dept} · ${dep.label}`,
+        `${Data.fmt(dep.montant || 0)} · ${dep.paiement || 'esp'}`,
+        { id: userId, before: dep });
+    } catch (e) {}
     this.persist();
     App.renderAll();
   },
