@@ -67,9 +67,66 @@ const Recettes = {
 
     const tb = document.getElementById('rec-table');
     if (!tb) return;
-    if (!jj.length) { tb.innerHTML = '<tr><td colspan="11" class="empty">Aucune recette</td></tr>'; return; }
 
-    tb.innerHTML = jj.slice().sort((a,b) => b.date.localeCompare(a.date)).map(j => {
+    // Construction d'une liste enrichie : journées validées + dates avec
+    // seulement des mouvements banque/mobile (versements, retraits) ou des
+    // prélèvements espèces. Ainsi un dépôt cash → banque apparaît dans le
+    // tableau même sans journée saisie ce jour-là.
+    const byDate = new Map();
+    jj.forEach(j => byDate.set(j.date, { type: 'journee', j }));
+    const addPlaceholder = (date) => {
+      if (!date) return;
+      if (App.inPeriod && !App.inPeriod(date)) return;
+      if (!byDate.has(date)) byDate.set(date, { type: 'ghost', j: null, date });
+    };
+    (Data.mvtsBanque || []).forEach(m => { if (m.caisse) addPlaceholder(m.date); });
+    (Data.mvtsMobile || []).forEach(m => { if (m.caisse) addPlaceholder(m.date); });
+    (Data.prelevements || []).forEach(p => { if (p.paiement === 'esp') addPlaceholder(p.date); });
+
+    if (!byDate.size) { tb.innerHTML = '<tr><td colspan="11" class="empty">Aucune recette</td></tr>'; return; }
+
+    const rows = [...byDate.values()].sort((a, b) =>
+      (b.j?.date || b.date).localeCompare(a.j?.date || a.date)
+    );
+
+    tb.innerHTML = rows.map(item => {
+      if (item.type === 'ghost') {
+        // Ligne fantôme : aucune journée à cette date mais un mouvement
+        // banque/mobile/prélèvement existe. On affiche tirets et le cumul
+        // cash de fin de journée pour comprendre l'impact.
+        const date = item.date;
+        const cumS = Data.cashEndOfDay(date, 's');
+        const cumB = Data.cashEndOfDay(date, 'b');
+        const cumC = Data.cashEndOfDay(date, 'c');
+        const cumT = cumS + cumB + cumC;
+        const colorCum = (n) => n >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
+        const events = [];
+        (Data.mvtsBanque || []).filter(m => m.date === date && m.caisse).forEach(m => {
+          const sign = m.type === 'in' ? '−' : '+';
+          events.push(`<span class="badge b-purple" title="${m.type === 'in' ? 'Versement caisse → banque' : 'Retrait banque → caisse'}">🏦 ${sign}${Data.fmts(m.mnt)}</span>`);
+        });
+        (Data.mvtsMobile || []).filter(m => m.date === date && m.caisse).forEach(m => {
+          const sign = m.type === 'in' ? '−' : '+';
+          events.push(`<span class="badge b-green" title="Mvt mobile">📱 ${sign}${Data.fmts(m.mnt)}</span>`);
+        });
+        (Data.prelevements || []).filter(p => p.date === date && p.paiement === 'esp').forEach(p => {
+          events.push(`<span class="badge b-amber" title="Prélèvement associé">👥 −${Data.fmts(p.montant)}</span>`);
+        });
+        return `<tr style="opacity:0.85">
+          <td>${Data.fmtD(date)} <span class="badge b-muted" style="font-size:10px;opacity:0.7">sans journée</span></td>
+          <td class="text-right text-muted">—</td>
+          <td class="text-right text-muted">—</td>
+          <td class="text-right text-muted">—</td>
+          <td class="text-right text-muted">—</td>
+          <td class="text-right" style="color:${colorCum(cumS)}">${Data.fmts(cumS)}</td>
+          <td class="text-right" style="color:${colorCum(cumB)}">${Data.fmts(cumB)}</td>
+          <td class="text-right" style="color:${colorCum(cumC)}">${Data.fmts(cumC)}</td>
+          <td class="text-right fw-bold" style="color:${colorCum(cumT)}">${Data.fmts(cumT)}</td>
+          <td><div style="display:flex;gap:4px;flex-wrap:wrap">${events.join('')}</div></td>
+          <td></td>
+        </tr>`;
+      }
+      const j = item.j;
       const total = Data.caTotal(j);
       const pays = [];
       const allPays = { esp: j.s.esp+j.b.esp+j.c.esp, chq: j.s.chq+j.b.chq+j.c.chq, mob: j.s.mob+j.b.mob+j.c.mob, cred: j.s.cred+j.b.cred+j.c.cred };
