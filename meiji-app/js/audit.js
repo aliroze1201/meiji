@@ -409,14 +409,68 @@ const Audit = {
     tb.innerHTML = filtered.map(e => {
       const userCell = `<div style="font-weight:600">${this._esc(e.userName || '—')}</div>`
         + (e.userRole ? `<div style="font-size:11px;color:var(--c-muted)">${this._esc(e.userRole)}</div>` : '');
+      const hasDetail = !!(e.meta && (e.meta.before || e.meta.after));
+      const detailIcon = hasDetail
+        ? `<button class="btn btn-sm" title="Voir le détail avant/après" onclick="Audit.showDetail(${e.id})"><i class="ti ti-eye"></i></button>`
+        : '';
       return `<tr>
         <td class="nowrap" style="font-size:12px">${this._esc(this._fmtTs(e.ts))}</td>
         <td>${userCell}</td>
         <td>${this._actionBadge(e.action)}</td>
         <td>${this._moduleBadge(e.module)}</td>
         <td class="fw-bold">${this._esc(e.entity || '')}</td>
-        <td class="text-muted" style="font-size:12.5px">${this._esc(e.details || '')}</td>
+        <td class="text-muted" style="font-size:12.5px">${this._esc(e.details || '')} ${detailIcon}</td>
       </tr>`;
     }).join('');
+  },
+
+  // Affiche un modal détaillé pour une entrée d'historique : avant / après
+  showDetail(id) {
+    const e = (Data.activityLog || []).find(x => x.id === id);
+    if (!e) return;
+    const fmtBlock = (obj) => {
+      if (obj == null) return '<span class="text-muted">—</span>';
+      try {
+        return '<pre style="font-size:12px;background:var(--c-bg-2);padding:10px;border-radius:6px;overflow:auto;max-height:300px">'
+          + this._esc(JSON.stringify(obj, null, 2))
+          + '</pre>';
+      } catch { return '<span class="text-muted">(non sérialisable)</span>'; }
+    };
+    const before = e.meta?.before;
+    const after  = e.meta?.after;
+    const onlyDeleted = e.action === 'delete' && before && !after;
+    const onlyCreated = e.action === 'create' && after  && !before;
+    const ts = this._fmtTs(e.ts);
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:760px">
+          <div class="modal-title">${this._actionBadge(e.action)} ${this._esc(e.entity || '')}</div>
+          <div style="font-size:12px;color:var(--c-muted);margin-bottom:12px">
+            ${this._esc(ts)} · ${this._esc(e.userName || '')}${e.userRole ? ' (' + this._esc(e.userRole) + ')' : ''}
+            ${e.details ? ' · ' + this._esc(e.details) : ''}
+          </div>
+          ${onlyCreated ? `
+            <div style="font-weight:600;margin-bottom:6px">Valeurs créées</div>
+            ${fmtBlock(after)}
+          ` : onlyDeleted ? `
+            <div style="font-weight:600;margin-bottom:6px">Valeurs supprimées (avant)</div>
+            ${fmtBlock(before)}
+          ` : `
+            <div class="fr">
+              <div class="fg">
+                <label class="fl" style="color:var(--c-warning)"><b>Avant la modification</b></label>
+                ${fmtBlock(before)}
+              </div>
+              <div class="fg">
+                <label class="fl" style="color:var(--c-bar)"><b>Après la modification</b></label>
+                ${fmtBlock(after)}
+              </div>
+            </div>
+          `}
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="App.closeModal()">Fermer</button>
+          </div>
+        </div>
+      </div>`);
   },
 };
