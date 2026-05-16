@@ -123,6 +123,12 @@ const Pointage = {
       s: need.s, b: need.b, c: need.c,
       date: seedDate,
     };
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'pointage',
+        "Soldes d'ouverture",
+        `Auto-seed · S ${Data.fmt(need.s)} · B ${Data.fmt(need.b)} · C ${Data.fmt(need.c)} · date ${seedDate}`,
+        { after: Data.fondInit });
+    } catch (e) {}
     await AppDB.save(this.SEED_KEY, Data.fondInit);
     this._fillSeedForm();
     this.render();
@@ -140,6 +146,12 @@ const Pointage = {
     const b = parseFloat(document.getElementById('pt-seed-b')?.value) || 0;
     const c = parseFloat(document.getElementById('pt-seed-c')?.value) || 0;
     Data.fondInit = { s, b, c, date };
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'pointage',
+        "Soldes d'ouverture",
+        `S ${Data.fmt(s)} · B ${Data.fmt(b)} · C ${Data.fmt(c)}${date ? ' · date ' + date : ''}`,
+        { after: Data.fondInit });
+    } catch (e) {}
     await AppDB.save(this.SEED_KEY, Data.fondInit);
     this.render();
     if (typeof Dashboard !== 'undefined') Dashboard.render();

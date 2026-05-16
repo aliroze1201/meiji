@@ -252,16 +252,25 @@ const Stock = {
       date_peremption: document.getElementById('stk-perdate')?.value || null,
     };
 
+    const wasEdit = !!this.editingArticleId;
+    let savedId = this.editingArticleId;
     if (this.editingArticleId) {
       const idx = Data.stockArticles.findIndex(a => a.id === this.editingArticleId);
       if (idx >= 0) Data.stockArticles[idx] = { ...Data.stockArticles[idx], ...data };
     } else {
+      savedId = Data.newId();
       Data.stockArticles.push({
-        id: Data.newId(),
+        id: savedId,
         date_creation: Data.today(),
         ...data,
       });
     }
+    try {
+      if (typeof Audit !== 'undefined') Audit.log(wasEdit ? 'update' : 'create', 'stock',
+        `Article ${data.nom}`,
+        `${data.dept} · ${data.unite} · seuil ${data.seuil_min}`,
+        { id: savedId, after: data });
+    } catch (e) {}
     this.editingArticleId = null;
     this.save();
     App.closeModal();
@@ -278,6 +287,12 @@ const Stock = {
     if (!confirm(msg)) return;
     Data.stockArticles = Data.stockArticles.filter(x => x.id !== id);
     Data.stockMouvements = Data.stockMouvements.filter(m => m.articleId !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'stock',
+        `Article ${a.nom}`,
+        linked ? `${linked} mouvement(s) lié(s) supprimé(s)` : null,
+        { id: a.id, before: a });
+    } catch (e) {}
     this.save();
     App.renderAll();
   },
@@ -340,8 +355,9 @@ const Stock = {
     if (!artId)                 { alert('Sélectionne un article'); return; }
     if (!qte || qte <= 0)       { alert('Quantité invalide'); return; }
     if (!date)                  { alert('Date requise'); return; }
-    Data.stockMouvements.push({
-      id: Data.newId(),
+    const mvtId = Data.newId();
+    const newMvt = {
+      id: mvtId,
       date,
       articleId: artId,
       type: this._mvtType,
@@ -349,7 +365,17 @@ const Stock = {
       motif:       (document.getElementById('stk-mvt-motif')?.value || '').trim() || null,
       ref:         (document.getElementById('stk-mvt-ref')?.value   || '').trim() || null,
       observation: (document.getElementById('stk-mvt-obs')?.value   || '').trim() || null,
-    });
+    };
+    Data.stockMouvements.push(newMvt);
+    try {
+      if (typeof Audit !== 'undefined') {
+        const art = Data.stockArticles.find(a => a.id === artId);
+        Audit.log('create', 'stock',
+          `Mvt ${this._mvtType} · ${art?.nom || ''}`,
+          `${qte} ${art?.unite || ''}${newMvt.motif ? ' · ' + newMvt.motif : ''}`,
+          { id: mvtId, after: newMvt });
+      }
+    } catch (e) {}
     this.save();
     App.closeModal();
     App.renderAll();
@@ -357,7 +383,17 @@ const Stock = {
 
   removeMvt(id) {
     if (!confirm('Supprimer ce mouvement ?')) return;
+    const removed = Data.stockMouvements.find(m => m.id === id);
     Data.stockMouvements = Data.stockMouvements.filter(m => m.id !== id);
+    try {
+      if (typeof Audit !== 'undefined' && removed) {
+        const art = Data.stockArticles.find(a => a.id === removed.articleId);
+        Audit.log('delete', 'stock',
+          `Mvt ${removed.type} · ${art?.nom || ''}`,
+          `${removed.quantite} ${art?.unite || ''}`,
+          { id: removed.id, before: removed });
+      }
+    } catch (e) {}
     this.save();
     App.renderAll();
   },

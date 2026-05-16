@@ -54,6 +54,12 @@ const Credits = {
     };
     if (!c.client || !c.montant) { alert('Client et montant requis'); return; }
     Data.credits.push(c);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'credits',
+        `Crédit ${c.client} · ${c.dept}`,
+        `${Data.fmt(c.montant)} · ticket ${c.ticket || '-'}`,
+        { id: c.id, after: c });
+    } catch (e) {}
     this.persist();
     App.closeModal();
     App.renderAll();
@@ -150,6 +156,12 @@ const Credits = {
     c.statut = 'regle';
     c.dateReg = date;
     c.modeReg = mode;
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'credits',
+        `Crédit ${c.client} · ${c.dept}`,
+        `Réglé le ${Data.fmtD(date)} · ${Data.fmt(c.montant)} · mode ${mode}`,
+        { id: c.id, after: { statut: 'regle', dateReg: date, modeReg: mode } });
+    } catch (e) {}
     this.persist();
 
     App.closeModal();

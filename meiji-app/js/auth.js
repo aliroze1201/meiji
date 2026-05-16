@@ -25,7 +25,7 @@ const Auth = {
     return email.endsWith(this.USER_DOMAIN) ? email.slice(0, -this.USER_DOMAIN.length) : email;
   },
 
-  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','associes','bilan','clotures'],
+  ALL_PAGES: ['dashboard','pointage','recettes','depenses','analyse','banque','mobile','suivi','categories','employes','comptes-emp','credits','fournisseurs','stock','associes','bilan','clotures','historique'],
 
   ROLE_PERMISSIONS: {
     admin:       ['*'],
@@ -151,6 +151,8 @@ const Auth = {
     const isAdmin = this.profile?.role === 'admin';
     const usersNav = document.getElementById('nav-users');
     if (usersNav) usersNav.style.display = isAdmin ? '' : 'none';
+    const auditNav = document.getElementById('nav-audit');
+    if (auditNav) auditNav.style.display = isAdmin ? '' : 'none';
   },
 
   _renderUserBadge() {

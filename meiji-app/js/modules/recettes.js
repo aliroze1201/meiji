@@ -399,7 +399,14 @@ const Recettes = {
     }
     if (!confirm(`Supprimer définitivement la journée du ${Data.fmtD(date)} ?\n\nCette action est irréversible.`)) return;
 
+    const _removed = Data.journees.find(j => j.date === date);
     Data.journees = Data.journees.filter(j => j.date !== date);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'recettes',
+        `Journée ${Data.fmtD(date)}`,
+        _removed ? `CA total ${Data.fmt(Data.caTotal(_removed))}` : null,
+        { id: _removed?.id, date });
+    } catch (e) {}
 
     // Supabase (silencieux si non connecté)
     if (typeof JourneesDB !== 'undefined' && JourneesDB.enabled && JourneesDB.enabled()) {
@@ -439,6 +446,7 @@ const Recettes = {
       if (!d.date || !this._draftTotal(d)) return;
       // Si une journée existe déjà à cette date, on la met à jour (préserve deps/ds/cs).
       const existing = Data.journees.find(j => j.date === d.date);
+      const wasExisting = !!existing;
       const obj = existing ? { ...existing } : {
         id: Data.newId(),
         date: d.date,
@@ -453,6 +461,15 @@ const Recettes = {
       obj.c = { esp:+d.c.esp||0, chq:+d.c.chq||0, mob:+d.c.mob||0, cred:+d.c.cred||0 };
       if (!existing) Data.journees.push(obj);
       toSave.push(obj);
+      try {
+        if (typeof Audit !== 'undefined') {
+          const ca = Data.caTotal(obj);
+          Audit.log(wasExisting ? 'update' : 'create', 'recettes',
+            `Journée ${Data.fmtD(obj.date)}`,
+            `CA total ${Data.fmt(ca)}`,
+            { id: obj.id, date: obj.date, ca });
+        }
+      } catch (e) {}
     });
 
     Data.journees.sort((a,b) => a.date.localeCompare(b.date));

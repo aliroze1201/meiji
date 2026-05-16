@@ -98,12 +98,21 @@ const Fournisseurs = {
       x.id !== this.editId &&
       (x.nom || '').toLowerCase() === nom.toLowerCase());
     if (exists) { alert('Un fournisseur avec ce nom existe déjà.'); return; }
+    const wasEdit = !!this.editId;
+    let savedId = this.editId;
     if (this.editId) {
       const f = Data.fournisseursListe.find(x => x.id === this.editId);
       if (f) Object.assign(f, { nom, contact, telephone, observation, actif });
     } else {
-      Data.fournisseursListe.push({ id: Data.newId(), nom, contact, telephone, observation, actif });
+      savedId = Data.newId();
+      Data.fournisseursListe.push({ id: savedId, nom, contact, telephone, observation, actif });
     }
+    try {
+      if (typeof Audit !== 'undefined') Audit.log(wasEdit ? 'update' : 'create', 'fournisseurs',
+        `Fournisseur ${nom}`,
+        contact || telephone || (actif ? 'actif' : 'inactif'),
+        { id: savedId });
+    } catch (e) {}
     this.editId = null;
     this.saveList();
     this.openListModal();
@@ -118,6 +127,12 @@ const Fournisseurs = {
     if (nbFactures) msg += `\n\n${nbFactures} facture(s) existent à son nom — elles seront conservées (juste le menu déroulant ne le proposera plus).`;
     if (!confirm(msg)) return;
     Data.fournisseursListe = Data.fournisseursListe.filter(x => x.id !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'fournisseurs',
+        `Fournisseur ${f.nom}`,
+        null,
+        { id: f.id, before: f });
+    } catch (e) {}
     this.saveList();
     this.openListModal();
     if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
@@ -183,12 +198,21 @@ const Fournisseurs = {
       obs:  document.getElementById('fo-obs')?.value,
     };
     if (!Array.isArray(Data.fournisseurs)) Data.fournisseurs = [];
+    const wasEdit = !!this.editFactureId;
+    let savedId = this.editFactureId;
     if (this.editFactureId) {
       const idx = Data.fournisseurs.findIndex(f => f.id === this.editFactureId);
       if (idx >= 0) Data.fournisseurs[idx] = { ...Data.fournisseurs[idx], ...payload };
     } else {
-      Data.fournisseurs.unshift({ id: Data.newId(), ...payload });
+      savedId = Data.newId();
+      Data.fournisseurs.unshift({ id: savedId, ...payload });
     }
+    try {
+      if (typeof Audit !== 'undefined') Audit.log(wasEdit ? 'update' : 'create', 'fournisseurs',
+        `Facture ${payload.four || ''} · ${payload.num || ''}`,
+        `Débit ${Data.fmt(payload.deb || 0)} · solde ${Data.fmt(payload.solde || 0)}`,
+        { id: savedId, after: payload });
+    } catch (e) {}
     this.editFactureId = null;
     this.persist();
     App.closeModal();
@@ -201,6 +225,12 @@ const Fournisseurs = {
     if (!f) return;
     if (!confirm(`Supprimer la facture ${f.num || ''} du ${Data.fmtD(f.date)} ?`)) return;
     Data.fournisseurs = Data.fournisseurs.filter(x => x.id !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'fournisseurs',
+        `Facture ${f.four || ''} · ${f.num || ''}`,
+        `${Data.fmt((f.deb || 0) - (f.cred || 0))} (solde)`,
+        { id: f.id, before: f });
+    } catch (e) {}
     this.persist();
     if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
     else this.render();
@@ -427,6 +457,12 @@ const Fournisseurs = {
     fa.solde = (Number(fa.deb) || 0) - fa.cred;
     if (!Array.isArray(fa.reglements)) fa.reglements = [];
     fa.reglements.push({ id: Data.newId(), date, montant, mode, obs });
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'reglements-fournisseur',
+        `Règlement ${fa.four || ''} · ${fa.num || ''}`,
+        `${Data.fmt(montant)} · mode ${mode}`,
+        { factureId, mode, montant, date });
+    } catch (e) {}
     this.persist();
 
     App.closeModal();

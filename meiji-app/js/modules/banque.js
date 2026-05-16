@@ -78,8 +78,15 @@ const Banque = {
     if (isNaN(val)) { alert('Saisis un nombre valide.'); return; }
     const b = (Data.banques || []).find(x => x.id === id);
     if (!b) return;
+    const beforeSolde = b.solde;
     b.solde = val;
     b.soldeDate = new Date().toLocaleDateString('fr-FR');
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'banque',
+        `Solde référence ${b.nom}`,
+        `${Data.fmt(beforeSolde || 0)} → ${Data.fmt(val)}`,
+        { id: b.id, before: { solde: beforeSolde }, after: { solde: val } });
+    } catch (e) {}
     this.saveList();
     this.render();
     if (typeof Dashboard !== 'undefined') Dashboard.render();
@@ -156,6 +163,12 @@ const Banque = {
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
     Data.mvtsBanque.unshift(mvt);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'banque',
+        `Mvt ${mvt.type === 'in' ? '+' : '−'} ${mvt.op || ''} · ${mvt.lib}`,
+        `${Data.fmt(mvt.mnt)} · ${mvt.type === 'in' ? 'entrée' : 'sortie'}${mvt.caisse ? ' · caisse ' + mvt.caisse : ''}`,
+        { id: mvt.id, after: mvt });
+    } catch (e) {}
     this.save();
     App.closeModal();
     this.render();
@@ -265,6 +278,12 @@ const Banque = {
     const lbl = `${Data.fmtDs(m.date)} · ${m.lib || ''} · ${Data.fmt(m.mnt)} (${m.type === 'in' ? '+' : '−'})`;
     if (!confirm('Supprimer ce mouvement bancaire ?\n\n' + lbl + '\n\nCette action est irréversible.')) return;
     Data.mvtsBanque = Data.mvtsBanque.filter(x => x.id !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'banque',
+        `Mvt ${m.op || ''} · ${m.lib || ''}`,
+        `${Data.fmt(m.mnt)} · ${m.type === 'in' ? 'entrée' : 'sortie'}`,
+        { id: m.id, before: m });
+    } catch (e) {}
     this.save();
     if (typeof App !== 'undefined' && App.renderAll) App.renderAll();
     else this.render();
@@ -351,12 +370,26 @@ const Banque = {
       const b = Data.banques.find(x => x.id === this.editBkId);
       if (b) {
         // Ne mettre à jour soldeDate que si la valeur a changé
+        const before = { ...b };
         const update = { nom, observation, actif, solde };
         if (b.solde !== solde) update.soldeDate = soldeDate || b.soldeDate;
         Object.assign(b, update);
+        try {
+          if (typeof Audit !== 'undefined') Audit.log('update', 'banque',
+            `Banque ${nom}`,
+            `Solde de référence : ${Data.fmt(solde)}`,
+            { id: b.id, before, after: { ...b } });
+        } catch (e) {}
       }
     } else {
-      Data.banques.push({ id: Data.newId(), nom, observation, actif, solde, soldeDate });
+      const id = Data.newId();
+      Data.banques.push({ id, nom, observation, actif, solde, soldeDate });
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('create', 'banque',
+          `Banque ${nom}`,
+          `Création · solde initial ${Data.fmt(solde)}`,
+          { id });
+      } catch (e) {}
     }
     this.editBkId = null;
     this.saveList();

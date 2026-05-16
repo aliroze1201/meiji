@@ -227,15 +227,23 @@ const Associes = {
     if (isNaN(part) || part < 0 || part > 100) { alert('La part doit être un nombre entre 0 et 100.'); return; }
 
     if (!Array.isArray(Data.associes)) Data.associes = [];
+    const wasEdit = !!this.editAssocId;
+    let savedId = this.editAssocId;
     if (this.editAssocId) {
       const a = Data.associes.find(x => x.id === this.editAssocId);
       if (a) { a.nom = nom; a.part = part; a.actif = !!actif; }
     } else {
-      const newId = Data.associes.length
+      savedId = Data.associes.length
         ? Math.max(...Data.associes.map(a => a.id || 0)) + 1
         : 1;
-      Data.associes.push({ id: newId, nom, part, actif: !!actif });
+      Data.associes.push({ id: savedId, nom, part, actif: !!actif });
     }
+    try {
+      if (typeof Audit !== 'undefined') Audit.log(wasEdit ? 'update' : 'create', 'associes',
+        `Associé ${nom}`,
+        `Part ${part}%${actif ? '' : ' · inactif'}`,
+        { id: savedId });
+    } catch (e) {}
     this.editAssocId = null;
     this.save();
     App.closeModal();
@@ -252,6 +260,12 @@ const Associes = {
     }
     if (!confirm('Supprimer l\'associé "' + a.nom + '" ?')) return;
     Data.associes = Data.associes.filter(x => x.id !== id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'associes',
+        `Associé ${a.nom}`,
+        `Part ${a.part}%`,
+        { id: a.id, before: a });
+    } catch (e) {}
     this.save();
     this.render();
   },
@@ -382,6 +396,7 @@ const Associes = {
 
     if (!Array.isArray(Data.prelevements)) Data.prelevements = [];
     let prelv;
+    const wasEdit = !!this.editPrelvId;
     if (this.editPrelvId) {
       prelv = Data.prelevements.find(x => x.id === this.editPrelvId);
       if (prelv) Object.assign(prelv, { date, associeId, montant, paiement, observation, banque, operateur, caisse });
@@ -393,6 +408,12 @@ const Associes = {
       Data.prelevements.push(prelv);
     }
     if (prelv) this._syncMvtForPrelv(prelv);
+    try {
+      if (typeof Audit !== 'undefined' && prelv) Audit.log(wasEdit ? 'update' : 'create', 'associes',
+        `Prélèvement ${this._associeNom(associeId)}`,
+        `${Data.fmt(montant)} · ${paiement}${banque ? ' (' + banque + ')' : ''}${operateur ? ' (' + operateur + ')' : ''}`,
+        { id: prelv.id, after: prelv });
+    } catch (e) {}
 
     this.editPrelvId = null;
     this.save();
@@ -410,6 +431,12 @@ const Associes = {
     if (!confirm('Supprimer ce prélèvement de ' + Data.fmt(p.montant) + ' ?')) return;
     Data.prelevements = Data.prelevements.filter(x => x.id !== id);
     this._removeMvtForPrelv(id);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'associes',
+        `Prélèvement ${this._associeNom(p.associeId)}`,
+        `${Data.fmt(p.montant)} · ${p.paiement}`,
+        { id: p.id, before: p });
+    } catch (e) {}
     this.save();
     if (typeof Banque !== 'undefined' && Banque.save) Banque.save();
     if (typeof Mobile !== 'undefined' && Mobile.save) Mobile.save();
