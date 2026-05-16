@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#F97316">
   <title>MEIJI — Gestion Restaurant</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260513audit">
+  <link rel="stylesheet" href="css/styles.css?v=20260513auditfill">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -988,6 +988,7 @@
       <div class="period-bar">
         <span class="period-bar-title"><i class="ti ti-history"></i> Historique des activités</span>
         <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+          <button id="btn-audit-backfill" class="btn btn-primary" title="Génère des entrées d'historique pour toutes les données déjà saisies dans l'app"><i class="ti ti-database-import"></i> Importer données existantes</button>
           <button id="btn-audit-export" class="btn"><i class="ti ti-file-export"></i> Export Excel</button>
           <button id="btn-audit-clear"  class="btn btn-danger"><i class="ti ti-trash"></i> Vider l'historique</button>
         </div>
@@ -1067,31 +1068,31 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container"></div>
 
-<script src="js/config.js?v=20260513audit"></script>
-<script src="js/auth.js?v=20260513audit"></script>
-<script src="js/data.js?v=20260513audit"></script>
-<script src="js/journees-db.js?v=20260513audit"></script>
-<script src="js/app-db.js?v=20260513audit"></script>
-<script src="js/audit.js?v=20260513audit"></script>
-<script src="js/charts.js?v=20260513audit"></script>
-<script src="js/modules/dashboard.js?v=20260513audit"></script>
-<script src="js/modules/pointage.js?v=20260513audit"></script>
-<script src="js/modules/recettes.js?v=20260513audit"></script>
-<script src="js/modules/depenses.js?v=20260513audit"></script>
-<script src="js/modules/analyse.js?v=20260513audit"></script>
-<script src="js/modules/banque.js?v=20260513audit"></script>
-<script src="js/modules/mobile.js?v=20260513audit"></script>
-<script src="js/modules/categories.js?v=20260513audit"></script>
-<script src="js/modules/employes.js?v=20260513audit"></script>
-<script src="js/modules/comptes-emp.js?v=20260513audit"></script>
-<script src="js/modules/credits.js?v=20260513audit"></script>
-<script src="js/modules/suivi.js?v=20260513audit"></script>
-<script src="js/modules/fournisseurs.js?v=20260513audit"></script>
-<script src="js/modules/stock.js?v=20260513audit"></script>
-<script src="js/modules/associes.js?v=20260513audit"></script>
-<script src="js/modules/bilan.js?v=20260513audit"></script>
-<script src="js/modules/clotures.js?v=20260513audit"></script>
-<script src="js/modules/utilisateurs.js?v=20260513audit"></script>
-<script src="js/main.js?v=20260513audit"></script>
+<script src="js/config.js?v=20260513auditfill"></script>
+<script src="js/auth.js?v=20260513auditfill"></script>
+<script src="js/data.js?v=20260513auditfill"></script>
+<script src="js/journees-db.js?v=20260513auditfill"></script>
+<script src="js/app-db.js?v=20260513auditfill"></script>
+<script src="js/audit.js?v=20260513auditfill"></script>
+<script src="js/charts.js?v=20260513auditfill"></script>
+<script src="js/modules/dashboard.js?v=20260513auditfill"></script>
+<script src="js/modules/pointage.js?v=20260513auditfill"></script>
+<script src="js/modules/recettes.js?v=20260513auditfill"></script>
+<script src="js/modules/depenses.js?v=20260513auditfill"></script>
+<script src="js/modules/analyse.js?v=20260513auditfill"></script>
+<script src="js/modules/banque.js?v=20260513auditfill"></script>
+<script src="js/modules/mobile.js?v=20260513auditfill"></script>
+<script src="js/modules/categories.js?v=20260513auditfill"></script>
+<script src="js/modules/employes.js?v=20260513auditfill"></script>
+<script src="js/modules/comptes-emp.js?v=20260513auditfill"></script>
+<script src="js/modules/credits.js?v=20260513auditfill"></script>
+<script src="js/modules/suivi.js?v=20260513auditfill"></script>
+<script src="js/modules/fournisseurs.js?v=20260513auditfill"></script>
+<script src="js/modules/stock.js?v=20260513auditfill"></script>
+<script src="js/modules/associes.js?v=20260513auditfill"></script>
+<script src="js/modules/bilan.js?v=20260513auditfill"></script>
+<script src="js/modules/clotures.js?v=20260513auditfill"></script>
+<script src="js/modules/utilisateurs.js?v=20260513auditfill"></script>
+<script src="js/main.js?v=20260513auditfill"></script>
 </body>
 </html>
