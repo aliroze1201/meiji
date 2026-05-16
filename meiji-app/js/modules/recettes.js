@@ -405,7 +405,12 @@ const Recettes = {
       if (typeof Audit !== 'undefined') Audit.log('delete', 'recettes',
         `Journée ${Data.fmtD(date)}`,
         _removed ? `CA total ${Data.fmt(Data.caTotal(_removed))}` : null,
-        { id: _removed?.id, date });
+        { id: _removed?.id, date, before: _removed ? {
+          s: { ...(_removed.s || {}) },
+          b: { ...(_removed.b || {}) },
+          c: { ...(_removed.c || {}) },
+          caTotal: Data.caTotal(_removed),
+        } : null });
     } catch (e) {}
 
     // Supabase (silencieux si non connecté)
@@ -464,10 +469,24 @@ const Recettes = {
       try {
         if (typeof Audit !== 'undefined') {
           const ca = Data.caTotal(obj);
+          // Capture du "avant" (snapshot existing) pour permettre une comparaison
+          // ou une restauration future. before est null en cas de création.
+          const beforeSnap = wasExisting ? {
+            s: { ...(existing.s || {}) },
+            b: { ...(existing.b || {}) },
+            c: { ...(existing.c || {}) },
+            caTotal: Data.caTotal(existing),
+          } : null;
+          const afterSnap = {
+            s: { ...obj.s }, b: { ...obj.b }, c: { ...obj.c },
+            caTotal: ca,
+          };
           Audit.log(wasExisting ? 'update' : 'create', 'recettes',
             `Journée ${Data.fmtD(obj.date)}`,
-            `CA total ${Data.fmt(ca)}`,
-            { id: obj.id, date: obj.date, ca });
+            wasExisting
+              ? `CA total ${Data.fmt(beforeSnap.caTotal)} → ${Data.fmt(ca)}`
+              : `CA total ${Data.fmt(ca)}`,
+            { id: obj.id, date: obj.date, ca, before: beforeSnap, after: afterSnap });
         }
       } catch (e) {}
     });
