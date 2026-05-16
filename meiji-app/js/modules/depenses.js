@@ -180,14 +180,34 @@ const Depenses = {
     const d = this.drafts.find(x => x.id === id);
     if (!d) return;
     d[field] = value;
-    // recalcul auto du montant si l'utilisateur n'a pas écrit dedans
-    if (field === 'qte' || field === 'prix') {
-      const q = parseFloat(d.qte) || 0;
-      const p = parseFloat(d.prix) || 0;
-      if (q && p) d.montant = Math.round(q * p);
-      const tr = document.querySelector(`#draft-tbody tr[data-draft-id="${id}"]`);
-      const inp = tr?.querySelector('input.fld-montant');
-      if (inp) inp.value = d.montant || '';
+
+    // Recalcul auto : à partir de 2 champs saisis, le 3ᵉ est déduit.
+    // Priorité : qté + montant ⇒ prix unitaire calculé automatiquement.
+    if (field === 'qte' || field === 'prix' || field === 'montant') {
+      const q = parseFloat(d.qte);
+      const p = parseFloat(d.prix);
+      const m = parseFloat(d.montant);
+      const hasQ = !isNaN(q) && q > 0;
+      const hasP = !isNaN(p) && p > 0;
+      const hasM = !isNaN(m) && m > 0;
+
+      let recalc = null;
+      if (field !== 'prix' && hasQ && hasM) {
+        d.prix = Math.round((m / q) * 100) / 100;
+        recalc = 'prix';
+      } else if (field !== 'montant' && hasQ && hasP) {
+        d.montant = Math.round(q * p);
+        recalc = 'montant';
+      } else if (field !== 'qte' && hasP && hasM) {
+        d.qte = Math.round((m / p) * 100) / 100;
+        recalc = 'qte';
+      }
+
+      if (recalc) {
+        const tr = document.querySelector(`#draft-tbody tr[data-draft-id="${id}"]`);
+        const inp = tr?.querySelector('input.fld-' + recalc);
+        if (inp) inp.value = d[recalc] || '';
+      }
     }
     this.persistDrafts();
     this._refreshDraftSummary();
@@ -230,9 +250,10 @@ const Depenses = {
         <td><input type="number" class="fld-qte" min="0" step="1" placeholder="0"
               value="${this._escape(d.qte)}"
               oninput="Depenses.updateDraft(${d.id},'qte',this.value)"></td>
-        <td><input type="number" class="fld-prix" min="0" step="100" placeholder="0"
+        <td><input type="number" class="fld-prix" min="0" step="any" placeholder="auto"
               value="${this._escape(d.prix)}"
-              oninput="Depenses.updateDraft(${d.id},'prix',this.value)"></td>
+              oninput="Depenses.updateDraft(${d.id},'prix',this.value)"
+              title="Calculé automatiquement à partir de la quantité et du montant"></td>
         <td><input type="number" class="fld-montant montant" min="0" step="1" placeholder="0"
               value="${this._escape(d.montant)}"
               oninput="Depenses.updateDraft(${d.id},'montant',this.value)"></td>
