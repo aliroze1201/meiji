@@ -426,12 +426,39 @@ const Audit = {
 
   // Rapprochement entre l'historique audit (module 'depenses') et la base
   // réelle Data.histDep pour identifier les divergences sur une plage de
-  // dates (par défaut hier + aujourd'hui).
-  reconcileDepenses() {
+  // dates choisie par l'utilisateur (par défaut hier + aujourd'hui).
+  reconcileDepenses(fromDate, toDate) {
     const today = new Date().toISOString().slice(0, 10);
     const ydate = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const dates = [ydate, today];
-    const labels = { [ydate]: 'Hier · ' + ydate, [today]: 'Aujourd\'hui · ' + today };
+    const from = fromDate || ydate;
+    const to   = toDate   || today;
+    // Plage limitée à 31 jours pour ne pas figer le navigateur
+    const start = new Date(from + 'T00:00:00');
+    const end   = new Date(to   + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      alert('Plage de dates invalide.');
+      return;
+    }
+    const diffDays = Math.round((end - start) / 86400000) + 1;
+    if (diffDays > 31) {
+      alert('Plage trop large (max 31 jours).');
+      return;
+    }
+    const dates = [];
+    for (let i = 0; i < diffDays; i++) {
+      const d = new Date(start.getTime() + i * 86400000);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    // Affichage : du plus récent au plus ancien
+    dates.reverse();
+    const labels = {};
+    dates.forEach(d => {
+      let lbl = d;
+      if (d === today) lbl = 'Aujourd\'hui · ' + d;
+      else if (d === ydate) lbl = 'Hier · ' + d;
+      else lbl = (typeof Data !== 'undefined' && Data.fmtD) ? Data.fmtD(d) : d;
+      labels[d] = lbl;
+    });
 
     const log = (Data.activityLog || []).filter(e => e.module === 'depenses');
     const deps = (Data.histDep || []).filter(d => d.userId);
@@ -531,16 +558,58 @@ const Audit = {
       <div class="modal-overlay">
         <div class="modal" style="max-width:1000px;max-height:90vh;overflow-y:auto">
           <div class="modal-title">⚖️ Rapprochement Dépenses · Historique ↔ Base</div>
-          <div style="font-size:12px;color:var(--c-muted);margin-bottom:14px">
-            Compare les entrées d'historique avec les dépenses effectivement en base pour <b>hier</b> et <b>aujourd'hui</b>.
-            Les divergences révèlent des suppressions non tracées (audit installé après) ou des saisies effectuées avant l'activation de l'audit.
+
+          <div class="card" style="background:var(--c-bg-2);padding:12px;margin-bottom:14px">
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+              <div class="fg" style="margin:0;flex:1;min-width:140px">
+                <label class="fl">Du</label>
+                <input type="date" id="reco-from" value="${from}">
+              </div>
+              <div class="fg" style="margin:0;flex:1;min-width:140px">
+                <label class="fl">Au</label>
+                <input type="date" id="reco-to" value="${to}">
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="btn btn-sm" onclick="Audit._recoPreset('today')" title="Aujourd'hui">Aujourd'hui</button>
+                <button class="btn btn-sm" onclick="Audit._recoPreset('yest')"  title="Hier">Hier</button>
+                <button class="btn btn-sm" onclick="Audit._recoPreset('7d')"    title="7 derniers jours">7 jours</button>
+                <button class="btn btn-sm" onclick="Audit._recoPreset('30d')"   title="30 derniers jours">30 jours</button>
+                <button class="btn btn-primary btn-sm" onclick="Audit._recoApply()"><i class="ti ti-refresh"></i> Appliquer</button>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--c-muted);margin-top:8px">
+              Plage analysée : <b>${diffDays} jour${diffDays > 1 ? 's' : ''}</b> · maximum autorisé 31 jours.
+            </div>
           </div>
+
           ${sections.join('')}
           <div class="modal-actions" style="margin-top:12px">
             <button class="btn btn-primary" onclick="App.closeModal()">Fermer</button>
           </div>
         </div>
       </div>`);
+  },
+
+  // Helpers de la modale de rapprochement
+  _recoApply() {
+    const f = document.getElementById('reco-from')?.value;
+    const t = document.getElementById('reco-to')?.value;
+    if (!f || !t) return;
+    App.closeModal();
+    this.reconcileDepenses(f, t);
+  },
+  _recoPreset(k) {
+    const today = new Date().toISOString().slice(0, 10);
+    const yest  = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const d7    = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+    const d30   = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+    let from = today, to = today;
+    if (k === 'today') { from = today; to = today; }
+    else if (k === 'yest')  { from = yest;  to = yest;  }
+    else if (k === '7d')    { from = d7;    to = today; }
+    else if (k === '30d')   { from = d30;   to = today; }
+    App.closeModal();
+    this.reconcileDepenses(from, to);
   },
 
   // Affiche un modal détaillé pour une entrée d'historique : avant / après
