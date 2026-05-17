@@ -102,6 +102,107 @@ const Employes = {
     this.render();
   },
 
+  // ===================== PAIEMENT EMPLOYÉ =====================
+  // Crée une dépense ("Salaires") qui impacte la journée et les soldes
+  // selon le mode de règlement (espèces / banque / mobile).
+  openPayModal(idx) {
+    const e = Data.employes[idx];
+    if (!e) return;
+    const deptDefault = e.dept === 'RESTAURANT' ? 'SUSHI' : (e.dept || 'BAR');
+    const montantDefault = e.net || 0;
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-title"><i class="ti ti-cash"></i> Payer ${this._escape(e.nom)}</div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Date</label>
+              <input type="date" id="pay-date" value="${Data.today()}"></div>
+            <div class="fg"><label class="fl">Montant (FCFA)</label>
+              <input type="number" id="pay-montant" min="0" step="any" value="${montantDefault}"></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Mode de règlement</label>
+              <select id="pay-mode">
+                <option value="esp">💵 Espèces (caisse)</option>
+                <option value="banque">🏦 Banque</option>
+                <option value="mobile">📱 Mobile Money</option>
+              </select>
+            </div>
+            <div class="fg"><label class="fl">Caisse impactée</label>
+              <select id="pay-dept">
+                <option value="SUSHI"  ${deptDefault==='SUSHI'?'selected':''}>SUSHI</option>
+                <option value="BAR"    ${deptDefault==='BAR'?'selected':''}>BAR</option>
+                <option value="CHICHA" ${deptDefault==='CHICHA'?'selected':''}>CHICHA</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg"><label class="fl">Observation (optionnel)</label>
+            <input type="text" id="pay-obs" placeholder="Salaire mai, prime, avance..."></div>
+          <div style="background:var(--c-surface);padding:10px 12px;border-radius:8px;font-size:12px;color:var(--c-muted);margin:6px 0">
+            <i class="ti ti-info-circle"></i> Cette opération crée une dépense « Salaires » qui réduit votre caisse, banque ou mobile selon le mode choisi.
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Employes.confirmPay(${idx})"><i class="ti ti-check"></i> Valider le paiement</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  confirmPay(idx) {
+    const e = Data.employes[idx];
+    if (!e) return;
+    const date    = document.getElementById('pay-date')?.value || Data.today();
+    const montant = parseFloat(document.getElementById('pay-montant')?.value) || 0;
+    const mode    = document.getElementById('pay-mode')?.value || 'esp';
+    const dept    = document.getElementById('pay-dept')?.value || 'BAR';
+    const obs     = document.getElementById('pay-obs')?.value.trim() || '';
+    if (montant <= 0) { alert('Le montant doit être supérieur à 0.'); return; }
+
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(date)) {
+      alert('Le mois de cette date est clôturé : paiement bloqué.');
+      return;
+    }
+
+    const userId = Data.newId();
+    const depense = {
+      userId,
+      date,
+      dept,
+      label:  `Salaire ${e.nom}`,
+      groupe: 'Salaires',
+      qte:    null,
+      prix:   null,
+      montant,
+      observation: obs || `Paiement ${e.nom} (${e.poste || ''})`.trim(),
+      paiement: mode,
+      empNom: e.nom,
+    };
+    Data.histDep.push(depense);
+
+    // Persistance via le module Dépenses
+    if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+
+    // Trace dans l'historique de l'employé
+    e.paiements = Array.isArray(e.paiements) ? e.paiements : [];
+    e.paiements.push({ id: userId, date, montant, mode, dept });
+    this.save();
+
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
+        `Paiement ${e.nom}`,
+        `${Data.fmt(montant)} · ${mode} · ${dept}`,
+        { id: userId, after: depense });
+    } catch (err) {}
+
+    App.closeModal();
+    App.renderAll();
+  },
+
+  _escape(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  },
+
   render() {
     const filter = App.filters.emp;
     const list = filter === 'all' ? Data.employes : Data.employes.filter(e => e.dept === filter);
@@ -121,9 +222,15 @@ const Employes = {
     }
     tb.innerHTML = list.map((e) => {
       const realIdx = Data.employes.indexOf(e);
+      const lastPay = Array.isArray(e.paiements) && e.paiements.length
+        ? e.paiements.slice().sort((a,b)=>b.date.localeCompare(a.date))[0]
+        : null;
+      const lastLabel = lastPay
+        ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">Payé le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
+        : '';
       return `
       <tr>
-        <td class="fw-bold">${e.nom}</td>
+        <td class="fw-bold">${e.nom}${lastLabel}</td>
         <td>${e.poste || '-'}</td>
         <td><span class="badge ${e.dept==='BAR'?'b-green':e.dept==='CHICHA'?'b-amber':'b-blue'}">${e.dept}</span></td>
         <td class="text-right">${Data.fmts(e.brut)}</td>
@@ -131,6 +238,7 @@ const Employes = {
         <td class="text-right text-red">${e.avance ? Data.fmts(e.avance) : '-'}</td>
         <td class="text-right fw-bold">${Data.fmts(e.net)}</td>
         <td class="nowrap">
+          <button class="btn btn-sm btn-primary" onclick="Employes.openPayModal(${realIdx})" title="Payer cet employé"><i class="ti ti-cash"></i> Payer</button>
           <button class="btn btn-sm" onclick="Employes.openModal(${realIdx})" title="Modifier"><i class="ti ti-edit"></i></button>
           <button class="btn btn-sm" onclick="Employes.delete(${realIdx})" title="Supprimer" style="color:var(--c-red)"><i class="ti ti-trash"></i></button>
         </td>
