@@ -29,77 +29,112 @@ const Associes = {
     return (this.MOIS[m - 1] || '?') + ' ' + y;
   },
 
-  // Mois "actif" :
-  //  - si période = mois → ce mois
-  //  - sinon → mois de la dernière date journée filtrée, ou mois courant
-  currentMonth() {
+  // Étiquette de la période globale (utilisée dans le KPI)
+  periodLabel() {
+    if (typeof App === 'undefined') return '—';
+    if (App.period === 'tout')  return 'Tout';
+    if (App.period === 'jour')  return 'Jour';
+    if (App.period === 'annee') {
+      const y = document.getElementById('sel-annee2');
+      return 'Année ' + (y?.value || '');
+    }
+    if (App.period === 'plage') {
+      const d = document.getElementById('sel-debut');
+      const f = document.getElementById('sel-fin');
+      return 'Plage ' + (d?.value || '?') + ' → ' + (f?.value || '?');
+    }
     if (App.period === 'mois') {
       const m = document.getElementById('sel-mois');
       const y = document.getElementById('sel-annee');
-      if (m && y) return y.value + '-' + String(m.value).padStart(2, '0');
+      if (m && y) return this.monthLabel(y.value + '-' + String(m.value).padStart(2, '0'));
     }
-    const jj = (typeof App !== 'undefined' && App.filterJournees)
-      ? App.filterJournees()
-      : (Data.journees || []);
-    if (jj.length) {
-      const last = jj.map(j => j.date).filter(Boolean).sort().slice(-1)[0];
-      if (last) return last.slice(0, 7);
-    }
-    return Data.today().slice(0, 7);
+    return '—';
   },
 
-  // CA du pot BAR + CHICHA sur un mois
-  caPot(ym) {
-    return (Data.journees || [])
-      .filter(j => this.ymOf(j.date) === ym)
+  // ===== Sources filtrées par la période globale =====
+  _filteredJournees() {
+    return (typeof App !== 'undefined' && App.filterJournees)
+      ? App.filterJournees()
+      : (Data.journees || []);
+  },
+  _filteredDeps() {
+    return (typeof App !== 'undefined' && App.filterByDate)
+      ? App.filterByDate(Data.getAllDeps())
+      : Data.getAllDeps();
+  },
+  _filteredPrelv() {
+    return (typeof App !== 'undefined' && App.filterByDate)
+      ? App.filterByDate(Data.prelevements || [])
+      : (Data.prelevements || []);
+  },
+
+  // Mois distincts couverts par la période (utile pour les salaires théoriques)
+  _monthsInPeriod() {
+    const set = new Set();
+    this._filteredJournees().forEach(j => { if (j.date) set.add(this.ymOf(j.date)); });
+    this._filteredDeps().forEach(d => { if (d.date) set.add(this.ymOf(d.date)); });
+    return [...set].filter(Boolean);
+  },
+
+  // CA du pot BAR + CHICHA sur la période globale
+  caPot() {
+    return this._filteredJournees()
       .reduce((s, j) => s + Data.caisse(j, 'b') + Data.caisse(j, 'c'), 0);
   },
 
-  // Charges du pot : dépenses BAR + CHICHA + salaires des employés non encore payés.
-  // Pour éviter le double-comptage : si un employé a déjà été payé ce mois (via
-  // le bouton « Payer », identifié par d.empNom, ou par la liste e.paiements),
-  // sa dépense est déjà dans les dépenses du mois, on n'ajoute PAS son théorique.
-  chargesPot(ym) {
-    const allDepsThisMonth = Data.getAllDeps().filter(d => this.ymOf(d.date) === ym);
-    const depsTotal = allDepsThisMonth
+  // Charges du pot sur la période globale. Pour chaque mois couvert :
+  //  - on prend les dépenses BAR/CHICHA du mois ;
+  //  - pour chaque employé BAR/CHICHA non payé ce mois (ni via "Payer", ni via
+  //    une dépense portant son nom), on ajoute son salaire net théorique.
+  chargesPot() {
+    const deps = this._filteredDeps()
       .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
 
-    const isPaidThisMonth = (e) => {
-      if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return true;
-      if (allDepsThisMonth.some(d => d.empNom && d.empNom === e.nom)) return true;
-      return false;
-    };
+    const months = this._monthsInPeriod();
+    const allDepsFiltered = this._filteredDeps();
+    const sal = (Data.employes || [])
+      .filter(e => e.dept === 'BAR' || e.dept === 'CHICHA')
+      .reduce((sum, e) => {
+        const unpaid = months.filter(ym => {
+          if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return false;
+          if (allDepsFiltered.some(d => d.empNom === e.nom && this.ymOf(d.date) === ym)) return false;
+          return true;
+        }).length;
+        return sum + (Number(e.net) || 0) * unpaid;
+      }, 0);
 
-    const salNonPaye = (Data.employes || [])
-      .filter(e => (e.dept === 'BAR' || e.dept === 'CHICHA') && !isPaidThisMonth(e))
-      .reduce((s, e) => s + (Number(e.net) || 0), 0);
-
-    return depsTotal + salNonPaye;
+    return deps + sal;
   },
 
-  // Détail séparé pour affichage UI
-  _chargesBreakdown(ym) {
-    const allDepsThisMonth = Data.getAllDeps().filter(d => this.ymOf(d.date) === ym);
-    const deps = allDepsThisMonth
+  // Détail des charges pour affichage UI
+  _chargesBreakdown() {
+    const deps = this._filteredDeps()
       .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
-    const isPaidThisMonth = (e) => {
-      if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return true;
-      if (allDepsThisMonth.some(d => d.empNom && d.empNom === e.nom)) return true;
-      return false;
-    };
+
+    const months = this._monthsInPeriod();
+    const allDepsFiltered = this._filteredDeps();
     const salNonPaye = (Data.employes || [])
-      .filter(e => (e.dept === 'BAR' || e.dept === 'CHICHA') && !isPaidThisMonth(e))
-      .reduce((s, e) => s + (Number(e.net) || 0), 0);
-    return { deps, salNonPaye };
+      .filter(e => e.dept === 'BAR' || e.dept === 'CHICHA')
+      .reduce((sum, e) => {
+        const unpaid = months.filter(ym => {
+          if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return false;
+          if (allDepsFiltered.some(d => d.empNom === e.nom && this.ymOf(d.date) === ym)) return false;
+          return true;
+        }).length;
+        return sum + (Number(e.net) || 0) * unpaid;
+      }, 0);
+
+    return { deps, salNonPaye, nbMois: months.length };
   },
 
-  beneficePot(ym) { return this.caPot(ym) - this.chargesPot(ym); },
+  beneficePot() { return this.caPot() - this.chargesPot(); },
 
-  prelvAssocMois(assocId, ym) {
-    return (Data.prelevements || [])
-      .filter(p => p.associeId === assocId && this.ymOf(p.date) === ym)
+  // Prélèvements d'un associé sur la période globale
+  prelvAssocPeriode(assocId) {
+    return this._filteredPrelv()
+      .filter(p => p.associeId === assocId)
       .reduce((s, p) => s + (Number(p.montant) || 0), 0);
   },
 
@@ -113,23 +148,23 @@ const Associes = {
     if (!Array.isArray(Data.associes)) Data.associes = [];
     if (!Array.isArray(Data.prelevements)) Data.prelevements = [];
 
-    const ym = this.currentMonth();
-    const ca = this.caPot(ym);
-    const charges = this.chargesPot(ym);
+    const ca = this.caPot();
+    const charges = this.chargesPot();
     const benef = ca - charges;
 
     // Détail des charges pour affichage transparent
-    const breakdown = this._chargesBreakdown(ym);
+    const breakdown = this._chargesBreakdown();
     const subEl = document.getElementById('assoc-charges-sub');
     if (subEl) {
       const parts = [];
       if (breakdown.deps > 0)       parts.push(`Dépenses : ${Data.fmt(breakdown.deps)}`);
       if (breakdown.salNonPaye > 0) parts.push(`Salaires non payés : ${Data.fmt(breakdown.salNonPaye)}`);
+      if (breakdown.nbMois > 1)     parts.push(`${breakdown.nbMois} mois`);
       subEl.textContent = parts.join(' · ');
     }
 
-    // KPI label mois
-    this._set('assoc-mois-label', this.monthLabel(ym));
+    // KPI label : période globale (Jour / Mois / Année / Plage / Tout)
+    this._set('assoc-mois-label', this.periodLabel());
     this._set('assoc-ca', Data.fmt(ca));
     this._set('assoc-charges', Data.fmt(charges));
     const bEl = document.getElementById('assoc-benef');
@@ -162,7 +197,7 @@ const Associes = {
         const rows = actifs.map(a => {
           const part = Number(a.part) || 0;
           const partTheo = Math.round(benef * part / 100);
-          const prelv = this.prelvAssocMois(a.id, ym);
+          const prelv = this.prelvAssocPeriode(a.id);
           const solde = partTheo - prelv;
           totPart += partTheo; totPrelv += prelv; totSolde += solde;
           return `<tr>
