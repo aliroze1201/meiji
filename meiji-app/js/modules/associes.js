@@ -55,15 +55,44 @@ const Associes = {
       .reduce((s, j) => s + Data.caisse(j, 'b') + Data.caisse(j, 'c'), 0);
   },
 
-  // Charges du pot : dépenses BAR + CHICHA + masse salariale BAR + CHICHA
+  // Charges du pot : dépenses BAR + CHICHA + salaires des employés non encore payés.
+  // Pour éviter le double-comptage : si un employé a déjà été payé ce mois (via
+  // le bouton « Payer », identifié par d.empNom, ou par la liste e.paiements),
+  // sa dépense est déjà dans les dépenses du mois, on n'ajoute PAS son théorique.
   chargesPot(ym) {
-    const deps = Data.getAllDeps()
-      .filter(d => this.ymOf(d.date) === ym && (d.dept === 'BAR' || d.dept === 'CHICHA'))
+    const allDepsThisMonth = Data.getAllDeps().filter(d => this.ymOf(d.date) === ym);
+    const depsTotal = allDepsThisMonth
+      .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
-    const sal = (Data.employes || [])
-      .filter(e => e.dept === 'BAR' || e.dept === 'CHICHA')
+
+    const isPaidThisMonth = (e) => {
+      if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return true;
+      if (allDepsThisMonth.some(d => d.empNom && d.empNom === e.nom)) return true;
+      return false;
+    };
+
+    const salNonPaye = (Data.employes || [])
+      .filter(e => (e.dept === 'BAR' || e.dept === 'CHICHA') && !isPaidThisMonth(e))
       .reduce((s, e) => s + (Number(e.net) || 0), 0);
-    return deps + sal;
+
+    return depsTotal + salNonPaye;
+  },
+
+  // Détail séparé pour affichage UI
+  _chargesBreakdown(ym) {
+    const allDepsThisMonth = Data.getAllDeps().filter(d => this.ymOf(d.date) === ym);
+    const deps = allDepsThisMonth
+      .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
+      .reduce((s, d) => s + (Number(d.montant) || 0), 0);
+    const isPaidThisMonth = (e) => {
+      if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return true;
+      if (allDepsThisMonth.some(d => d.empNom && d.empNom === e.nom)) return true;
+      return false;
+    };
+    const salNonPaye = (Data.employes || [])
+      .filter(e => (e.dept === 'BAR' || e.dept === 'CHICHA') && !isPaidThisMonth(e))
+      .reduce((s, e) => s + (Number(e.net) || 0), 0);
+    return { deps, salNonPaye };
   },
 
   beneficePot(ym) { return this.caPot(ym) - this.chargesPot(ym); },
@@ -88,6 +117,16 @@ const Associes = {
     const ca = this.caPot(ym);
     const charges = this.chargesPot(ym);
     const benef = ca - charges;
+
+    // Détail des charges pour affichage transparent
+    const breakdown = this._chargesBreakdown(ym);
+    const subEl = document.getElementById('assoc-charges-sub');
+    if (subEl) {
+      const parts = [];
+      if (breakdown.deps > 0)       parts.push(`Dépenses : ${Data.fmt(breakdown.deps)}`);
+      if (breakdown.salNonPaye > 0) parts.push(`Salaires non payés : ${Data.fmt(breakdown.salNonPaye)}`);
+      subEl.textContent = parts.join(' · ');
+    }
 
     // KPI label mois
     this._set('assoc-mois-label', this.monthLabel(ym));
