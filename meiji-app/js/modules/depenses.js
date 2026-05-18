@@ -63,9 +63,8 @@ const Depenses = {
              <option value="mobile" ${pay==='mobile'?'selected':''}>📱 Mobile</option>
            </select>`
         : `<span style="font-size:11px;color:var(--c-muted)">${pay==='esp'?'💵 Espèces':pay==='banque'?'🏦 Banque':'📱 Mobile'}</span>`;
-      const searchId = 'dep:' + (d.userId || `${d.date}|${(d.label||'').replace(/[|"]/g,'_')}|${d.montant}|${d.dept}`);
       return `
-      <tr data-search-id="${this._escape(searchId)}">
+      <tr data-search-id="dep:${d._key || ''}">
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
         <td><span style="font-size:11px;padding:3px 9px;border-radius:999px;background:${col}22;color:${col};font-weight:700">${d.groupe || 'Autres'}</span></td>
         <td class="text-right">${d.qte != null ? d.qte : dash}</td>

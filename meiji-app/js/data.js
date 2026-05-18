@@ -272,13 +272,19 @@ const Data = {
   },
 
   getAllDeps() {
-    const all = this.histDep.map(d => ({ ...d }));
+    // Assigne un _key stable et unique à chaque dépense pour permettre
+    // le ciblage exact par la recherche globale (data-search-id).
+    const all = this.histDep.map((d, i) => ({
+      ...d,
+      _key: 'h' + (d.userId != null ? d.userId : i),
+    }));
     this.journees.forEach(j => {
       if (!j.deps) return;
       ['s', 'b', 'c'].forEach(dk => {
         const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk];
-        (j.deps[dk] || []).forEach(d => all.push({
-          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant
+        (j.deps[dk] || []).forEach((d, i) => all.push({
+          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant,
+          _key: 'j' + j.date + dk + i,
         }));
       });
     });
