@@ -19,10 +19,16 @@ const Search = {
   _timer: null,
   _activeIdx: -1,
   _lastResults: [],
+  _wired: false,
 
   init() {
+    if (this._wired) return;
     const input = document.getElementById('tb-search-input');
-    if (!input) return;
+    if (!input) {
+      // L'input n'est pas encore dans le DOM — réessaye après le prochain tick.
+      setTimeout(() => this.init(), 200);
+      return;
+    }
 
     // Crée le dropdown s'il n'existe pas
     let menu = document.getElementById('tb-search-menu');
@@ -44,6 +50,8 @@ const Search = {
     document.addEventListener('click', (e) => {
       if (!menu.contains(e.target) && e.target !== input) this._hide();
     });
+    this._wired = true;
+    console.log('🔍 Search initialisée');
   },
 
   // ===== Normalisation =====
@@ -72,7 +80,12 @@ const Search = {
     const q = this._norm(raw);
     if (!q || q.length < 1) { this._hide(); return; }
 
-    const results = this._collect(q);
+    let results = [];
+    try {
+      results = this._collect(q);
+    } catch (e) {
+      console.error('[Search] collect error', e);
+    }
     this._lastResults = results;
     this._activeIdx = results.length ? 0 : -1;
     this._renderMenu(results, raw);
@@ -81,7 +94,10 @@ const Search = {
   // ===== Collecte sur toutes les sources =====
   _collect(q) {
     const hits = [];
-    const push = (h) => { if (h.score > 0) hits.push(h); };
+    const push = (h) => { if (h && h.score > 0) hits.push(h); };
+    const safe = (label, fn) => {
+      try { fn(); } catch (e) { console.warn('[Search] source ' + label, e); }
+    };
 
     // ---- Employés ----
     (Data.employes || []).forEach((e, idx) => {
@@ -277,10 +293,24 @@ const Search = {
     return hits.slice(0, this.MAX_RESULTS);
   },
 
+  // Positionne le menu en fixed sous l'input pour s'affranchir de tout
+  // overflow ou stacking context parent (topbar, sidebar, etc.).
+  _positionMenu() {
+    const input = document.getElementById('tb-search-input');
+    const menu = document.getElementById('tb-search-menu');
+    if (!input || !menu) return;
+    const r = input.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = (r.bottom + 6) + 'px';
+    menu.style.left = r.left + 'px';
+    menu.style.width = r.width + 'px';
+  },
+
   // ===== Rendu du menu =====
   _renderMenu(results, raw) {
     const menu = document.getElementById('tb-search-menu');
     if (!menu) return;
+    this._positionMenu();
     if (!results.length) {
       menu.innerHTML = `<div class="tb-search-empty">Aucun résultat pour « ${this._esc(raw)} »</div>`;
       menu.style.display = '';
@@ -364,3 +394,11 @@ const Search = {
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   },
 };
+
+// Auto-init : si le DOM est déjà prêt on lance immédiatement, sinon on attend.
+// init() est idempotent (flag _wired) donc un second appel depuis App.init est sans effet.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => Search.init());
+} else {
+  Search.init();
+}
