@@ -539,19 +539,15 @@ a { color: inherit; text-decoration: none; }
   box-shadow: var(--focus-ring);
 }
 
-/* Dropdown des résultats de recherche globale */
+/* Dropdown des résultats de recherche globale (attaché à <body>) */
 .tb-search-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  max-height: 70vh;
+  position: fixed;
   overflow-y: auto;
   background: var(--c-bg);
   border: 1px solid var(--c-border);
   border-radius: var(--r-md);
   box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-  z-index: 9999;
+  z-index: 99999;
   padding: 4px;
 }
 .tb-search-cat {

@@ -1,57 +1,61 @@
 /**
  * search.js — Recherche globale (barre du topbar).
  *
- * Indexe à la volée toutes les entités principales (employés, fournisseurs,
- * clients/crédits, articles stock, dépenses, recettes/journées, mouvements
- * banque/mobile, chèques, associés/prélèvements, catégories) et propose un
- * menu déroulant de résultats. Cliquer un résultat ouvre la page concernée
+ * Indexe à la volée toutes les entités principales et propose un menu
+ * déroulant de résultats. Cliquer un résultat ouvre la page concernée
  * et, quand c'est possible, applique un filtre local.
- *
- * Conçu pour rester rapide même avec plusieurs milliers d'entrées :
- *  - Débounce 120 ms sur la frappe.
- *  - Normalisation Unicode (NFD + suppression diacritiques) en cache.
- *  - Scoring simple : match au début > match partiel > champ secondaire.
- *  - Max 30 résultats affichés, groupés par catégorie.
  */
 const Search = {
   MAX_RESULTS: 30,
-  DEBOUNCE_MS: 120,
+  DEBOUNCE_MS: 100,
   _timer: null,
   _activeIdx: -1,
   _lastResults: [],
   _wired: false,
+  _menuEl: null,
+  _inputEl: null,
 
   init() {
     if (this._wired) return;
     const input = document.getElementById('tb-search-input');
     if (!input) {
-      // L'input n'est pas encore dans le DOM — réessaye après le prochain tick.
       setTimeout(() => this.init(), 200);
       return;
     }
+    this._inputEl = input;
 
-    // Crée le dropdown s'il n'existe pas
+    // Crée le dropdown directement dans <body> pour éviter toute
+    // contrainte d'overflow ou de stacking context parent.
     let menu = document.getElementById('tb-search-menu');
+    if (menu && menu.parentElement !== document.body) menu.remove();
+    menu = document.getElementById('tb-search-menu');
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'tb-search-menu';
       menu.className = 'tb-search-menu';
-      menu.style.display = 'none';
-      input.parentElement.appendChild(menu);
+      menu.setAttribute('role', 'listbox');
+      document.body.appendChild(menu);
     }
+    this._menuEl = menu;
+    this._hide();
 
     input.addEventListener('input', () => {
       clearTimeout(this._timer);
       this._timer = setTimeout(() => this._run(input.value), this.DEBOUNCE_MS);
     });
     input.addEventListener('keydown', (e) => this._onKey(e));
-    input.addEventListener('focus', () => { if (input.value.trim()) this._run(input.value); });
-
-    document.addEventListener('click', (e) => {
-      if (!menu.contains(e.target) && e.target !== input) this._hide();
+    input.addEventListener('focus', () => {
+      if (input.value.trim()) this._run(input.value);
     });
+    window.addEventListener('resize', () => { if (this._isOpen()) this._positionMenu(); });
+    window.addEventListener('scroll', () => { if (this._isOpen()) this._positionMenu(); }, true);
+    document.addEventListener('click', (e) => {
+      if (!this._menuEl) return;
+      if (!this._menuEl.contains(e.target) && e.target !== this._inputEl) this._hide();
+    });
+
     this._wired = true;
-    console.log('🔍 Search initialisée');
+    console.log('🔍 Search initialisée (input=' + !!input + ', menu=' + !!menu + ')');
   },
 
   // ===== Normalisation =====
@@ -62,8 +66,6 @@ const Search = {
       .toLowerCase().trim();
   },
 
-  // Score d'un match : 0 = pas de match. Plus haut = meilleur.
-  // Pondère le rang (champ principal vs secondaire) et la position (match au début > au milieu).
   _score(text, q, fieldWeight) {
     if (!text) return 0;
     const idx = text.indexOf(q);
@@ -75,10 +77,9 @@ const Search = {
 
   // ===== Run =====
   _run(raw) {
-    const menu = document.getElementById('tb-search-menu');
-    if (!menu) return;
+    if (!this._menuEl) return;
     const q = this._norm(raw);
-    if (!q || q.length < 1) { this._hide(); return; }
+    if (!q) { this._hide(); return; }
 
     let results = [];
     try {
@@ -96,227 +97,241 @@ const Search = {
     const hits = [];
     const push = (h) => { if (h && h.score > 0) hits.push(h); };
     const safe = (label, fn) => {
-      try { fn(); } catch (e) { console.warn('[Search] source ' + label, e); }
+      try { fn(); } catch (e) { console.warn('[Search] ' + label + ':', e); }
     };
+    const fmt = (n) => (typeof Data !== 'undefined' && Data.fmt) ? Data.fmt(n || 0) : String(n || 0);
+    const go = (page) => () => { if (typeof App !== 'undefined' && App.nav) App.nav(page); };
+
+    // ---- Pages (raccourci) ----
+    safe('pages', () => {
+      const pages = [
+        ['dashboard', 'Tableau de bord', 'ti-layout-dashboard'],
+        ['pointage', 'Pointage', 'ti-calendar-event'],
+        ['recettes', 'Recettes', 'ti-cash'],
+        ['depenses', 'Dépenses', 'ti-receipt'],
+        ['analyse', 'Analyse', 'ti-chart-pie'],
+        ['banque', 'Banque', 'ti-building-bank'],
+        ['mobile', 'Mobile', 'ti-device-mobile'],
+        ['categories', 'Catégories', 'ti-tag'],
+        ['employes', 'Employés', 'ti-users'],
+        ['comptes-emp', 'Comptes employés', 'ti-user-dollar'],
+        ['credits', 'Crédits clients', 'ti-credit-card'],
+        ['fournisseurs', 'Fournisseurs', 'ti-truck'],
+        ['stock', 'Stock', 'ti-package'],
+        ['associes', 'Associés', 'ti-users-group'],
+        ['bilan', 'Bilan', 'ti-report'],
+        ['clotures', 'Clôtures', 'ti-lock'],
+        ['suivi', 'Chèques', 'ti-receipt-2'],
+        ['historique', 'Historique', 'ti-history'],
+      ];
+      pages.forEach(([id, label, icon]) => {
+        const score = this._score(this._norm(label), q, 1500);
+        if (score > 0) push({ score, cat: 'Pages', icon, title: label, sub: 'Aller à la page', action: go(id) });
+      });
+    });
 
     // ---- Employés ----
-    (Data.employes || []).forEach((e, idx) => {
-      const nom = this._norm(e.nom);
-      const poste = this._norm(e.poste);
-      const dept = this._norm(e.dept);
-      const score = Math.max(
-        this._score(nom, q, 1000),
-        this._score(poste, q, 400),
-        this._score(dept, q, 200),
-      );
-      push({
-        score, cat: 'Employés', icon: 'ti-user',
-        title: e.nom, sub: `${e.poste || '—'} · ${e.dept || ''}`,
-        action: () => { App.nav('employes'); setTimeout(() => Employes.openModal(idx), 50); },
+    safe('employes', () => {
+      (Data.employes || []).forEach((e, idx) => {
+        const score = Math.max(
+          this._score(this._norm(e.nom), q, 1000),
+          this._score(this._norm(e.poste), q, 400),
+          this._score(this._norm(e.dept), q, 200),
+        );
+        push({
+          score, cat: 'Employés', icon: 'ti-user',
+          title: e.nom || '—', sub: `${e.poste || '—'} · ${e.dept || ''}`,
+          action: () => { App.nav('employes'); setTimeout(() => Employes.openModal(idx), 80); },
+        });
       });
     });
 
     // ---- Fournisseurs ----
-    (Data.fournisseursListe || []).concat(Data.fournisseurs || []).forEach(f => {
-      const nom = this._norm(f.nom || f.name);
-      const score = this._score(nom, q, 900);
-      push({
-        score, cat: 'Fournisseurs', icon: 'ti-truck',
-        title: f.nom || f.name || '—', sub: f.tel || f.adresse || '',
-        action: () => App.nav('fournisseurs'),
+    safe('fournisseurs', () => {
+      const list = (Data.fournisseursListe || []).concat(Data.fournisseurs || []);
+      list.forEach(f => {
+        const score = this._score(this._norm(f.nom || f.name), q, 900);
+        push({
+          score, cat: 'Fournisseurs', icon: 'ti-truck',
+          title: f.nom || f.name || '—',
+          sub: [f.tel, f.adresse].filter(Boolean).join(' · '),
+          action: go('fournisseurs'),
+        });
       });
     });
 
     // ---- Crédits clients ----
-    (Data.credits || []).forEach(c => {
-      const client = this._norm(c.client);
-      const ticket = this._norm(c.ticket);
-      const score = Math.max(
-        this._score(client, q, 850),
-        this._score(ticket, q, 600),
-      );
-      push({
-        score, cat: 'Crédits clients', icon: 'ti-cash',
-        title: c.client || '—',
-        sub: `Ticket #${c.ticket || ''} · ${c.dept || ''} · ${Data.fmt(c.montant || 0)} · ${c.statut || ''}`,
-        action: () => App.nav('credits'),
+    safe('credits', () => {
+      (Data.credits || []).forEach(c => {
+        const score = Math.max(
+          this._score(this._norm(c.client), q, 850),
+          this._score(this._norm(c.ticket), q, 600),
+        );
+        push({
+          score, cat: 'Crédits clients', icon: 'ti-credit-card',
+          title: c.client || '—',
+          sub: `Ticket #${c.ticket || ''} · ${c.dept || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
+          action: go('credits'),
+        });
       });
     });
 
     // ---- Stock ----
-    (Data.stockArticles || []).forEach(a => {
-      const nom = this._norm(a.nom);
-      const ref = this._norm(a.ref);
-      const cat = this._norm(a.categorie);
-      const fou = this._norm(a.fournisseur);
-      const score = Math.max(
-        this._score(nom, q, 800),
-        this._score(ref, q, 700),
-        this._score(cat, q, 300),
-        this._score(fou, q, 300),
-      );
-      push({
-        score, cat: 'Stock', icon: 'ti-package',
-        title: a.nom || '—',
-        sub: [a.ref, a.categorie, a.fournisseur].filter(Boolean).join(' · '),
-        action: () => {
-          App.nav('stock');
-          setTimeout(() => {
-            const i = document.getElementById('stk-search');
-            if (i) { i.value = a.nom || ''; i.dispatchEvent(new Event('input')); }
-          }, 50);
-        },
+    safe('stock', () => {
+      (Data.stockArticles || []).forEach(a => {
+        const score = Math.max(
+          this._score(this._norm(a.nom), q, 800),
+          this._score(this._norm(a.ref), q, 700),
+          this._score(this._norm(a.categorie), q, 300),
+          this._score(this._norm(a.fournisseur), q, 300),
+        );
+        push({
+          score, cat: 'Stock', icon: 'ti-package',
+          title: a.nom || '—',
+          sub: [a.ref, a.categorie, a.fournisseur].filter(Boolean).join(' · '),
+          action: () => {
+            App.nav('stock');
+            setTimeout(() => {
+              const i = document.getElementById('stk-search');
+              if (i) { i.value = a.nom || ''; i.dispatchEvent(new Event('input')); }
+            }, 80);
+          },
+        });
       });
     });
 
-    // ---- Dépenses (label / observation / fournisseur) ----
-    (Data.getAllDeps ? Data.getAllDeps() : []).forEach(d => {
-      const label = this._norm(d.label);
-      const obs = this._norm(d.observation);
-      const fou = this._norm(d.fournisseur);
-      const score = Math.max(
-        this._score(label, q, 600),
-        this._score(obs, q, 350),
-        this._score(fou, q, 400),
-      );
-      push({
-        score, cat: 'Dépenses', icon: 'ti-receipt',
-        title: d.label || '—',
-        sub: `${d.date || ''} · ${d.dept || ''} · ${Data.fmt(d.montant || 0)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
-        action: () => App.nav('depenses'),
+    // ---- Dépenses ----
+    safe('depenses', () => {
+      const all = (typeof Data !== 'undefined' && Data.getAllDeps) ? Data.getAllDeps() : [];
+      all.forEach(d => {
+        const score = Math.max(
+          this._score(this._norm(d.label), q, 600),
+          this._score(this._norm(d.observation), q, 350),
+          this._score(this._norm(d.fournisseur), q, 400),
+          this._score(this._norm(d.groupe), q, 300),
+        );
+        push({
+          score, cat: 'Dépenses', icon: 'ti-receipt',
+          title: d.label || '—',
+          sub: `${d.date || ''} · ${d.dept || ''} · ${fmt(d.montant)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
+          action: go('depenses'),
+        });
       });
     });
 
-    // ---- Journées (par date) ----
-    (Data.journees || []).forEach(j => {
-      const date = this._norm(j.date);
-      const score = this._score(date, q, 500);
-      push({
-        score, cat: 'Journées', icon: 'ti-calendar',
-        title: j.date || '—',
-        sub: `CA total : ${Data.fmt(Data.caTotal(j) || 0)}`,
-        action: () => App.nav('recettes'),
+    // ---- Journées ----
+    safe('journees', () => {
+      (Data.journees || []).forEach(j => {
+        const score = this._score(this._norm(j.date), q, 500);
+        push({
+          score, cat: 'Journées', icon: 'ti-calendar',
+          title: j.date || '—',
+          sub: `CA total : ${fmt(Data.caTotal ? Data.caTotal(j) : 0)}`,
+          action: go('recettes'),
+        });
       });
     });
 
-    // ---- Banque ----
-    (Data.mvtsBanque || []).forEach(m => {
-      const lib = this._norm(m.lib);
-      const op = this._norm(m.op);
-      const ref = this._norm(m.ref);
-      const score = Math.max(
-        this._score(lib, q, 600),
-        this._score(op, q, 400),
-        this._score(ref, q, 350),
-      );
-      push({
-        score, cat: 'Banque', icon: 'ti-building-bank',
-        title: m.lib || '—',
-        sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${Data.fmt(m.mnt || 0)}`,
-        action: () => App.nav('banque'),
+    // ---- Banque / Mobile ----
+    const mvt = (arr, page, cat, icon) => {
+      arr.forEach(m => {
+        const score = Math.max(
+          this._score(this._norm(m.lib), q, 600),
+          this._score(this._norm(m.op), q, 400),
+          this._score(this._norm(m.ref), q, 350),
+        );
+        push({
+          score, cat, icon,
+          title: m.lib || '—',
+          sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${fmt(m.mnt)}`,
+          action: go(page),
+        });
       });
-    });
-
-    // ---- Mobile Money ----
-    (Data.mvtsMobile || []).forEach(m => {
-      const lib = this._norm(m.lib);
-      const op = this._norm(m.op);
-      const ref = this._norm(m.ref);
-      const score = Math.max(
-        this._score(lib, q, 600),
-        this._score(op, q, 400),
-        this._score(ref, q, 350),
-      );
-      push({
-        score, cat: 'Mobile', icon: 'ti-device-mobile',
-        title: m.lib || '—',
-        sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${Data.fmt(m.mnt || 0)}`,
-        action: () => App.nav('mobile'),
-      });
-    });
+    };
+    safe('banque', () => mvt(Data.mvtsBanque || [], 'banque', 'Banque', 'ti-building-bank'));
+    safe('mobile', () => mvt(Data.mvtsMobile || [], 'mobile', 'Mobile', 'ti-device-mobile'));
 
     // ---- Chèques ----
-    (Data.cheques || []).forEach(c => {
-      const num = this._norm(c.numero || c.num);
-      const ben = this._norm(c.beneficiaire || c.benef);
-      const score = Math.max(
-        this._score(num, q, 700),
-        this._score(ben, q, 600),
-      );
-      push({
-        score, cat: 'Chèques', icon: 'ti-receipt-2',
-        title: `Chèque ${c.numero || c.num || ''}`,
-        sub: `${c.beneficiaire || c.benef || ''} · ${Data.fmt(c.montant || 0)} · ${c.statut || ''}`,
-        action: () => App.nav('suivi'),
+    safe('cheques', () => {
+      (Data.cheques || []).forEach(c => {
+        const score = Math.max(
+          this._score(this._norm(c.numero || c.num), q, 700),
+          this._score(this._norm(c.beneficiaire || c.benef), q, 600),
+        );
+        push({
+          score, cat: 'Chèques', icon: 'ti-receipt-2',
+          title: `Chèque ${c.numero || c.num || ''}`,
+          sub: `${c.beneficiaire || c.benef || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
+          action: go('suivi'),
+        });
       });
     });
 
     // ---- Associés / Prélèvements ----
-    (Data.associes || []).forEach(a => {
-      const nom = this._norm(a.nom);
-      const score = this._score(nom, q, 700);
-      push({
-        score, cat: 'Associés', icon: 'ti-users',
-        title: a.nom || '—', sub: `Part ${a.part || 0}%`,
-        action: () => App.nav('associes'),
+    safe('associes', () => {
+      (Data.associes || []).forEach(a => {
+        const score = this._score(this._norm(a.nom), q, 700);
+        push({
+          score, cat: 'Associés', icon: 'ti-users',
+          title: a.nom || '—', sub: `Part ${a.part || 0}%`,
+          action: go('associes'),
+        });
       });
-    });
-    (Data.prelevements || []).forEach(p => {
-      const a = (Data.associes || []).find(x => x.id === p.associeId);
-      const aNom = this._norm(a?.nom);
-      const obs = this._norm(p.observation);
-      const score = Math.max(
-        this._score(aNom, q, 450),
-        this._score(obs, q, 300),
-      );
-      push({
-        score, cat: 'Prélèvements', icon: 'ti-cash',
-        title: `Prélèvement ${a?.nom || ''}`,
-        sub: `${p.date || ''} · ${Data.fmt(p.montant || 0)} · ${p.paiement || ''}`,
-        action: () => App.nav('associes'),
+      (Data.prelevements || []).forEach(p => {
+        const a = (Data.associes || []).find(x => x.id === p.associeId);
+        const score = Math.max(
+          this._score(this._norm(a?.nom), q, 450),
+          this._score(this._norm(p.observation), q, 300),
+        );
+        push({
+          score, cat: 'Prélèvements', icon: 'ti-cash',
+          title: `Prélèvement ${a?.nom || ''}`,
+          sub: `${p.date || ''} · ${fmt(p.montant)} · ${p.paiement || ''}`,
+          action: go('associes'),
+        });
       });
     });
 
     // ---- Catégories ----
-    (Data.categories || []).forEach(c => {
-      const nom = this._norm(c.nom);
-      const score = this._score(nom, q, 500);
-      push({
-        score, cat: 'Catégories', icon: 'ti-tag',
-        title: c.nom || '—', sub: `${c.type || ''} · ${c.dept || ''}`,
-        action: () => App.nav('categories'),
+    safe('categories', () => {
+      (Data.categories || []).forEach(c => {
+        const score = this._score(this._norm(c.nom), q, 500);
+        push({
+          score, cat: 'Catégories', icon: 'ti-tag',
+          title: c.nom || '—', sub: `${c.type || ''} · ${c.dept || ''}`,
+          action: go('categories'),
+        });
       });
     });
 
-    // Trie par score décroissant et garde le top N
     hits.sort((a, b) => b.score - a.score);
     return hits.slice(0, this.MAX_RESULTS);
   },
 
-  // Positionne le menu en fixed sous l'input pour s'affranchir de tout
-  // overflow ou stacking context parent (topbar, sidebar, etc.).
+  // ===== Positionnement =====
   _positionMenu() {
-    const input = document.getElementById('tb-search-input');
-    const menu = document.getElementById('tb-search-menu');
-    if (!input || !menu) return;
-    const r = input.getBoundingClientRect();
-    menu.style.position = 'fixed';
-    menu.style.top = (r.bottom + 6) + 'px';
-    menu.style.left = r.left + 'px';
-    menu.style.width = r.width + 'px';
+    if (!this._inputEl || !this._menuEl) return;
+    const r = this._inputEl.getBoundingClientRect();
+    Object.assign(this._menuEl.style, {
+      position: 'fixed',
+      top: (r.bottom + 6) + 'px',
+      left: r.left + 'px',
+      width: Math.max(320, r.width) + 'px',
+      right: 'auto',
+      maxHeight: (window.innerHeight - r.bottom - 24) + 'px',
+      zIndex: '99999',
+    });
   },
 
   // ===== Rendu du menu =====
   _renderMenu(results, raw) {
-    const menu = document.getElementById('tb-search-menu');
-    if (!menu) return;
-    this._positionMenu();
+    if (!this._menuEl) return;
     if (!results.length) {
-      menu.innerHTML = `<div class="tb-search-empty">Aucun résultat pour « ${this._esc(raw)} »</div>`;
-      menu.style.display = '';
+      this._menuEl.innerHTML =
+        `<div class="tb-search-empty">Aucun résultat pour « ${this._esc(raw)} »</div>`;
+      this._show();
       return;
     }
-    // Groupe par catégorie en conservant l'ordre du tri global
     const byCat = {};
     const catOrder = [];
     results.forEach((r, i) => {
@@ -324,39 +339,32 @@ const Search = {
       r._idx = i;
       byCat[r.cat].push(r);
     });
-
-    menu.innerHTML = catOrder.map(cat => `
-      <div class="tb-search-cat">${this._esc(cat)} <span class="tb-search-cat-n">${byCat[cat].length}</span></div>
+    this._menuEl.innerHTML = catOrder.map(cat => `
+      <div class="tb-search-cat">${this._esc(cat)}<span class="tb-search-cat-n">${byCat[cat].length}</span></div>
       ${byCat[cat].map(r => `
         <div class="tb-search-item ${r._idx === this._activeIdx ? 'active' : ''}" data-idx="${r._idx}">
-          <i class="ti ${r.icon}"></i>
+          <i class="ti ${r.icon || 'ti-search'}"></i>
           <div class="tb-search-text">
             <div class="tb-search-title">${this._esc(r.title)}</div>
             ${r.sub ? `<div class="tb-search-sub">${this._esc(r.sub)}</div>` : ''}
           </div>
         </div>`).join('')}
     `).join('');
-    menu.style.display = '';
-    menu.querySelectorAll('.tb-search-item').forEach(el => {
+    this._show();
+    this._menuEl.querySelectorAll('.tb-search-item').forEach(el => {
       el.addEventListener('mousedown', (ev) => {
         ev.preventDefault();
-        const i = parseInt(el.dataset.idx, 10);
-        this._activate(i);
+        this._activate(parseInt(el.dataset.idx, 10));
       });
     });
   },
 
   _onKey(e) {
-    const menu = document.getElementById('tb-search-menu');
-    if (!menu || menu.style.display === 'none') return;
+    if (!this._isOpen()) return;
     if (e.key === 'Escape') { this._hide(); return; }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      this._move(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      this._move(-1);
-    } else if (e.key === 'Enter') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); this._move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); this._move(-1); }
+    else if (e.key === 'Enter') {
       e.preventDefault();
       if (this._activeIdx >= 0) this._activate(this._activeIdx);
     }
@@ -365,8 +373,7 @@ const Search = {
   _move(delta) {
     if (!this._lastResults.length) return;
     this._activeIdx = (this._activeIdx + delta + this._lastResults.length) % this._lastResults.length;
-    const menu = document.getElementById('tb-search-menu');
-    menu.querySelectorAll('.tb-search-item').forEach(el => {
+    this._menuEl.querySelectorAll('.tb-search-item').forEach(el => {
       const idx = parseInt(el.dataset.idx, 10);
       el.classList.toggle('active', idx === this._activeIdx);
       if (idx === this._activeIdx) el.scrollIntoView({ block: 'nearest' });
@@ -377,16 +384,13 @@ const Search = {
     const r = this._lastResults[i];
     if (!r) return;
     this._hide();
-    const input = document.getElementById('tb-search-input');
-    if (input) input.blur();
+    if (this._inputEl) this._inputEl.blur();
     try { r.action(); } catch (e) { console.warn('Search action', e); }
   },
 
-  _hide() {
-    const menu = document.getElementById('tb-search-menu');
-    if (menu) menu.style.display = 'none';
-    this._activeIdx = -1;
-  },
+  _isOpen() { return this._menuEl && this._menuEl.style.display !== 'none'; },
+  _show() { if (this._menuEl) { this._positionMenu(); this._menuEl.style.display = 'block'; } },
+  _hide() { if (this._menuEl) this._menuEl.style.display = 'none'; this._activeIdx = -1; },
 
   _esc(s) {
     return String(s == null ? '' : s)
@@ -395,8 +399,7 @@ const Search = {
   },
 };
 
-// Auto-init : si le DOM est déjà prêt on lance immédiatement, sinon on attend.
-// init() est idempotent (flag _wired) donc un second appel depuis App.init est sans effet.
+// Auto-init dès que possible (idempotent).
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => Search.init());
 } else {
