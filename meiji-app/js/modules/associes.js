@@ -76,26 +76,43 @@ const Associes = {
     return [...set].filter(Boolean);
   },
 
+  // Détecte une dépense qui est en réalité un transfert vers la banque ou
+  // mobile money : ce n'est pas une charge d'exploitation, donc exclu du pot.
+  _isTransfert(d) {
+    const g = (d.groupe || '').toLowerCase();
+    const l = (d.label || '').toUpperCase();
+    if (g === 'transfert' || g === 'transferts' || g === 'virement') return true;
+    if (/^(VERSEMENT|VERSE|TRANSFERT|VIREMENT|DEPOT|DÉPÔT|DEPOSE) (BANQUE|BK|MOBILE|MOMO|MM)/.test(l)) return true;
+    if (/(VERSEMENT|TRANSFERT|VIREMENT).*BANQUE/.test(l)) return true;
+    if (/(VERSEMENT|TRANSFERT).*MOBILE/.test(l)) return true;
+    return false;
+  },
+
   // CA du pot BAR + CHICHA sur la période globale
   caPot() {
     return this._filteredJournees()
       .reduce((s, j) => s + Data.caisse(j, 'b') + Data.caisse(j, 'c'), 0);
   },
 
-  // Charges du pot = dépenses BAR + CHICHA sur la période globale (réalisé).
-  // Les salaires payés via le bouton « Payer » sont déjà comptés ici puisqu'ils
-  // créent une dépense « Salaires ». On n'ajoute aucun salaire théorique.
+  // Charges du pot = dépenses BAR + CHICHA sur la période, hors transferts
+  // cash→banque ou cash→mobile (qui sont des mouvements de trésorerie, pas
+  // des charges). Les transferts saisis via l'onglet Banque ne sont déjà pas
+  // dans getAllDeps() — cette exclusion couvre le cas d'une saisie manuelle
+  // dans Dépenses.
   chargesPot() {
     return this._filteredDeps()
-      .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
+      .filter(d => (d.dept === 'BAR' || d.dept === 'CHICHA') && !this._isTransfert(d))
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
   },
 
   // Détail des charges pour affichage UI : nombre de lignes de dépenses
   _chargesBreakdown() {
     const allDepsFiltered = this._filteredDeps()
-      .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA');
-    return { nbLignes: allDepsFiltered.length };
+      .filter(d => (d.dept === 'BAR' || d.dept === 'CHICHA') && !this._isTransfert(d));
+    const transferts = this._filteredDeps()
+      .filter(d => (d.dept === 'BAR' || d.dept === 'CHICHA') && this._isTransfert(d))
+      .reduce((s, d) => s + (Number(d.montant) || 0), 0);
+    return { nbLignes: allDepsFiltered.length, transferts };
   },
 
   beneficePot() { return this.caPot() - this.chargesPot(); },
@@ -125,9 +142,10 @@ const Associes = {
     const breakdown = this._chargesBreakdown();
     const subEl = document.getElementById('assoc-charges-sub');
     if (subEl) {
-      subEl.textContent = breakdown.nbLignes
-        ? `${breakdown.nbLignes} ligne${breakdown.nbLignes > 1 ? 's' : ''} de dépenses`
-        : '';
+      const parts = [];
+      if (breakdown.nbLignes) parts.push(`${breakdown.nbLignes} ligne${breakdown.nbLignes > 1 ? 's' : ''} de dépenses`);
+      if (breakdown.transferts > 0) parts.push(`Transferts banque/mobile exclus : ${Data.fmt(breakdown.transferts)}`);
+      subEl.textContent = parts.join(' · ');
     }
 
     // KPI label : période globale (Jour / Mois / Année / Plage / Tout)
