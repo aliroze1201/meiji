@@ -29,47 +29,98 @@ const Associes = {
     return (this.MOIS[m - 1] || '?') + ' ' + y;
   },
 
-  // Mois "actif" :
-  //  - si période = mois → ce mois
-  //  - sinon → mois de la dernière date journée filtrée, ou mois courant
-  currentMonth() {
+  // Étiquette de la période globale (utilisée dans le KPI)
+  periodLabel() {
+    if (typeof App === 'undefined') return '—';
+    if (App.period === 'tout')  return 'Tout';
+    if (App.period === 'jour')  return 'Jour';
+    if (App.period === 'annee') {
+      const y = document.getElementById('sel-annee2');
+      return 'Année ' + (y?.value || '');
+    }
+    if (App.period === 'plage') {
+      const d = document.getElementById('sel-debut');
+      const f = document.getElementById('sel-fin');
+      return 'Plage ' + (d?.value || '?') + ' → ' + (f?.value || '?');
+    }
     if (App.period === 'mois') {
       const m = document.getElementById('sel-mois');
       const y = document.getElementById('sel-annee');
-      if (m && y) return y.value + '-' + String(m.value).padStart(2, '0');
+      if (m && y) return this.monthLabel(y.value + '-' + String(m.value).padStart(2, '0'));
     }
-    const jj = (typeof App !== 'undefined' && App.filterJournees)
-      ? App.filterJournees()
-      : (Data.journees || []);
-    if (jj.length) {
-      const last = jj.map(j => j.date).filter(Boolean).sort().slice(-1)[0];
-      if (last) return last.slice(0, 7);
-    }
-    return Data.today().slice(0, 7);
+    return '—';
   },
 
-  // CA du pot BAR + CHICHA sur un mois
-  caPot(ym) {
-    return (Data.journees || [])
-      .filter(j => this.ymOf(j.date) === ym)
+  // ===== Sources filtrées par la période globale =====
+  _filteredJournees() {
+    return (typeof App !== 'undefined' && App.filterJournees)
+      ? App.filterJournees()
+      : (Data.journees || []);
+  },
+  _filteredDeps() {
+    return (typeof App !== 'undefined' && App.filterByDate)
+      ? App.filterByDate(Data.getAllDeps())
+      : Data.getAllDeps();
+  },
+  _filteredPrelv() {
+    return (typeof App !== 'undefined' && App.filterByDate)
+      ? App.filterByDate(Data.prelevements || [])
+      : (Data.prelevements || []);
+  },
+
+  // Mois distincts couverts par la période (utile pour les salaires théoriques)
+  _monthsInPeriod() {
+    const set = new Set();
+    this._filteredJournees().forEach(j => { if (j.date) set.add(this.ymOf(j.date)); });
+    this._filteredDeps().forEach(d => { if (d.date) set.add(this.ymOf(d.date)); });
+    return [...set].filter(Boolean);
+  },
+
+  // Détecte une dépense qui est en réalité un transfert vers la banque ou
+  // mobile money : ce n'est pas une charge d'exploitation, donc exclu du pot.
+  _isTransfert(d) {
+    const g = (d.groupe || '').toLowerCase();
+    const l = (d.label || '').toUpperCase();
+    if (g === 'transfert' || g === 'transferts' || g === 'virement') return true;
+    if (/^(VERSEMENT|VERSE|TRANSFERT|VIREMENT|DEPOT|DÉPÔT|DEPOSE) (BANQUE|BK|MOBILE|MOMO|MM)/.test(l)) return true;
+    if (/(VERSEMENT|TRANSFERT|VIREMENT).*BANQUE/.test(l)) return true;
+    if (/(VERSEMENT|TRANSFERT).*MOBILE/.test(l)) return true;
+    return false;
+  },
+
+  // CA du pot BAR + CHICHA sur la période globale
+  caPot() {
+    return this._filteredJournees()
       .reduce((s, j) => s + Data.caisse(j, 'b') + Data.caisse(j, 'c'), 0);
   },
 
-  // Charges du pot : uniquement les dépenses BAR + CHICHA réellement enregistrées
-  // sur le mois (y compris les paiements de salaire passés par "Payer" ou saisis
-  // manuellement dans Dépenses). On n'ajoute aucun salaire théorique pour éviter
-  // le double-comptage avec une dépense « Salaire … » globale.
-  chargesPot(ym) {
-    return Data.getAllDeps()
-      .filter(d => this.ymOf(d.date) === ym && (d.dept === 'BAR' || d.dept === 'CHICHA'))
+  // Charges du pot = dépenses BAR + CHICHA sur la période, hors transferts
+  // cash→banque ou cash→mobile (qui sont des mouvements de trésorerie, pas
+  // des charges). Les transferts saisis via l'onglet Banque ne sont déjà pas
+  // dans getAllDeps() — cette exclusion couvre le cas d'une saisie manuelle
+  // dans Dépenses.
+  chargesPot() {
+    return this._filteredDeps()
+      .filter(d => (d.dept === 'BAR' || d.dept === 'CHICHA') && !this._isTransfert(d))
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
   },
 
-  beneficePot(ym) { return this.caPot(ym) - this.chargesPot(ym); },
+  // Détail des charges pour affichage UI : nombre de lignes de dépenses
+  _chargesBreakdown() {
+    const allDepsFiltered = this._filteredDeps()
+      .filter(d => (d.dept === 'BAR' || d.dept === 'CHICHA') && !this._isTransfert(d));
+    const transferts = this._filteredDeps()
+      .filter(d => (d.dept === 'BAR' || d.dept === 'CHICHA') && this._isTransfert(d))
+      .reduce((s, d) => s + (Number(d.montant) || 0), 0);
+    return { nbLignes: allDepsFiltered.length, transferts };
+  },
 
-  prelvAssocMois(assocId, ym) {
-    return (Data.prelevements || [])
-      .filter(p => p.associeId === assocId && this.ymOf(p.date) === ym)
+  beneficePot() { return this.caPot() - this.chargesPot(); },
+
+  // Prélèvements d'un associé sur la période globale
+  prelvAssocPeriode(assocId) {
+    return this._filteredPrelv()
+      .filter(p => p.associeId === assocId)
       .reduce((s, p) => s + (Number(p.montant) || 0), 0);
   },
 
@@ -83,19 +134,22 @@ const Associes = {
     if (!Array.isArray(Data.associes)) Data.associes = [];
     if (!Array.isArray(Data.prelevements)) Data.prelevements = [];
 
-    const ym = this.currentMonth();
-    const ca = this.caPot(ym);
-    const charges = this.chargesPot(ym);
+    const ca = this.caPot();
+    const charges = this.chargesPot();
     const benef = ca - charges;
 
-    // Sous-titre : précise que les charges = dépenses BAR + CHICHA du mois
+    // Détail des charges pour affichage transparent
+    const breakdown = this._chargesBreakdown();
     const subEl = document.getElementById('assoc-charges-sub');
     if (subEl) {
-      subEl.textContent = charges > 0 ? `Dépenses BAR + CHICHA du mois : ${Data.fmt(charges)}` : '';
+      const parts = [];
+      if (breakdown.nbLignes) parts.push(`${breakdown.nbLignes} ligne${breakdown.nbLignes > 1 ? 's' : ''} de dépenses`);
+      if (breakdown.transferts > 0) parts.push(`Transferts banque/mobile exclus : ${Data.fmt(breakdown.transferts)}`);
+      subEl.textContent = parts.join(' · ');
     }
 
-    // KPI label mois
-    this._set('assoc-mois-label', this.monthLabel(ym));
+    // KPI label : période globale (Jour / Mois / Année / Plage / Tout)
+    this._set('assoc-mois-label', this.periodLabel());
     this._set('assoc-ca', Data.fmt(ca));
     this._set('assoc-charges', Data.fmt(charges));
     const bEl = document.getElementById('assoc-benef');
@@ -128,7 +182,7 @@ const Associes = {
         const rows = actifs.map(a => {
           const part = Number(a.part) || 0;
           const partTheo = Math.round(benef * part / 100);
-          const prelv = this.prelvAssocMois(a.id, ym);
+          const prelv = this.prelvAssocPeriode(a.id);
           const solde = partTheo - prelv;
           totPart += partTheo; totPrelv += prelv; totSolde += solde;
           return `<tr>
