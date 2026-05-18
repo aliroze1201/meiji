@@ -449,6 +449,7 @@ const App = {
 
     if (typeof Pointage !== 'undefined') Pointage.init();
     if (typeof Stock !== 'undefined' && Stock.initOnce) Stock.initOnce();
+    if (typeof Search !== 'undefined' && Search.init) Search.init();
 
     // Tous les modules sont async (Supabase). Premier rendu immédiat avec
     // les seeds, puis re-render dès que les données serveur arrivent.
