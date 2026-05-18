@@ -86,14 +86,19 @@ const Search = {
   // surbrillance + scroll. R\u00e9essaie pendant ~2 s pour laisser au render
   // asynchrone le temps de produire le tableau.
   _gotoRow(pageId, ...fragments) {
-    // Bascule la période globale sur "Tout" pour s'assurer que la ligne
-    // recherchée n'est pas filtrée par la période courante.
+    // 1) Bascule la période globale sur "Tout" pour s'assurer que la ligne
+    //    recherchée n'est pas filtrée par la période courante.
+    // 2) Réinitialise les filtres par département (BAR/SUSHI/CHICHA) sur
+    //    'all' pour que la table de la page concernée affiche tout.
     try {
       if (typeof App !== 'undefined') {
         App.period = 'tout';
         document.querySelectorAll('#period-seg .seg-btn').forEach(b => {
           b.classList.toggle('active', b.dataset.period === 'tout');
         });
+        if (App.filters) {
+          Object.keys(App.filters).forEach(k => { App.filters[k] = 'all'; });
+        }
       }
     } catch (e) {}
     if (typeof App !== 'undefined' && App.nav) App.nav(pageId);
@@ -252,7 +257,7 @@ const Search = {
           score, cat: 'Crédits clients', icon: 'ti-credit-card',
           title: c.client || '—',
           sub: `Ticket #${c.ticket || ''} · ${c.dept || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: goto('credits', c.client, c.ticket && String(c.ticket)),
+          action: goto('credits', c.ticket ? String(c.ticket) : c.client),
         });
       });
     });
@@ -289,7 +294,7 @@ const Search = {
           score, cat: 'Dépenses', icon: 'ti-receipt',
           title: d.label || '—',
           sub: `${d.date || ''} · ${d.dept || ''} · ${fmt(d.montant)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
-          action: goto('depenses', d.label, d.date),
+          action: goto('depenses', d.label),
         });
       });
     });
@@ -302,7 +307,7 @@ const Search = {
           score, cat: 'Journées', icon: 'ti-calendar',
           title: j.date || '—',
           sub: `CA total : ${fmt(Data.caTotal ? Data.caTotal(j) : 0)}`,
-          action: goto('recettes', j.date),
+          action: goto('recettes', Data.fmtD ? Data.fmtD(j.date) : j.date),
         });
       });
     });
@@ -319,7 +324,7 @@ const Search = {
           score, cat, icon,
           title: m.lib || '—',
           sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${fmt(m.mnt)}`,
-          action: goto(page, m.lib, m.date),
+          action: goto(page, m.lib || m.ref || m.op),
         });
       });
     };
@@ -337,7 +342,7 @@ const Search = {
           score, cat: 'Chèques', icon: 'ti-receipt-2',
           title: `Chèque ${c.numero || c.num || ''}`,
           sub: `${c.beneficiaire || c.benef || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: goto('suivi', c.numero || c.num, c.beneficiaire || c.benef),
+          action: goto('suivi', c.numero || c.num || c.beneficiaire || c.benef),
         });
       });
     });
@@ -362,7 +367,7 @@ const Search = {
           score, cat: 'Prélèvements', icon: 'ti-cash',
           title: `Prélèvement ${a?.nom || ''}`,
           sub: `${p.date || ''} · ${fmt(p.montant)} · ${p.paiement || ''}`,
-          action: goto('associes', a?.nom, p.date),
+          action: goto('associes', a?.nom),
         });
       });
     });
