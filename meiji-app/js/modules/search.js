@@ -103,40 +103,56 @@ const Search = {
     } catch (e) {}
     if (typeof App !== 'undefined' && App.nav) App.nav(pageId);
     const norm = (s) => this._norm(s);
-    const frags = fragments.filter(Boolean).map(norm);
-    if (!frags.length) {
-      console.warn('🔍 _gotoRow sans fragments pour', pageId);
-      return;
-    }
+    const frags = fragments.filter(Boolean).map(norm).filter(f => f.length > 0);
+    if (!frags.length) { console.warn('🔍 _gotoRow sans fragments'); return; }
     console.log('🔍 _gotoRow page=' + pageId + ' fragments=', frags);
+
     const start = Date.now();
     let scrolled = false;
-    const tryFind = () => {
+    let bestRow = null;
+    let bestScore = 0;
+
+    // Pour chaque ligne, on calcule combien de fragments matchent.
+    // On garde la meilleure ligne, et on n'accepte que si TOUS les
+    // fragments matchent. Sinon on continue à attendre (renders async).
+    // Fallback : après 1,5 s, on accepte la meilleure ligne même
+    // partielle, tant qu'elle a au moins ~70 % de matches.
+    const minPartial = Math.max(1, Math.ceil(frags.length * 0.7));
+    const tryFind = (acceptPartial) => {
       const page = document.getElementById('page-' + pageId);
-      if (page) {
-        const rows = page.querySelectorAll('tbody tr');
-        for (const tr of rows) {
-          const txt = norm(tr.textContent);
-          if (frags.every(f => txt.includes(f))) {
-            this._highlight(tr, !scrolled);
-            scrolled = true;
-            return true; // trouvé
-          }
-        }
+      if (!page) return null;
+      const rows = page.querySelectorAll('tbody tr');
+      let topRow = null, topScore = 0;
+      for (const tr of rows) {
+        const txt = norm(tr.textContent);
+        let s = 0;
+        for (const f of frags) if (txt.includes(f)) s++;
+        if (s > topScore) { topScore = s; topRow = tr; if (s === frags.length) break; }
       }
-      return false;
+      if (topRow && (topScore === frags.length || (acceptPartial && topScore >= minPartial))) {
+        return { row: topRow, score: topScore };
+      }
+      return null;
     };
-    // Re-essaye pendant 5 s : utile car certaines pages chargent leur
-    // contenu de manière asynchrone (restore()) et un renderAll ultérieur
-    // peut effacer la classe — on la remet alors.
+
     const deadline = start + 5000;
     const loop = () => {
-      const found = tryFind();
+      const elapsed = Date.now() - start;
+      const acceptPartial = elapsed > 1500; // fallback après 1,5 s
+      const hit = tryFind(acceptPartial);
+      if (hit) {
+        if (hit.score > bestScore || hit.row !== bestRow) {
+          bestRow = hit.row; bestScore = hit.score;
+          this._highlight(hit.row, !scrolled);
+          scrolled = true;
+        }
+      }
       if (Date.now() > deadline) {
-        if (!found) console.warn('🔍 _gotoRow : aucune ligne trouvée pour', frags);
+        if (!bestRow) console.warn('🔍 _gotoRow : aucune ligne trouvée pour', frags);
+        else console.log('🔍 _gotoRow → ligne trouvée avec score ' + bestScore + '/' + frags.length);
         return;
       }
-      setTimeout(loop, found ? 600 : 120);
+      setTimeout(loop, hit ? 600 : 120);
     };
     setTimeout(loop, 80);
   },
@@ -185,6 +201,9 @@ const Search = {
       try { fn(); } catch (e) { console.warn('[Search] ' + label + ':', e); }
     };
     const fmt = (n) => (typeof Data !== 'undefined' && Data.fmt) ? Data.fmt(n || 0) : String(n || 0);
+    const fmts = (n) => (typeof Data !== 'undefined' && Data.fmts) ? Data.fmts(n || 0) : String(n || 0);
+    const fmtDs = (d) => (typeof Data !== 'undefined' && Data.fmtDs) ? Data.fmtDs(d) : (d || '');
+    const fmtD = (d) => (typeof Data !== 'undefined' && Data.fmtD) ? Data.fmtD(d) : (d || '');
     const go = (page) => () => { if (typeof App !== 'undefined' && App.nav) App.nav(page); };
     const goto = (page, ...fr) => () => this._gotoRow(page, ...fr);
 
@@ -227,7 +246,7 @@ const Search = {
         push({
           score, cat: 'Employés', icon: 'ti-user',
           title: e.nom || '—', sub: `${e.poste || '—'} · ${e.dept || ''}`,
-          action: goto('employes', e.nom),
+          action: goto('employes', e.nom, e.poste, e.dept),
         });
       });
     });
@@ -241,7 +260,7 @@ const Search = {
           score, cat: 'Fournisseurs', icon: 'ti-truck',
           title: f.nom || f.name || '—',
           sub: [f.tel, f.adresse].filter(Boolean).join(' · '),
-          action: goto('fournisseurs', f.nom || f.name),
+          action: goto('fournisseurs', f.nom || f.name, f.tel, f.adresse),
         });
       });
     });
@@ -257,7 +276,7 @@ const Search = {
           score, cat: 'Crédits clients', icon: 'ti-credit-card',
           title: c.client || '—',
           sub: `Ticket #${c.ticket || ''} · ${c.dept || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: goto('credits', c.ticket ? String(c.ticket) : c.client),
+          action: goto('credits', c.client, c.ticket ? String(c.ticket) : null, fmts(c.montant)),
         });
       });
     });
@@ -275,7 +294,7 @@ const Search = {
           score, cat: 'Stock', icon: 'ti-package',
           title: a.nom || '—',
           sub: [a.ref, a.categorie, a.fournisseur].filter(Boolean).join(' · '),
-          action: goto('stock', a.nom, a.ref),
+          action: goto('stock', a.nom, a.ref, a.categorie),
         });
       });
     });
@@ -294,7 +313,7 @@ const Search = {
           score, cat: 'Dépenses', icon: 'ti-receipt',
           title: d.label || '—',
           sub: `${d.date || ''} · ${d.dept || ''} · ${fmt(d.montant)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
-          action: goto('depenses', d.label),
+          action: goto('depenses', d.label, fmtDs(d.date), d.dept, fmts(d.montant)),
         });
       });
     });
@@ -307,7 +326,7 @@ const Search = {
           score, cat: 'Journées', icon: 'ti-calendar',
           title: j.date || '—',
           sub: `CA total : ${fmt(Data.caTotal ? Data.caTotal(j) : 0)}`,
-          action: goto('recettes', Data.fmtD ? Data.fmtD(j.date) : j.date),
+          action: goto('recettes', fmtD(j.date)),
         });
       });
     });
@@ -324,7 +343,7 @@ const Search = {
           score, cat, icon,
           title: m.lib || '—',
           sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${fmt(m.mnt)}`,
-          action: goto(page, m.lib || m.ref || m.op),
+          action: goto(page, m.lib || '—', m.op, fmtDs(m.date), fmts(m.mnt)),
         });
       });
     };
@@ -342,7 +361,7 @@ const Search = {
           score, cat: 'Chèques', icon: 'ti-receipt-2',
           title: `Chèque ${c.numero || c.num || ''}`,
           sub: `${c.beneficiaire || c.benef || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: goto('suivi', c.numero || c.num || c.beneficiaire || c.benef),
+          action: goto('suivi', c.numero || c.num, c.beneficiaire || c.benef, fmts(c.montant)),
         });
       });
     });
@@ -367,7 +386,7 @@ const Search = {
           score, cat: 'Prélèvements', icon: 'ti-cash',
           title: `Prélèvement ${a?.nom || ''}`,
           sub: `${p.date || ''} · ${fmt(p.montant)} · ${p.paiement || ''}`,
-          action: goto('associes', a?.nom),
+          action: goto('associes', a?.nom, fmtDs(p.date), fmts(p.montant)),
         });
       });
     });
