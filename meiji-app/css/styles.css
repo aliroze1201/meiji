@@ -612,6 +612,23 @@ a { color: inherit; text-decoration: none; }
   color: var(--c-muted);
 }
 
+/* Mise en évidence d'une ligne après un clic depuis la recherche globale */
+@keyframes searchHighlightPulse {
+  0%   { background-color: #ffe066 !important; }
+  50%  { background-color: #ffd43b !important; }
+  100% { background-color: transparent !important; }
+}
+.search-highlight {
+  outline: 3px solid #f59e0b !important;
+  outline-offset: -2px;
+  border-radius: 4px;
+  animation: searchHighlightPulse 3.6s ease-out;
+}
+.search-highlight > td {
+  animation: searchHighlightPulse 3.6s ease-out;
+  background-color: #fff3bf !important;
+}
+
 .tb-actions {
   display: flex;
   align-items: center;

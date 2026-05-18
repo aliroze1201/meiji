@@ -39,6 +39,21 @@ const Search = {
     this._menuEl = menu;
     this._hide();
 
+    // Délégation : un SEUL handler sur le menu, qui dispatche selon data-idx.
+    // Mousedown + click pour couvrir tous les cas (souris, touch, etc.).
+    const onPick = (ev) => {
+      const item = ev.target.closest && ev.target.closest('.tb-search-item');
+      if (!item || !this._menuEl.contains(item)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const idx = parseInt(item.dataset.idx, 10);
+      console.log('🔍 Search clic item idx=', idx, item);
+      this._activate(idx);
+    };
+    menu.addEventListener('mousedown', onPick);
+    menu.addEventListener('click', onPick);
+    menu.addEventListener('touchend', onPick);
+
     input.addEventListener('input', () => {
       clearTimeout(this._timer);
       this._timer = setTimeout(() => this._run(input.value), this.DEBOUNCE_MS);
@@ -64,6 +79,76 @@ const Search = {
     return String(s)
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .toLowerCase().trim();
+  },
+
+  // Navigue vers une page, puis cherche la 1\u00e8re ligne <tr> qui contient
+  // TOUS les fragments fournis (case/accents insensibles) et la met en
+  // surbrillance + scroll. R\u00e9essaie pendant ~2 s pour laisser au render
+  // asynchrone le temps de produire le tableau.
+  _gotoRow(pageId, ...fragments) {
+    // 1) Bascule la période globale sur "Tout" pour s'assurer que la ligne
+    //    recherchée n'est pas filtrée par la période courante.
+    // 2) Réinitialise les filtres par département (BAR/SUSHI/CHICHA) sur
+    //    'all' pour que la table de la page concernée affiche tout.
+    try {
+      if (typeof App !== 'undefined') {
+        App.period = 'tout';
+        document.querySelectorAll('#period-seg .seg-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.period === 'tout');
+        });
+        if (App.filters) {
+          Object.keys(App.filters).forEach(k => { App.filters[k] = 'all'; });
+        }
+      }
+    } catch (e) {}
+    if (typeof App !== 'undefined' && App.nav) App.nav(pageId);
+    const norm = (s) => this._norm(s);
+    const frags = fragments.filter(Boolean).map(norm);
+    if (!frags.length) {
+      console.warn('🔍 _gotoRow sans fragments pour', pageId);
+      return;
+    }
+    console.log('🔍 _gotoRow page=' + pageId + ' fragments=', frags);
+    const start = Date.now();
+    let scrolled = false;
+    const tryFind = () => {
+      const page = document.getElementById('page-' + pageId);
+      if (page) {
+        const rows = page.querySelectorAll('tbody tr');
+        for (const tr of rows) {
+          const txt = norm(tr.textContent);
+          if (frags.every(f => txt.includes(f))) {
+            this._highlight(tr, !scrolled);
+            scrolled = true;
+            return true; // trouvé
+          }
+        }
+      }
+      return false;
+    };
+    // Re-essaye pendant 5 s : utile car certaines pages chargent leur
+    // contenu de manière asynchrone (restore()) et un renderAll ultérieur
+    // peut effacer la classe — on la remet alors.
+    const deadline = start + 5000;
+    const loop = () => {
+      const found = tryFind();
+      if (Date.now() > deadline) {
+        if (!found) console.warn('🔍 _gotoRow : aucune ligne trouvée pour', frags);
+        return;
+      }
+      setTimeout(loop, found ? 600 : 120);
+    };
+    setTimeout(loop, 80);
+  },
+
+  _highlight(el, doScroll) {
+    if (!el) return;
+    if (el.classList.contains('search-highlight')) return; // déjà highlighté
+    el.classList.add('search-highlight');
+    if (doScroll) {
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    }
+    setTimeout(() => el.classList.remove('search-highlight'), 3600);
   },
 
   _score(text, q, fieldWeight) {
@@ -101,6 +186,7 @@ const Search = {
     };
     const fmt = (n) => (typeof Data !== 'undefined' && Data.fmt) ? Data.fmt(n || 0) : String(n || 0);
     const go = (page) => () => { if (typeof App !== 'undefined' && App.nav) App.nav(page); };
+    const goto = (page, ...fr) => () => this._gotoRow(page, ...fr);
 
     // ---- Pages (raccourci) ----
     safe('pages', () => {
@@ -132,7 +218,7 @@ const Search = {
 
     // ---- Employés ----
     safe('employes', () => {
-      (Data.employes || []).forEach((e, idx) => {
+      (Data.employes || []).forEach((e) => {
         const score = Math.max(
           this._score(this._norm(e.nom), q, 1000),
           this._score(this._norm(e.poste), q, 400),
@@ -141,7 +227,7 @@ const Search = {
         push({
           score, cat: 'Employés', icon: 'ti-user',
           title: e.nom || '—', sub: `${e.poste || '—'} · ${e.dept || ''}`,
-          action: () => { App.nav('employes'); setTimeout(() => Employes.openModal(idx), 80); },
+          action: goto('employes', e.nom),
         });
       });
     });
@@ -155,7 +241,7 @@ const Search = {
           score, cat: 'Fournisseurs', icon: 'ti-truck',
           title: f.nom || f.name || '—',
           sub: [f.tel, f.adresse].filter(Boolean).join(' · '),
-          action: go('fournisseurs'),
+          action: goto('fournisseurs', f.nom || f.name),
         });
       });
     });
@@ -171,7 +257,7 @@ const Search = {
           score, cat: 'Crédits clients', icon: 'ti-credit-card',
           title: c.client || '—',
           sub: `Ticket #${c.ticket || ''} · ${c.dept || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: go('credits'),
+          action: goto('credits', c.ticket ? String(c.ticket) : c.client),
         });
       });
     });
@@ -189,13 +275,7 @@ const Search = {
           score, cat: 'Stock', icon: 'ti-package',
           title: a.nom || '—',
           sub: [a.ref, a.categorie, a.fournisseur].filter(Boolean).join(' · '),
-          action: () => {
-            App.nav('stock');
-            setTimeout(() => {
-              const i = document.getElementById('stk-search');
-              if (i) { i.value = a.nom || ''; i.dispatchEvent(new Event('input')); }
-            }, 80);
-          },
+          action: goto('stock', a.nom, a.ref),
         });
       });
     });
@@ -214,7 +294,7 @@ const Search = {
           score, cat: 'Dépenses', icon: 'ti-receipt',
           title: d.label || '—',
           sub: `${d.date || ''} · ${d.dept || ''} · ${fmt(d.montant)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
-          action: go('depenses'),
+          action: goto('depenses', d.label),
         });
       });
     });
@@ -227,7 +307,7 @@ const Search = {
           score, cat: 'Journées', icon: 'ti-calendar',
           title: j.date || '—',
           sub: `CA total : ${fmt(Data.caTotal ? Data.caTotal(j) : 0)}`,
-          action: go('recettes'),
+          action: goto('recettes', Data.fmtD ? Data.fmtD(j.date) : j.date),
         });
       });
     });
@@ -244,7 +324,7 @@ const Search = {
           score, cat, icon,
           title: m.lib || '—',
           sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${fmt(m.mnt)}`,
-          action: go(page),
+          action: goto(page, m.lib || m.ref || m.op),
         });
       });
     };
@@ -262,7 +342,7 @@ const Search = {
           score, cat: 'Chèques', icon: 'ti-receipt-2',
           title: `Chèque ${c.numero || c.num || ''}`,
           sub: `${c.beneficiaire || c.benef || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: go('suivi'),
+          action: goto('suivi', c.numero || c.num || c.beneficiaire || c.benef),
         });
       });
     });
@@ -274,7 +354,7 @@ const Search = {
         push({
           score, cat: 'Associés', icon: 'ti-users',
           title: a.nom || '—', sub: `Part ${a.part || 0}%`,
-          action: go('associes'),
+          action: goto('associes', a.nom),
         });
       });
       (Data.prelevements || []).forEach(p => {
@@ -287,7 +367,7 @@ const Search = {
           score, cat: 'Prélèvements', icon: 'ti-cash',
           title: `Prélèvement ${a?.nom || ''}`,
           sub: `${p.date || ''} · ${fmt(p.montant)} · ${p.paiement || ''}`,
-          action: go('associes'),
+          action: goto('associes', a?.nom),
         });
       });
     });
@@ -299,7 +379,7 @@ const Search = {
         push({
           score, cat: 'Catégories', icon: 'ti-tag',
           title: c.nom || '—', sub: `${c.type || ''} · ${c.dept || ''}`,
-          action: go('categories'),
+          action: goto('categories', c.nom),
         });
       });
     });
@@ -351,12 +431,7 @@ const Search = {
         </div>`).join('')}
     `).join('');
     this._show();
-    this._menuEl.querySelectorAll('.tb-search-item').forEach(el => {
-      el.addEventListener('mousedown', (ev) => {
-        ev.preventDefault();
-        this._activate(parseInt(el.dataset.idx, 10));
-      });
-    });
+    // Pas de handlers par item : la délégation sur this._menuEl (cf. init) suffit.
   },
 
   _onKey(e) {
@@ -382,10 +457,21 @@ const Search = {
 
   _activate(i) {
     const r = this._lastResults[i];
-    if (!r) return;
+    console.log('🔍 Search._activate idx=', i, 'result=', r);
+    if (!r) { console.warn('🔍 Pas de résultat à l\'index', i); return; }
     this._hide();
-    if (this._inputEl) this._inputEl.blur();
-    try { r.action(); } catch (e) { console.warn('Search action', e); }
+    if (this._inputEl) {
+      this._inputEl.value = '';
+      this._inputEl.blur();
+    }
+    try {
+      if (typeof r.action === 'function') {
+        r.action();
+        console.log('🔍 Action exécutée pour', r.title);
+      } else {
+        console.warn('🔍 r.action n\'est pas une fonction:', r);
+      }
+    } catch (e) { console.error('🔍 Search action error:', e); }
   },
 
   _isOpen() { return this._menuEl && this._menuEl.style.display !== 'none'; },
