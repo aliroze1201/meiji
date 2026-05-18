@@ -82,51 +82,25 @@ const Associes = {
       .reduce((s, j) => s + Data.caisse(j, 'b') + Data.caisse(j, 'c'), 0);
   },
 
-  // Charges du pot sur la période globale. Pour chaque mois couvert :
-  //  - on prend les dépenses BAR/CHICHA du mois ;
-  //  - pour chaque employé BAR/CHICHA non payé ce mois (ni via "Payer", ni via
-  //    une dépense portant son nom), on ajoute son salaire net théorique.
+  // Charges du pot = dépenses BAR + CHICHA sur la période globale (réalisé).
+  // Les salaires payés via le bouton « Payer » sont déjà comptés ici puisqu'ils
+  // créent une dépense « Salaires ». On n'ajoute aucun salaire théorique.
   chargesPot() {
-    const deps = this._filteredDeps()
+    return this._filteredDeps()
       .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
-
-    const months = this._monthsInPeriod();
-    const allDepsFiltered = this._filteredDeps();
-    const sal = (Data.employes || [])
-      .filter(e => e.dept === 'BAR' || e.dept === 'CHICHA')
-      .reduce((sum, e) => {
-        const unpaid = months.filter(ym => {
-          if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return false;
-          if (allDepsFiltered.some(d => d.empNom === e.nom && this.ymOf(d.date) === ym)) return false;
-          return true;
-        }).length;
-        return sum + (Number(e.net) || 0) * unpaid;
-      }, 0);
-
-    return deps + sal;
   },
 
   // Détail des charges pour affichage UI
   _chargesBreakdown() {
-    const deps = this._filteredDeps()
-      .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA')
+    const allDepsFiltered = this._filteredDeps()
+      .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA');
+    const deps = allDepsFiltered.reduce((s, d) => s + (Number(d.montant) || 0), 0);
+    const salPaye = allDepsFiltered
+      .filter(d => d.groupe === 'Salaires' || d.empNom)
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
-
-    const months = this._monthsInPeriod();
-    const allDepsFiltered = this._filteredDeps();
-    const salNonPaye = (Data.employes || [])
-      .filter(e => e.dept === 'BAR' || e.dept === 'CHICHA')
-      .reduce((sum, e) => {
-        const unpaid = months.filter(ym => {
-          if (Array.isArray(e.paiements) && e.paiements.some(p => this.ymOf(p.date) === ym)) return false;
-          if (allDepsFiltered.some(d => d.empNom === e.nom && this.ymOf(d.date) === ym)) return false;
-          return true;
-        }).length;
-        return sum + (Number(e.net) || 0) * unpaid;
-      }, 0);
-
-    return { deps, salNonPaye, nbMois: months.length };
+    const depsHorsSal = deps - salPaye;
+    return { deps, depsHorsSal, salPaye };
   },
 
   beneficePot() { return this.caPot() - this.chargesPot(); },
@@ -157,9 +131,8 @@ const Associes = {
     const subEl = document.getElementById('assoc-charges-sub');
     if (subEl) {
       const parts = [];
-      if (breakdown.deps > 0)       parts.push(`Dépenses : ${Data.fmt(breakdown.deps)}`);
-      if (breakdown.salNonPaye > 0) parts.push(`Salaires non payés : ${Data.fmt(breakdown.salNonPaye)}`);
-      if (breakdown.nbMois > 1)     parts.push(`${breakdown.nbMois} mois`);
+      if (breakdown.depsHorsSal > 0) parts.push(`Dépenses : ${Data.fmt(breakdown.depsHorsSal)}`);
+      if (breakdown.salPaye > 0)     parts.push(`Salaires payés : ${Data.fmt(breakdown.salPaye)}`);
       subEl.textContent = parts.join(' · ');
     }
 
