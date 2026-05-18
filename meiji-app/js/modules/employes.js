@@ -121,6 +121,13 @@ const Employes = {
               <input type="number" id="pay-montant" min="0" step="any" value="${montantDefault}"></div>
           </div>
           <div class="fr">
+            <div class="fg"><label class="fl">Type</label>
+              <select id="pay-type">
+                <option value="salaire">💼 Salaire</option>
+                <option value="avance">⏬ Avance</option>
+                <option value="prime">⭐ Prime</option>
+              </select>
+            </div>
             <div class="fg"><label class="fl">Mode de règlement</label>
               <select id="pay-mode">
                 <option value="esp">💵 Espèces (caisse)</option>
@@ -139,7 +146,7 @@ const Employes = {
           <div class="fg"><label class="fl">Observation (optionnel)</label>
             <input type="text" id="pay-obs" placeholder="Salaire mai, prime, avance..."></div>
           <div style="background:var(--c-surface);padding:10px 12px;border-radius:8px;font-size:12px;color:var(--c-muted);margin:6px 0">
-            <i class="ti ti-info-circle"></i> Cette opération crée une dépense « Salaires » qui réduit votre caisse, banque ou mobile selon le mode choisi.
+            <i class="ti ti-info-circle"></i> Cette opération crée une dépense qui réduit votre caisse, banque ou mobile. Si le type est « Avance » ou « Prime », le montant met à jour la colonne correspondante de l'employé et recalcule le net.
           </div>
           <div class="modal-actions">
             <button class="btn" onclick="App.closeModal()">Annuler</button>
@@ -156,6 +163,7 @@ const Employes = {
     const montant = parseFloat(document.getElementById('pay-montant')?.value) || 0;
     const mode    = document.getElementById('pay-mode')?.value || 'esp';
     const dept    = document.getElementById('pay-dept')?.value || 'BAR';
+    const type    = document.getElementById('pay-type')?.value || 'salaire';
     const obs     = document.getElementById('pay-obs')?.value.trim() || '';
     if (montant <= 0) { alert('Le montant doit être supérieur à 0.'); return; }
 
@@ -164,33 +172,46 @@ const Employes = {
       return;
     }
 
+    const typeLabel = { salaire: 'Salaire', avance: 'Avance', prime: 'Prime' }[type] || 'Salaire';
+    const typeGroupe = { salaire: 'Salaires', avance: 'Personnel', prime: 'Personnel' }[type];
+
     const userId = Data.newId();
     const depense = {
       userId,
       date,
       dept,
-      label:  `Salaire ${e.nom}`,
-      groupe: 'Salaires',
+      label:  `${typeLabel} ${e.nom}`,
+      groupe: typeGroupe,
       qte:    null,
       prix:   null,
       montant,
-      observation: obs || `Paiement ${e.nom} (${e.poste || ''})`.trim(),
+      observation: obs || `${typeLabel} ${e.nom} (${e.poste || ''})`.trim(),
       paiement: mode,
       empNom: e.nom,
+      payType: type,
     };
     Data.histDep.push(depense);
 
     // Persistance via le module Dépenses
     if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
 
+    // Mise à jour des compteurs employé selon le type
+    if (type === 'avance') {
+      e.avance = (Number(e.avance) || 0) + montant;
+    } else if (type === 'prime') {
+      e.prime = (Number(e.prime) || 0) + montant;
+    }
+    // Recalcule le net (brut + prime - avance) quoi qu'il arrive
+    e.net = (Number(e.brut) || 0) + (Number(e.prime) || 0) - (Number(e.avance) || 0);
+
     // Trace dans l'historique de l'employé
     e.paiements = Array.isArray(e.paiements) ? e.paiements : [];
-    e.paiements.push({ id: userId, date, montant, mode, dept });
+    e.paiements.push({ id: userId, date, montant, mode, dept, type });
     this.save();
 
     try {
       if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
-        `Paiement ${e.nom}`,
+        `${typeLabel} ${e.nom}`,
         `${Data.fmt(montant)} · ${mode} · ${dept}`,
         { id: userId, after: depense });
     } catch (err) {}
