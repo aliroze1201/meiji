@@ -89,35 +89,51 @@ const Search = {
     if (typeof App !== 'undefined' && App.nav) App.nav(pageId);
     const norm = (s) => this._norm(s);
     const frags = fragments.filter(Boolean).map(norm);
-    if (!frags.length) return;
+    if (!frags.length) {
+      console.warn('🔍 _gotoRow sans fragments pour', pageId);
+      return;
+    }
+    console.log('🔍 _gotoRow page=' + pageId + ' fragments=', frags);
     const start = Date.now();
-    const tick = () => {
+    let scrolled = false;
+    const tryFind = () => {
       const page = document.getElementById('page-' + pageId);
-      if (!page) {
-        if (Date.now() - start < 2000) return setTimeout(tick, 80);
-        return;
-      }
-      const rows = page.querySelectorAll('tbody tr');
-      for (const tr of rows) {
-        const txt = norm(tr.textContent);
-        if (frags.every(f => txt.includes(f))) {
-          this._highlight(tr);
-          return;
+      if (page) {
+        const rows = page.querySelectorAll('tbody tr');
+        for (const tr of rows) {
+          const txt = norm(tr.textContent);
+          if (frags.every(f => txt.includes(f))) {
+            this._highlight(tr, !scrolled);
+            scrolled = true;
+            return true; // trouvé
+          }
         }
       }
-      if (Date.now() - start < 2000) setTimeout(tick, 120);
+      return false;
     };
-    setTimeout(tick, 80);
+    // Re-essaye pendant 5 s : utile car certaines pages chargent leur
+    // contenu de manière asynchrone (restore()) et un renderAll ultérieur
+    // peut effacer la classe — on la remet alors.
+    const deadline = start + 5000;
+    const loop = () => {
+      const found = tryFind();
+      if (Date.now() > deadline) {
+        if (!found) console.warn('🔍 _gotoRow : aucune ligne trouvée pour', frags);
+        return;
+      }
+      setTimeout(loop, found ? 600 : 120);
+    };
+    setTimeout(loop, 80);
   },
 
-  _highlight(el) {
+  _highlight(el, doScroll) {
     if (!el) return;
-    el.classList.remove('search-highlight');
-    // Force reflow pour relancer l'animation si on re-clique
-    void el.offsetWidth;
+    if (el.classList.contains('search-highlight')) return; // déjà highlighté
     el.classList.add('search-highlight');
-    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-    setTimeout(() => el.classList.remove('search-highlight'), 3500);
+    if (doScroll) {
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    }
+    setTimeout(() => el.classList.remove('search-highlight'), 3600);
   },
 
   _score(text, q, fieldWeight) {
