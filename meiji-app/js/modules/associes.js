@@ -91,16 +91,11 @@ const Associes = {
       .reduce((s, d) => s + (Number(d.montant) || 0), 0);
   },
 
-  // Détail des charges pour affichage UI
+  // Détail des charges pour affichage UI : nombre de lignes de dépenses
   _chargesBreakdown() {
     const allDepsFiltered = this._filteredDeps()
       .filter(d => d.dept === 'BAR' || d.dept === 'CHICHA');
-    const deps = allDepsFiltered.reduce((s, d) => s + (Number(d.montant) || 0), 0);
-    const salPaye = allDepsFiltered
-      .filter(d => d.groupe === 'Salaires' || d.empNom)
-      .reduce((s, d) => s + (Number(d.montant) || 0), 0);
-    const depsHorsSal = deps - salPaye;
-    return { deps, depsHorsSal, salPaye };
+    return { nbLignes: allDepsFiltered.length };
   },
 
   beneficePot() { return this.caPot() - this.chargesPot(); },
@@ -130,10 +125,9 @@ const Associes = {
     const breakdown = this._chargesBreakdown();
     const subEl = document.getElementById('assoc-charges-sub');
     if (subEl) {
-      const parts = [];
-      if (breakdown.depsHorsSal > 0) parts.push(`Dépenses : ${Data.fmt(breakdown.depsHorsSal)}`);
-      if (breakdown.salPaye > 0)     parts.push(`Salaires payés : ${Data.fmt(breakdown.salPaye)}`);
-      subEl.textContent = parts.join(' · ');
+      subEl.textContent = breakdown.nbLignes
+        ? `${breakdown.nbLignes} ligne${breakdown.nbLignes > 1 ? 's' : ''} de dépenses`
+        : '';
     }
 
     // KPI label : période globale (Jour / Mois / Année / Plage / Tout)
