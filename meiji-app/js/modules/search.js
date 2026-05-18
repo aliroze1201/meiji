@@ -81,6 +81,45 @@ const Search = {
       .toLowerCase().trim();
   },
 
+  // Navigue vers une page, puis cherche la 1\u00e8re ligne <tr> qui contient
+  // TOUS les fragments fournis (case/accents insensibles) et la met en
+  // surbrillance + scroll. R\u00e9essaie pendant ~2 s pour laisser au render
+  // asynchrone le temps de produire le tableau.
+  _gotoRow(pageId, ...fragments) {
+    if (typeof App !== 'undefined' && App.nav) App.nav(pageId);
+    const norm = (s) => this._norm(s);
+    const frags = fragments.filter(Boolean).map(norm);
+    if (!frags.length) return;
+    const start = Date.now();
+    const tick = () => {
+      const page = document.getElementById('page-' + pageId);
+      if (!page) {
+        if (Date.now() - start < 2000) return setTimeout(tick, 80);
+        return;
+      }
+      const rows = page.querySelectorAll('tbody tr');
+      for (const tr of rows) {
+        const txt = norm(tr.textContent);
+        if (frags.every(f => txt.includes(f))) {
+          this._highlight(tr);
+          return;
+        }
+      }
+      if (Date.now() - start < 2000) setTimeout(tick, 120);
+    };
+    setTimeout(tick, 80);
+  },
+
+  _highlight(el) {
+    if (!el) return;
+    el.classList.remove('search-highlight');
+    // Force reflow pour relancer l'animation si on re-clique
+    void el.offsetWidth;
+    el.classList.add('search-highlight');
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    setTimeout(() => el.classList.remove('search-highlight'), 3500);
+  },
+
   _score(text, q, fieldWeight) {
     if (!text) return 0;
     const idx = text.indexOf(q);
@@ -116,6 +155,7 @@ const Search = {
     };
     const fmt = (n) => (typeof Data !== 'undefined' && Data.fmt) ? Data.fmt(n || 0) : String(n || 0);
     const go = (page) => () => { if (typeof App !== 'undefined' && App.nav) App.nav(page); };
+    const goto = (page, ...fr) => () => this._gotoRow(page, ...fr);
 
     // ---- Pages (raccourci) ----
     safe('pages', () => {
@@ -170,7 +210,7 @@ const Search = {
           score, cat: 'Fournisseurs', icon: 'ti-truck',
           title: f.nom || f.name || '—',
           sub: [f.tel, f.adresse].filter(Boolean).join(' · '),
-          action: go('fournisseurs'),
+          action: goto('fournisseurs', f.nom || f.name),
         });
       });
     });
@@ -186,7 +226,7 @@ const Search = {
           score, cat: 'Crédits clients', icon: 'ti-credit-card',
           title: c.client || '—',
           sub: `Ticket #${c.ticket || ''} · ${c.dept || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: go('credits'),
+          action: goto('credits', c.client, c.ticket && String(c.ticket)),
         });
       });
     });
@@ -229,7 +269,7 @@ const Search = {
           score, cat: 'Dépenses', icon: 'ti-receipt',
           title: d.label || '—',
           sub: `${d.date || ''} · ${d.dept || ''} · ${fmt(d.montant)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
-          action: go('depenses'),
+          action: goto('depenses', d.label, d.date),
         });
       });
     });
@@ -242,7 +282,7 @@ const Search = {
           score, cat: 'Journées', icon: 'ti-calendar',
           title: j.date || '—',
           sub: `CA total : ${fmt(Data.caTotal ? Data.caTotal(j) : 0)}`,
-          action: go('recettes'),
+          action: goto('recettes', j.date),
         });
       });
     });
@@ -259,7 +299,7 @@ const Search = {
           score, cat, icon,
           title: m.lib || '—',
           sub: `${m.date || ''} · ${m.op || ''} · ${m.type === 'out' ? '−' : '+'}${fmt(m.mnt)}`,
-          action: go(page),
+          action: goto(page, m.lib, m.date),
         });
       });
     };
@@ -277,7 +317,7 @@ const Search = {
           score, cat: 'Chèques', icon: 'ti-receipt-2',
           title: `Chèque ${c.numero || c.num || ''}`,
           sub: `${c.beneficiaire || c.benef || ''} · ${fmt(c.montant)} · ${c.statut || ''}`,
-          action: go('suivi'),
+          action: goto('suivi', c.numero || c.num, c.beneficiaire || c.benef),
         });
       });
     });
@@ -289,7 +329,7 @@ const Search = {
         push({
           score, cat: 'Associés', icon: 'ti-users',
           title: a.nom || '—', sub: `Part ${a.part || 0}%`,
-          action: go('associes'),
+          action: goto('associes', a.nom),
         });
       });
       (Data.prelevements || []).forEach(p => {
@@ -302,7 +342,7 @@ const Search = {
           score, cat: 'Prélèvements', icon: 'ti-cash',
           title: `Prélèvement ${a?.nom || ''}`,
           sub: `${p.date || ''} · ${fmt(p.montant)} · ${p.paiement || ''}`,
-          action: go('associes'),
+          action: goto('associes', a?.nom, p.date),
         });
       });
     });
@@ -314,7 +354,7 @@ const Search = {
         push({
           score, cat: 'Catégories', icon: 'ti-tag',
           title: c.nom || '—', sub: `${c.type || ''} · ${c.dept || ''}`,
-          action: go('categories'),
+          action: goto('categories', c.nom),
         });
       });
     });
