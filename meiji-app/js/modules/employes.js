@@ -34,9 +34,9 @@ const Employes = {
             </div>
           </div>
           <div class="fr">
-            <div class="fg"><label class="fl">Salaire brut (FCFA)</label><input type="number" id="emp-brut" value="${e.brut || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
-            <div class="fg"><label class="fl">Prime (FCFA)</label><input type="number" id="emp-prime" value="${e.prime || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
-            <div class="fg"><label class="fl">Avance (FCFA)</label><input type="number" id="emp-avance" value="${e.avance || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
+            <div class="fg"><label class="fl">Salaire brut (FCFA)</label><input type="number" id="emp-modal-brut" value="${e.brut || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
+            <div class="fg"><label class="fl">Prime (FCFA)</label><input type="number" id="emp-modal-prime" value="${e.prime || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
+            <div class="fg"><label class="fl">Avance (FCFA)</label><input type="number" id="emp-modal-avance" value="${e.avance || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
           </div>
           <div style="background:var(--c-surface);padding:12px;border-radius:8px;margin:8px 0;text-align:center">
             <span style="font-size:12px;color:var(--c-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600">Salaire net</span>
@@ -53,9 +53,9 @@ const Employes = {
   },
 
   _calcNet() {
-    const brut = parseFloat(document.getElementById('emp-brut')?.value) || 0;
-    const prime = parseFloat(document.getElementById('emp-prime')?.value) || 0;
-    const avance = parseFloat(document.getElementById('emp-avance')?.value) || 0;
+    const brut = parseFloat(document.getElementById('emp-modal-brut')?.value) || 0;
+    const prime = parseFloat(document.getElementById('emp-modal-prime')?.value) || 0;
+    const avance = parseFloat(document.getElementById('emp-modal-avance')?.value) || 0;
     const net = brut + prime - avance;
     const el = document.getElementById('emp-net-disp');
     if (el) el.textContent = Data.fmt(net);
@@ -64,9 +64,9 @@ const Employes = {
   save_(idx) {
     const nom = document.getElementById('emp-nom')?.value.trim();
     if (!nom) { alert('Le nom est requis'); return; }
-    const brut = parseFloat(document.getElementById('emp-brut')?.value) || 0;
-    const prime = parseFloat(document.getElementById('emp-prime')?.value) || 0;
-    const avance = parseFloat(document.getElementById('emp-avance')?.value) || 0;
+    const brut = parseFloat(document.getElementById('emp-modal-brut')?.value) || 0;
+    const prime = parseFloat(document.getElementById('emp-modal-prime')?.value) || 0;
+    const avance = parseFloat(document.getElementById('emp-modal-avance')?.value) || 0;
     const entry = {
       nom,
       poste: document.getElementById('emp-poste')?.value.trim() || '',
