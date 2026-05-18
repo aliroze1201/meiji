@@ -257,7 +257,7 @@ const Credits = {
 
       const rowStyle = this.isOverdue(c) ? ' style="background:color-mix(in srgb, var(--c-amber) 6%, transparent)"' : '';
       return `
-      <tr${rowStyle}>
+      <tr data-search-id="cre:${c.id}"${rowStyle}>
         <td class="nowrap">${Data.fmtDs(c.date)}</td>
         <td>${c.ticket || '-'}</td>
         <td class="fw-bold">${c.client}</td>

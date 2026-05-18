@@ -229,7 +229,7 @@ const Mobile = {
       const lockIcon = m.relPrelv
         ? ' <i class="ti ti-lock" title="Lié à un prélèvement associé — supprime-le depuis la page Associés" style="color:var(--c-warning);font-size:13px"></i>'
         : '';
-      return `<tr>
+      return `<tr data-search-id="mob:${m.id}">
         <td class="nowrap">${Data.fmtDs(m.date)}</td>
         <td>${this._esc(m.lib || '')}${lockIcon}</td>
         <td style="color:#aaa">${this._esc(m.op || '-')}</td>

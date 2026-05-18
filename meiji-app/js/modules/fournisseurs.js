@@ -511,7 +511,7 @@ const Fournisseurs = {
         ? `<button class="btn btn-sm btn-success" title="Régler la facture" onclick="Fournisseurs.openReglement(${f.id})"><i class="ti ti-credit-card"></i> Régler</button>`
         : '';
       return `
-      <tr>
+      <tr data-search-id="four:${this._esc(f.four || '')}">
         <td class="nowrap">${Data.fmtDs(f.date)}</td>
         <td class="fw-bold">${this._esc(f.four || '')}</td>
         <td>${this._esc(f.num || '')}</td>

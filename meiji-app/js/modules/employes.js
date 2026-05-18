@@ -250,7 +250,7 @@ const Employes = {
         ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">Payé le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
         : '';
       return `
-      <tr>
+      <tr data-search-id="emp:${this._escape(e.nom)}">
         <td class="fw-bold">${e.nom}${lastLabel}</td>
         <td>${e.poste || '-'}</td>
         <td><span class="badge ${e.dept==='BAR'?'b-green':e.dept==='CHICHA'?'b-amber':'b-blue'}">${e.dept}</span></td>
