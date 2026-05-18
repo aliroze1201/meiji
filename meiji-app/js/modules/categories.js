@@ -255,7 +255,7 @@ const Categories = {
       const indent = depth ? `style="padding-left:${depth * 24}px"` : '';
       const prefix = depth ? `<span style="color:var(--c-muted);margin-right:6px">${'└'.repeat(1)}</span>` : '';
       return `
-        <tr>
+        <tr data-search-id="cat:${c.id}">
           <td>
             <div style="display:flex;align-items:center;gap:8px" ${indent}>
               ${prefix}

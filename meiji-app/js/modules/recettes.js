@@ -141,7 +141,7 @@ const Recettes = {
       const cumT = cumS + cumB + cumC;
       const colorCum = (n) => n >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
       const dateEsc = String(j.date).replace(/'/g, "\\'");
-      return `<tr>
+      return `<tr data-search-id="jrn:${j.date}">
         <td>${Data.fmtD(j.date)}</td>
         <td class="text-right text-blue">${Data.fmts(Data.caisse(j,'s'))}</td>
         <td class="text-right text-green">${Data.fmts(Data.caisse(j,'b'))}</td>

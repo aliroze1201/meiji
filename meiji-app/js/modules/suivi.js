@@ -245,7 +245,7 @@ const Suivi = {
     };
 
     tb.innerHTML = list.map(c => `
-      <tr>
+      <tr data-search-id="chq:${c.id}">
         <td class="nowrap">${Data.fmtDs(c.date)}</td>
         <td>${deptBadge(c.dept)}</td>
         <td><span style="font-family:var(--font-mono);font-weight:600">${this._esc(c.numero || '-')}</span></td>

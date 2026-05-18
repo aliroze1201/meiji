@@ -211,7 +211,7 @@ const Associes = {
       if (!list.length) {
         assocTb.innerHTML = '<tr><td colspan="4" class="empty">Aucun associé.</td></tr>';
       } else {
-        assocTb.innerHTML = list.map(a => `<tr>
+        assocTb.innerHTML = list.map(a => `<tr data-search-id="ass:${a.id}">
           <td><b>${this._esc(a.nom)}</b></td>
           <td class="text-right">${Number(a.part) || 0}%</td>
           <td>${a.actif ? '<span class="badge b-green">Actif</span>' : '<span class="badge">Inactif</span>'}</td>
@@ -237,7 +237,7 @@ const Associes = {
       if (!list.length) {
         prelvTb.innerHTML = '<tr><td colspan="6" class="empty">Aucun prélèvement enregistré.</td></tr>';
       } else {
-        prelvTb.innerHTML = list.map(p => `<tr>
+        prelvTb.innerHTML = list.map(p => `<tr data-search-id="prl:${p.id}">
           <td class="nowrap">${Data.fmtD(p.date)}</td>
           <td>${this._esc(byId[p.associeId] || '—')}</td>
           <td class="text-right fw-bold">${Data.fmt(p.montant)}</td>

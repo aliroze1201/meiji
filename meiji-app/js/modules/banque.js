@@ -248,7 +248,7 @@ const Banque = {
       const soldeCell = m.pending
         ? '<span class="text-muted" style="font-style:italic">—</span>'
         : Data.fmts(s) + ' FCFA';
-      return `<tr ${rowStyle}>
+      return `<tr data-search-id="bnk:${m.id}" ${rowStyle}>
         <td class="nowrap">${Data.fmtDs(m.date)}</td>
         <td>${this._esc(m.lib || '')}${lockIcon}${pendBadge}</td>
         <td style="color:#aaa">${this._esc(m.op || '-')}</td>

@@ -119,7 +119,7 @@ const Stock = {
                   :                    '<span class="badge b-green">OK</span>';
       const valeur = Math.max(0, s) * (Number(a.prix_unitaire) || 0);
       const sAff = (Math.round(s * 1000) / 1000).toLocaleString('fr-FR');
-      return `<tr>
+      return `<tr data-search-id="stk:${a.id}">
         <td><b>${this._esc(a.nom)}</b></td>
         <td style="color:var(--c-muted)">${this._esc(a.ref || '-')}</td>
         <td>${this._esc(a.categorie || '-')}</td>
