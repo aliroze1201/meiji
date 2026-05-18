@@ -39,6 +39,21 @@ const Search = {
     this._menuEl = menu;
     this._hide();
 
+    // Délégation : un SEUL handler sur le menu, qui dispatche selon data-idx.
+    // Mousedown + click pour couvrir tous les cas (souris, touch, etc.).
+    const onPick = (ev) => {
+      const item = ev.target.closest && ev.target.closest('.tb-search-item');
+      if (!item || !this._menuEl.contains(item)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const idx = parseInt(item.dataset.idx, 10);
+      console.log('🔍 Search clic item idx=', idx, item);
+      this._activate(idx);
+    };
+    menu.addEventListener('mousedown', onPick);
+    menu.addEventListener('click', onPick);
+    menu.addEventListener('touchend', onPick);
+
     input.addEventListener('input', () => {
       clearTimeout(this._timer);
       this._timer = setTimeout(() => this._run(input.value), this.DEBOUNCE_MS);
@@ -351,12 +366,7 @@ const Search = {
         </div>`).join('')}
     `).join('');
     this._show();
-    this._menuEl.querySelectorAll('.tb-search-item').forEach(el => {
-      el.addEventListener('mousedown', (ev) => {
-        ev.preventDefault();
-        this._activate(parseInt(el.dataset.idx, 10));
-      });
-    });
+    // Pas de handlers par item : la délégation sur this._menuEl (cf. init) suffit.
   },
 
   _onKey(e) {
@@ -382,10 +392,21 @@ const Search = {
 
   _activate(i) {
     const r = this._lastResults[i];
-    if (!r) return;
+    console.log('🔍 Search._activate idx=', i, 'result=', r);
+    if (!r) { console.warn('🔍 Pas de résultat à l\'index', i); return; }
     this._hide();
-    if (this._inputEl) this._inputEl.blur();
-    try { r.action(); } catch (e) { console.warn('Search action', e); }
+    if (this._inputEl) {
+      this._inputEl.value = '';
+      this._inputEl.blur();
+    }
+    try {
+      if (typeof r.action === 'function') {
+        r.action();
+        console.log('🔍 Action exécutée pour', r.title);
+      } else {
+        console.warn('🔍 r.action n\'est pas une fonction:', r);
+      }
+    } catch (e) { console.error('🔍 Search action error:', e); }
   },
 
   _isOpen() { return this._menuEl && this._menuEl.style.display !== 'none'; },
