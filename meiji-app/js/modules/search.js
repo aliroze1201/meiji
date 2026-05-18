@@ -86,6 +86,16 @@ const Search = {
   // surbrillance + scroll. R\u00e9essaie pendant ~2 s pour laisser au render
   // asynchrone le temps de produire le tableau.
   _gotoRow(pageId, ...fragments) {
+    // Bascule la période globale sur "Tout" pour s'assurer que la ligne
+    // recherchée n'est pas filtrée par la période courante.
+    try {
+      if (typeof App !== 'undefined') {
+        App.period = 'tout';
+        document.querySelectorAll('#period-seg .seg-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.period === 'tout');
+        });
+      }
+    } catch (e) {}
     if (typeof App !== 'undefined' && App.nav) App.nav(pageId);
     const norm = (s) => this._norm(s);
     const frags = fragments.filter(Boolean).map(norm);
@@ -203,7 +213,7 @@ const Search = {
 
     // ---- Employés ----
     safe('employes', () => {
-      (Data.employes || []).forEach((e, idx) => {
+      (Data.employes || []).forEach((e) => {
         const score = Math.max(
           this._score(this._norm(e.nom), q, 1000),
           this._score(this._norm(e.poste), q, 400),
@@ -212,7 +222,7 @@ const Search = {
         push({
           score, cat: 'Employés', icon: 'ti-user',
           title: e.nom || '—', sub: `${e.poste || '—'} · ${e.dept || ''}`,
-          action: () => { App.nav('employes'); setTimeout(() => Employes.openModal(idx), 80); },
+          action: goto('employes', e.nom),
         });
       });
     });
@@ -260,13 +270,7 @@ const Search = {
           score, cat: 'Stock', icon: 'ti-package',
           title: a.nom || '—',
           sub: [a.ref, a.categorie, a.fournisseur].filter(Boolean).join(' · '),
-          action: () => {
-            App.nav('stock');
-            setTimeout(() => {
-              const i = document.getElementById('stk-search');
-              if (i) { i.value = a.nom || ''; i.dispatchEvent(new Event('input')); }
-            }, 80);
-          },
+          action: goto('stock', a.nom, a.ref),
         });
       });
     });
