@@ -494,31 +494,56 @@ const Audit = {
         ? auditUpdate.map(e => `<tr><td>${this._esc(e.entity || '')}</td><td>${this._esc(e.details || '')}</td><td style="font-size:11px;color:var(--c-muted)">${this._esc(this._fmtTs(e.ts))}</td><td>${this._esc(e.userName || '')}</td></tr>`).join('')
         : '<tr><td colspan="4" class="empty">Aucune modification historisée</td></tr>';
 
+      // Montants des divergences (depuis meta.after/before pour l'audit, depuis la base pour l'extra)
+      const missingAmounts = inAuditNotCurrent.map(id => {
+        const e = auditCreate.find(x => x.meta?.id === id);
+        return Number(e?.meta?.after?.montant ?? e?.meta?.before?.montant ?? 0) || 0;
+      });
+      const extraAmounts = inCurrentNotAudit.map(id => {
+        const d = current.find(x => x.userId === id);
+        return Number(d?.montant ?? 0) || 0;
+      });
+      const totalMissing = missingAmounts.reduce((s, m) => s + m, 0);
+      const totalExtra   = extraAmounts.reduce((s, m) => s + m, 0);
+      const totalDivergence = totalMissing + totalExtra;
+
       const rowsDiffMissing = inAuditNotCurrent.length
-        ? inAuditNotCurrent.map(id => {
+        ? inAuditNotCurrent.map((id, i) => {
             const e = auditCreate.find(x => x.meta?.id === id);
-            return `<tr><td>${this._esc(e?.entity || '?')}</td><td>${this._esc(e?.details || '')}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
+            const m = missingAmounts[i];
+            return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(e?.entity || '?')}</td><td>${this._esc(e?.details || '')}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${m ? Data.fmt(m) : '—'}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
           }).join('')
-        : '<tr><td colspan="3" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les créations de l\'audit sont présentes en base ✓</td></tr>';
+        : '<tr><td colspan="4" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les créations de l\'audit sont présentes en base ✓</td></tr>';
 
       const rowsDiffExtra = inCurrentNotAudit.length
         ? inCurrentNotAudit.map(id => {
             const d = current.find(x => x.userId === id);
-            return `<tr><td>${this._esc(d?.dept || '?')}</td><td>${this._esc(d?.label || d?.groupe || '')}</td><td class="text-right fw-bold">${Data.fmt(d?.montant)}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
+            return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(d?.dept || '?')}</td><td>${this._esc(d?.label || d?.groupe || '')}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${Data.fmt(d?.montant)}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
           }).join('')
         : '<tr><td colspan="4" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les dépenses présentes ont une trace audit ✓</td></tr>';
 
       const okDiff = inAuditNotCurrent.length === 0 && inCurrentNotAudit.length === 0;
       const statusBadge = okDiff
         ? '<span class="badge b-green">✓ Tout est cohérent</span>'
-        : '<span class="badge b-red">⚠ Divergences détectées</span>';
+        : `<span class="badge b-red">⚠ Divergence · ${Data.fmt(totalDivergence)}</span>`;
 
       return `
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-header">
+        <div class="card" style="margin-bottom:16px${okDiff ? '' : ';border:2px solid var(--c-danger);box-shadow:0 0 0 3px var(--c-danger-soft)'}">
+          <div class="card-header"${okDiff ? '' : ' style="background:var(--c-danger-soft)"'}>
             <span class="card-title"><i class="ti ti-calendar"></i> ${labels[date]}</span>
             ${statusBadge}
           </div>
+          ${!okDiff ? `
+            <div style="background:var(--c-danger-soft);border-left:4px solid var(--c-danger);padding:10px 12px;margin-bottom:12px;border-radius:4px">
+              <div style="font-weight:700;color:var(--c-danger);font-size:14px;margin-bottom:4px">
+                ⚠ ${inAuditNotCurrent.length + inCurrentNotAudit.length} divergence(s) détectée(s)
+              </div>
+              <div style="font-size:13px;color:var(--c-text)">
+                Montant total des divergences : <b style="color:var(--c-danger);font-size:15px">${Data.fmt(totalDivergence)}</b>
+                ${totalMissing > 0 ? ` · <span style="color:var(--c-muted)">audit sans base : <b>${Data.fmt(totalMissing)}</b></span>` : ''}
+                ${totalExtra   > 0 ? ` · <span style="color:var(--c-muted)">base sans audit : <b>${Data.fmt(totalExtra)}</b></span>` : ''}
+              </div>
+            </div>` : ''}
           <div class="g4" style="margin-bottom:12px">
             <div class="mc"><div class="mc-label">Dépenses en base</div><div class="mc-val">${current.length}</div><div class="mc-sub">${Data.fmt(totalCurrent)}</div></div>
             <div class="mc green"><div class="mc-label green">Audit · création</div><div class="mc-val green">${auditCreate.length}</div></div>
@@ -542,12 +567,12 @@ const Audit = {
           </details>
 
           ${!okDiff ? `
-            <div style="border-top:2px dashed var(--c-danger);padding-top:10px;margin-top:6px">
+            <div style="border-top:2px dashed var(--c-danger);padding-top:10px;margin-top:6px;background:var(--c-danger-soft);padding:12px;border-radius:6px">
               <details open>
-                <summary style="cursor:pointer;font-weight:700;color:var(--c-danger)">⚠ Divergences (${inAuditNotCurrent.length + inCurrentNotAudit.length})</summary>
-                <div style="font-size:13px;color:var(--c-muted);margin:8px 0">Lignes audit dont la dépense a disparu de la base (sans trace de suppression) :</div>
-                <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th>ID</th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
-                <div style="font-size:13px;color:var(--c-muted);margin:8px 0">Dépenses en base sans trace de création dans l'audit :</div>
+                <summary style="cursor:pointer;font-weight:700;color:var(--c-danger);font-size:14px">⚠ Détail des divergences (${inAuditNotCurrent.length + inCurrentNotAudit.length}) · Montant total : ${Data.fmt(totalDivergence)}</summary>
+                <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Audit sans base</b> — lignes audit dont la dépense a disparu (sans trace de suppression) · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalMissing)}</span> :</div>
+                <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
+                <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Base sans audit</b> — dépenses présentes sans trace de création dans l'audit · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalExtra)}</span> :</div>
                 <table><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffExtra}</tbody></table>
               </details>
             </div>` : ''}
