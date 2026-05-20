@@ -35,8 +35,13 @@ const Employes = {
           </div>
           <div class="fr">
             <div class="fg"><label class="fl">Salaire brut (FCFA)</label><input type="number" id="emp-modal-brut" value="${e.brut || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
-            <div class="fg"><label class="fl">Prime (FCFA)</label><input type="number" id="emp-modal-prime" value="${e.prime || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
-            <div class="fg"><label class="fl">Avance (FCFA)</label><input type="number" id="emp-modal-avance" value="${e.avance || ''}" placeholder="0" oninput="Employes._calcNet()"></div>
+            <div class="fg"><label class="fl">Prime (FCFA)</label><input type="number" id="emp-modal-prime" value="${e.prime || ''}" data-orig="${e.prime || 0}" placeholder="0" oninput="Employes._calcNet();Employes._flagPayField('prime')"></div>
+            <div class="fg"><label class="fl">Avance (FCFA)</label><input type="number" id="emp-modal-avance" value="${e.avance || ''}" data-orig="${e.avance || 0}" placeholder="0" oninput="Employes._calcNet();Employes._flagPayField('avance')"></div>
+          </div>
+          <div id="emp-pay-warn" style="display:none;background:var(--c-warning-soft);border-left:4px solid var(--c-warning);padding:10px 12px;border-radius:6px;margin:8px 0;font-size:13px;color:var(--c-text)">
+            <b style="color:var(--c-warning-2)">⚠ Avance / Prime modifiée à la main</b><br>
+            Cette modification <b>ne crée pas de dépense</b> et n'apparaîtra <b>pas dans la journée</b> ni dans la caisse.
+            Pour qu'un paiement soit déduit du cash, utilisez le bouton <b>« Payer »</b> sur la ligne de l'employé.
           </div>
           <div style="background:var(--c-surface);padding:12px;border-radius:8px;margin:8px 0;text-align:center">
             <span style="font-size:12px;color:var(--c-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600">Salaire net</span>
@@ -61,12 +66,57 @@ const Employes = {
     if (el) el.textContent = Data.fmt(net);
   },
 
+  // Affiche le bandeau d'avertissement si la valeur courante diffère
+  // de la valeur initiale (= modification manuelle sans passer par « Payer »).
+  _flagPayField() {
+    const warn = document.getElementById('emp-pay-warn');
+    if (!warn) return;
+    const fields = ['emp-modal-prime', 'emp-modal-avance'];
+    const changed = fields.some(id => {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      const cur  = parseFloat(el.value) || 0;
+      const orig = parseFloat(el.dataset.orig) || 0;
+      return cur !== orig;
+    });
+    warn.style.display = changed ? 'block' : 'none';
+  },
+
   save_(idx) {
     const nom = document.getElementById('emp-nom')?.value.trim();
     if (!nom) { alert('Le nom est requis'); return; }
     const brut = parseFloat(document.getElementById('emp-modal-brut')?.value) || 0;
     const prime = parseFloat(document.getElementById('emp-modal-prime')?.value) || 0;
     const avance = parseFloat(document.getElementById('emp-modal-avance')?.value) || 0;
+
+    // Si l'utilisateur modifie l'avance/prime à la main (au lieu de passer
+    // par « Payer »), demander confirmation : aucune dépense ne sera créée
+    // et la journée/caisse ne verra pas le mouvement.
+    if (idx >= 0) {
+      const orig = Data.employes[idx] || {};
+      const primeOrig  = Number(orig.prime)  || 0;
+      const avanceOrig = Number(orig.avance) || 0;
+      const diffs = [];
+      if (prime  !== primeOrig)  diffs.push(`Prime : ${Data.fmt(primeOrig)} → ${Data.fmt(prime)}`);
+      if (avance !== avanceOrig) diffs.push(`Avance : ${Data.fmt(avanceOrig)} → ${Data.fmt(avance)}`);
+      if (diffs.length) {
+        const msg = [
+          '⚠ Modification manuelle Avance/Prime',
+          '',
+          ...diffs,
+          '',
+          "Cette modification ne crée AUCUNE dépense :",
+          "• la journée ne sera pas impactée,",
+          "• la caisse (cash / banque / mobile) ne sera pas débitée.",
+          '',
+          "Pour qu'un paiement apparaisse dans la journée, utilisez le bouton « Payer » sur la ligne de l'employé.",
+          '',
+          'Continuer quand même (ajustement comptable uniquement) ?'
+        ].join('\n');
+        if (!confirm(msg)) return;
+      }
+    }
+
     const entry = {
       nom,
       poste: document.getElementById('emp-poste')?.value.trim() || '',
