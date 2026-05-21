@@ -65,8 +65,11 @@ const Banque = {
     const inn = orphelin.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     const out = orphelin.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     total += inn - out;
-    // Compat : ajoute aussi le solde legacy global s'il existe
-    total += Number(Data.soldes?.banque?.montant) || 0;
+    // Compat : n'ajoute le solde legacy global QUE si aucune banque n'est
+    // encore définie (sinon on double-compterait avec les soldes par banque).
+    if (!(Data.banques || []).length) {
+      total += Number(Data.soldes?.banque?.montant) || 0;
+    }
     return total;
   },
 
