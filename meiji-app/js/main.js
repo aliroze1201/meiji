@@ -290,11 +290,35 @@ const App = {
     const container = document.getElementById('modal-container');
     container.innerHTML = html;
     const overlay = container.querySelector('.modal-overlay');
-    if (overlay) overlay.classList.add('show');
+    if (overlay) {
+      overlay.classList.add('show');
+      // ARIA : signaler la modale aux lecteurs d'écran
+      const modal = overlay.querySelector('.modal');
+      if (modal) {
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
+        const title = modal.querySelector('.modal-title');
+        if (title) {
+          if (!title.id) title.id = 'modal-title-' + Date.now();
+          modal.setAttribute('aria-labelledby', title.id);
+        }
+        // Focus initial : premier champ saisissable ou la modale elle-même
+        const focusable = modal.querySelector('input, select, textarea, button');
+        (focusable || modal).focus?.();
+      }
+      // Fermeture clavier : Échap
+      this._modalKeyHandler = (e) => { if (e.key === 'Escape') this.closeModal(); };
+      document.addEventListener('keydown', this._modalKeyHandler);
+    }
   },
 
   closeModal() {
     document.getElementById('modal-container').innerHTML = '';
+    if (this._modalKeyHandler) {
+      document.removeEventListener('keydown', this._modalKeyHandler);
+      this._modalKeyHandler = null;
+    }
   },
 
   // ===================== RENDER ALL =====================

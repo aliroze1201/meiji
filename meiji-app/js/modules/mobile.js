@@ -30,7 +30,7 @@ const Mobile = {
 
   saveSolde() {
     const val = parseFloat(document.getElementById('inp-mobile')?.value) || 0;
-    Data.soldes.mobile = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
+    Data.soldes.mobile = { montant: val, date: Data.nowFR() };
     document.getElementById('inp-mobile').value = '';
     this.save();
     this.render();
@@ -68,7 +68,7 @@ const Mobile = {
     if (!o) return;
     const beforeSolde = o.solde;
     o.solde = val;
-    o.soldeDate = new Date().toLocaleDateString('fr-FR');
+    o.soldeDate = Data.nowFR();
     try {
       if (typeof Audit !== 'undefined') Audit.log('update', 'mobile',
         `Solde référence ${o.nom}`,
@@ -341,7 +341,7 @@ const Mobile = {
     const actif = !!document.getElementById('op-actif')?.checked;
     const soldeRaw = document.getElementById('op-solde')?.value;
     const solde = soldeRaw !== '' && soldeRaw != null ? parseFloat(soldeRaw) : 0;
-    const soldeDate = soldeRaw !== '' && soldeRaw != null ? new Date().toLocaleDateString('fr-FR') : null;
+    const soldeDate = soldeRaw !== '' && soldeRaw != null ? Data.nowFR() : null;
     if (!Array.isArray(Data.operateursMobile)) Data.operateursMobile = [];
     if (this.editOpId) {
       const o = Data.operateursMobile.find(x => x.id === this.editOpId);

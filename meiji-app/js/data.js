@@ -312,9 +312,22 @@ const Data = {
     return map;
   },
 
-  // Formats
-  fmt(n) { return Math.round(n).toLocaleString('fr-FR') + ' FCFA'; },
-  fmts(n) { return n ? Math.round(n).toLocaleString('fr-FR') : '0'; },
+  // ===================== Formats =====================
+  // Montant. opts : { currency:true, signed:false }
+  //   - currency:false   -> nombre nu (ex. fmts d'origine), retourne '0' si falsy
+  //   - signed:true      -> préfixe + / − explicite
+  fmt(n, opts) {
+    const o = opts || {};
+    const currency = o.currency !== false; // par défaut on affiche FCFA
+    if (!currency && !n) return '0';
+    const v = Math.round(Number(n) || 0);
+    const sign = o.signed ? (v > 0 ? '+' : v < 0 ? '−' : '') : '';
+    const abs = Math.abs(v).toLocaleString('fr-FR');
+    return sign + (o.signed && v !== 0 ? abs : v.toLocaleString('fr-FR')) + (currency ? ' FCFA' : '');
+  },
+  // Alias historique : montant nu sans devise.
+  fmts(n) { return Data.fmt(n, { currency: false }); },
+
   fmtD(d) {
     try { return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'}); }
     catch(e) { return d; }
@@ -325,6 +338,10 @@ const Data = {
   },
 
   today() { return new Date().toISOString().split('T')[0]; },
+
+  // Timestamp « date du jour au format fr-FR » — utilisé pour les champs
+  // soldeDate des banques / mobile money.
+  nowFR() { return new Date().toLocaleDateString('fr-FR'); },
 };
 
 // Initialiser les groupes des dépenses historiques

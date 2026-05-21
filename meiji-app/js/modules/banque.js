@@ -32,7 +32,7 @@ const Banque = {
     // Legacy : si l'utilisateur écrit dans le champ global (anciens écrans),
     // on conserve le comportement historique.
     const val = parseFloat(document.getElementById('inp-banque')?.value) || 0;
-    Data.soldes.banque = { montant: val, date: new Date().toLocaleDateString('fr-FR') };
+    Data.soldes.banque = { montant: val, date: Data.nowFR() };
     document.getElementById('inp-banque').value = '';
     this.save();
     this.render();
@@ -65,8 +65,11 @@ const Banque = {
     const inn = orphelin.filter(m => m.type === 'in').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     const out = orphelin.filter(m => m.type === 'out').reduce((s,m) => s + (Number(m.mnt)||0), 0);
     total += inn - out;
-    // Compat : ajoute aussi le solde legacy global s'il existe
-    total += Number(Data.soldes?.banque?.montant) || 0;
+    // Compat : n'ajoute le solde legacy global QUE si aucune banque n'est
+    // encore définie (sinon on double-compterait avec les soldes par banque).
+    if (!(Data.banques || []).length) {
+      total += Number(Data.soldes?.banque?.montant) || 0;
+    }
     return total;
   },
 
@@ -80,7 +83,7 @@ const Banque = {
     if (!b) return;
     const beforeSolde = b.solde;
     b.solde = val;
-    b.soldeDate = new Date().toLocaleDateString('fr-FR');
+    b.soldeDate = Data.nowFR();
     try {
       if (typeof Audit !== 'undefined') Audit.log('update', 'banque',
         `Solde référence ${b.nom}`,
@@ -364,7 +367,7 @@ const Banque = {
     const actif = !!document.getElementById('bk-actif')?.checked;
     const soldeRaw = document.getElementById('bk-solde')?.value;
     const solde = soldeRaw !== '' && soldeRaw != null ? parseFloat(soldeRaw) : 0;
-    const soldeDate = soldeRaw !== '' && soldeRaw != null ? new Date().toLocaleDateString('fr-FR') : null;
+    const soldeDate = soldeRaw !== '' && soldeRaw != null ? Data.nowFR() : null;
     if (!Array.isArray(Data.banques)) Data.banques = [];
     if (this.editBkId) {
       const b = Data.banques.find(x => x.id === this.editBkId);

@@ -78,14 +78,25 @@ const Associes = {
 
   // Détecte une dépense qui est en réalité un transfert vers la banque ou
   // mobile money : ce n'est pas une charge d'exploitation, donc exclu du pot.
+  //
+  // Ordre de priorité (du plus fiable au plus fragile) :
+  //   1. Flag explicite `d.transfert === true` (à privilégier côté UI)
+  //   2. Catégorie/groupe normalisé : "transfert(s)" ou "virement"
+  //   3. Détection heuristique sur le libellé (fallback patrimonial)
   _isTransfert(d) {
-    const g = (d.groupe || '').toLowerCase();
-    const l = (d.label || '').toUpperCase();
-    if (g === 'transfert' || g === 'transferts' || g === 'virement') return true;
-    if (/^(VERSEMENT|VERSE|TRANSFERT|VIREMENT|DEPOT|DÉPÔT|DEPOSE) (BANQUE|BK|MOBILE|MOMO|MM)/.test(l)) return true;
-    if (/(VERSEMENT|TRANSFERT|VIREMENT).*BANQUE/.test(l)) return true;
-    if (/(VERSEMENT|TRANSFERT).*MOBILE/.test(l)) return true;
-    return false;
+    if (!d) return false;
+    if (d.transfert === true) return true;
+
+    const g = String(d.groupe || '').trim().toLowerCase();
+    if (g === 'transfert' || g === 'transferts' || g === 'virement' || g === 'virements') return true;
+
+    // Fallback heuristique : libellé contient un verbe de transfert ET une cible (banque/mobile).
+    // Volontairement strict pour éviter les faux positifs (ex. "transfert d'équipe").
+    const l = String(d.label || '').toUpperCase();
+    if (!l) return false;
+    const VERBE  = /\b(VERSEMENT|VERSE|TRANSFERT|VIREMENT|DEPOT|DÉPÔT|DEPOSE)\b/;
+    const CIBLE  = /\b(BANQUE|BK|COMPTE|MOBILE|MOMO|MM|AIRTEL|ORANGE\s*MONEY)\b/;
+    return VERBE.test(l) && CIBLE.test(l);
   },
 
   // CA du pot BAR + CHICHA sur la période globale

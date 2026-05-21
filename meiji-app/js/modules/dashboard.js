@@ -26,11 +26,25 @@ const Dashboard = {
     const mvtsMb = Array.isArray(Data.mvtsMobile) ? Data.mvtsMobile : [];
     const employes = Array.isArray(Data.employes) ? Data.employes : [];
 
+    // Pré-filtrages : on les fait une seule fois ici, plusieurs sections les réutilisent.
+    const depsCash  = depsPeriode.filter(d => Data.isCashDep(d));
+    const depsBkMb  = depsPeriode.filter(d => !Data.isCashDep(d));
+    const mvtsBkPer = App.filterByDate(mvtsBk);
+    const mvtsMbPer = App.filterByDate(mvtsMb);
+    const prelvPer  = (Data.prelevements || []).filter(p => App.inPeriod(p.date));
+
     // ============== KPIs LIGNE 1 ==============
-    const totCA = jj.reduce((s,j) => s + Data.caTotal(j), 0);
+    // Une seule passe sur les journées pour CA, cash entrant, chèques et mobile money :
+    // utilisé plus bas dans "Vue d'ensemble cash" et "Banque/Mobile théoriques".
+    let totCA = 0, cashIn = 0, recChq = 0, recMob = 0;
+    for (const j of jj) {
+      totCA += Data.caTotal(j);
+      cashIn += (j.s?.esp || 0) + (j.b?.esp || 0) + (j.c?.esp || 0);
+      recChq += (j.s?.chq || 0) + (j.b?.chq || 0) + (j.c?.chq || 0);
+      recMob += (j.s?.mob || 0) + (j.b?.mob || 0) + (j.c?.mob || 0);
+    }
     const totDep = depsPeriode.reduce((s,d) => s + (d.montant || 0), 0);
-    const totDepCash = depsPeriode.filter(d => Data.isCashDep(d))
-      .reduce((s,d) => s + (d.montant || 0), 0);
+    const totDepCash = depsCash.reduce((s,d) => s + (d.montant || 0), 0);
     const net = totCA - totDep;
 
     this._set('d-ca', Data.fmt(totCA));
@@ -111,11 +125,8 @@ const Dashboard = {
     // ============== VUE D'ENSEMBLE CASH ==============
     // Solde début = Σ fondInit (point d'ouverture absolu)
     const fondDeb = (Data.fondInit?.s || 0) + (Data.fondInit?.b || 0) + (Data.fondInit?.c || 0);
-    const cashIn = jj.reduce((s,j) =>
-      s + (j.s?.esp || 0) + (j.b?.esp || 0) + (j.c?.esp || 0), 0);
-    const cashOut = depsPeriode
-      .filter(d => Data.isCashDep(d))
-      .reduce((s,d) => s + (d.montant || 0), 0);
+    // cashIn et totDepCash : déjà calculés plus haut
+    const cashOut = totDepCash;
     const cashFin = fondDeb + cashIn - cashOut;
     this._set('d-cash-debut', Data.fmt(fondDeb));
     this._set('d-cash-in', Data.fmt(cashIn));
@@ -143,17 +154,15 @@ const Dashboard = {
     const chqEnc = cheques
       .filter(c => c.statut === 'encaisse' && c.dateEncaissement && App.inPeriod(c.dateEncaissement))
       .reduce((s,c) => s + (Number(c.montant) || 0), 0);
-    const recChq = jj.reduce((s,j) =>
-      s + (j.s?.chq || 0) + (j.b?.chq || 0) + (j.c?.chq || 0), 0);
-    const mvtBkIn = App.filterByDate(mvtsBk).filter(m => m.type === 'in')
+    // recChq : déjà calculé plus haut dans la passe unique sur jj
+    const mvtBkIn  = mvtsBkPer.filter(m => m.type === 'in')
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
-    const mvtBkOut = App.filterByDate(mvtsBk).filter(m => m.type === 'out')
+    const mvtBkOut = mvtsBkPer.filter(m => m.type === 'out')
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
     const depBk = depsPeriode.filter(d => d.paiement === 'banque')
       .reduce((s,d) => s + (d.montant || 0), 0);
     // Prélèvements associés en banque sur la période -> sortie théorique
-    const prelvBk = (Data.prelevements || [])
-      .filter(p => p.paiement === 'banque' && App.inPeriod(p.date))
+    const prelvBk = prelvPer.filter(p => p.paiement === 'banque')
       .reduce((s,p) => s + (Number(p.montant) || 0), 0);
     const bkTheo = baseBk + chqEnc + recChq + mvtBkIn - mvtBkOut - depBk - prelvBk;
     this._set('d-bk-theo', Data.fmt(bkTheo));
@@ -161,17 +170,15 @@ const Dashboard = {
 
     // MOBILE THÉORIQUE
     const baseMb = Number(Data.soldes.mobile.montant) || 0;
-    const recMob = jj.reduce((s,j) =>
-      s + (j.s?.mob || 0) + (j.b?.mob || 0) + (j.c?.mob || 0), 0);
-    const mvtMbIn = App.filterByDate(mvtsMb).filter(m => m.type === 'in')
+    // recMob : déjà calculé plus haut dans la passe unique sur jj
+    const mvtMbIn  = mvtsMbPer.filter(m => m.type === 'in')
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
-    const mvtMbOut = App.filterByDate(mvtsMb).filter(m => m.type === 'out')
+    const mvtMbOut = mvtsMbPer.filter(m => m.type === 'out')
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
     const depMb = depsPeriode.filter(d => d.paiement === 'mobile')
       .reduce((s,d) => s + (d.montant || 0), 0);
     // Prélèvements associés en mobile sur la période -> sortie théorique
-    const prelvMb = (Data.prelevements || [])
-      .filter(p => p.paiement === 'mobile' && App.inPeriod(p.date))
+    const prelvMb = prelvPer.filter(p => p.paiement === 'mobile')
       .reduce((s,p) => s + (Number(p.montant) || 0), 0);
     const mbTheo = baseMb + recMob + mvtMbIn - mvtMbOut - depMb - prelvMb;
     this._set('d-mb-theo', Data.fmt(mbTheo));
@@ -183,9 +190,7 @@ const Dashboard = {
     Charts.renderCompareChart('compare-chart', jj);
     Charts.renderDonutPay('donut-pay', 'donut-pay-legend', jj);
 
-    // Top catégories : cash vs banque/mobile + global
-    const depsCash = depsPeriode.filter(d => Data.isCashDep(d));
-    const depsBkMb = depsPeriode.filter(d => !Data.isCashDep(d));
+    // Top catégories : cash vs banque/mobile + global (depsCash/depsBkMb déjà calculés)
     Charts.renderProgressBars('charges-bars-cash', depsCash);
     Charts.renderProgressBars('charges-bars-bkmb', depsBkMb);
     Charts.renderProgressBars('charges-bars', depsPeriode);
@@ -277,11 +282,17 @@ const Dashboard = {
   },
 
   _setCaisse(pfx, k, jj) {
-    const total = jj.reduce((s,j) => s + Data.caisse(j, k), 0);
-    const totEsp = jj.reduce((s,j) => s + (j[k]?.esp || 0), 0);
-    const totChq = jj.reduce((s,j) => s + (j[k]?.chq || 0), 0);
-    const totMob = jj.reduce((s,j) => s + (j[k]?.mob || 0), 0);
-    const totCred = jj.reduce((s,j) => s + (j[k]?.cred || 0), 0);
+    // Une seule passe au lieu de 5 reduce successifs sur le même tableau.
+    let total = 0, totEsp = 0, totChq = 0, totMob = 0, totCred = 0;
+    for (const j of jj) {
+      total += Data.caisse(j, k);
+      const c = j[k];
+      if (!c) continue;
+      totEsp  += c.esp  || 0;
+      totChq  += c.chq  || 0;
+      totMob  += c.mob  || 0;
+      totCred += c.cred || 0;
+    }
 
     this._set('dash-' + pfx, Data.fmt(total));
     this._set('dash-' + pfx + '-esp', Data.fmts(totEsp) + ' FCFA');

@@ -10,6 +10,33 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* =====================  ACCESSIBILITÉ  ===================== */
+/* Lecteur d'écran uniquement (libellés invisibles) */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+/* Skip-link : invisible jusqu'au focus clavier (Tab) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  z-index: 9999;
+  background: #F97316;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top .15s ease;
+}
+.skip-link:focus { top: 8px; outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,.6); }
+
 /* =====================  TOKENS — LIGHT  ===================== */
 :root {
   /* Brand accents — inspiré Zra : orange vif sur fond sombre, esprit corporate */
@@ -98,8 +125,8 @@
   --sh-lg: 0 8px 24px rgba(15,23,42,.08), 0 2px 4px rgba(15,23,42,.04);
   --sh-xl: 0 16px 48px rgba(15,23,42,.12), 0 4px 8px rgba(15,23,42,.06);
 
-  /* Focus ring */
-  --focus-ring: 0 0 0 3px rgba(79,70,229,.22);
+  /* Focus ring — accessible (WCAG : contraste ≥ 3:1 avec adjacents) */
+  --focus-ring: 0 0 0 3px rgba(249,115,22,.45);
 
   /* Spacing */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
@@ -190,7 +217,7 @@
   --sh-lg: 0 8px 24px rgba(0,0,0,.55), 0 2px 4px rgba(0,0,0,.4);
   --sh-xl: 0 16px 48px rgba(0,0,0,.65), 0 4px 8px rgba(0,0,0,.5);
 
-  --focus-ring: 0 0 0 3px rgba(129,140,248,.32);
+  --focus-ring: 0 0 0 3px rgba(251,146,60,.55);
 }
 
 /* =====================  BASE  ===================== */
@@ -664,10 +691,12 @@ a { color: inherit; text-decoration: none; }
   border-radius: 999px;
   background: var(--c-bg-2);
   color: var(--c-text-2);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   margin-left: 4px;
+  padding: 0;
   border: 1px solid var(--c-border);
   transition: background var(--t-fast);
 }
@@ -1850,6 +1879,8 @@ label {
 }
 
 /* =====================  RESPONSIVE  ===================== */
+
+/* Tablette & desktop étroit */
 @media (max-width: 900px) {
   .topnav { padding: 8px var(--s-3); flex-wrap: wrap; gap: var(--s-2); }
   .tn-logo { padding-right: var(--s-3); margin-right: 0; }
@@ -1861,4 +1892,81 @@ label {
   .content { padding: var(--s-4); }
   .period-bar { padding: var(--s-4); }
   .global-period { padding: 10px var(--s-4); }
+}
+
+/* Mobile — paysage et tablette portrait étroite */
+@media (max-width: 768px) {
+  /* L'app entière peut défiler verticalement si nécessaire */
+  .app, .main { height: auto; min-height: 100vh; overflow: visible; }
+  .content { overflow-y: visible; padding: var(--s-3); }
+
+  /* Topnav : icônes seules, dropdown plein largeur */
+  .tn-menus { gap: 2px; flex: 1; justify-content: flex-end; }
+  .tn-trigger { padding: 8px; }
+  .tn-trigger .tn-caret { display: none; }
+  .tn-dropdown {
+    position: fixed;
+    top: auto;
+    left: var(--s-3);
+    right: var(--s-3);
+    min-width: 0;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  /* Topbar : recherche prend toute la largeur sur ligne suivante */
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: var(--s-2) var(--s-3);
+    gap: var(--s-2);
+  }
+  .tb-search { max-width: none; width: 100%; order: 99; margin-left: 0; }
+
+  /* Period bar : empilée */
+  .period-bar, .global-period {
+    flex-wrap: wrap;
+    padding: var(--s-3);
+    gap: var(--s-2);
+  }
+  .period-bar-title { width: 100%; font-size: 15px; }
+  .period-label { width: 100%; margin-left: 0; }
+  .period-inputs { flex-wrap: wrap; }
+
+  /* Tableaux : scroll horizontal, sinon ils débordent */
+  .card, .panel { overflow-x: auto; }
+  table { font-size: 13px; }
+  thead th, tbody td { padding: 8px 10px; }
+
+  /* KPI cards plus compactes */
+  .mc { padding: var(--s-4); }
+  .mc-val { font-size: 20px; }
+
+  /* Modales : plein écran utile */
+  .modal {
+    max-width: 100%;
+    width: 100%;
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+  .modal-overlay { align-items: flex-end; }
+
+  /* Boutons groupés : wrap au lieu de déborder */
+  .modal-actions { flex-wrap: wrap; }
+
+  /* Form rows : empilées */
+  .fr { flex-direction: column; align-items: stretch; }
+  .fl { width: auto; }
+}
+
+/* Petit mobile */
+@media (max-width: 480px) {
+  .content { padding: var(--s-2); }
+  .tn-logo-text { display: none; }
+  .topnav { padding: 6px var(--s-2); }
+  .mc-val { font-size: 18px; }
+  .mc-label { font-size: 10px; }
+  thead th, tbody td { padding: 6px 8px; font-size: 12px; }
+  .period-bar-title { font-size: 14px; }
 }
