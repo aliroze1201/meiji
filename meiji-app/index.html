@@ -13,12 +13,14 @@
 </head>
 <body>
 
+<a class="skip-link" href="#main-content">Aller au contenu principal</a>
+
 <div class="app">
   <!-- MAIN -->
-  <div class="main">
+  <main class="main" id="main-content">
 
     <!-- TOP NAVIGATION (anciennement sidebar) -->
-    <nav class="topnav">
+    <nav class="topnav" aria-label="Navigation principale">
       <div class="tn-logo">
         <div class="tn-logo-mark"><i class="ti ti-fish"></i></div>
         <div class="tn-logo-text">
@@ -79,19 +81,20 @@
       <div>
         <div class="tb-title" id="tb-title">Tableau de bord</div>
       </div>
-      <div class="tb-search">
-        <i class="ti ti-search"></i>
-        <input type="text" placeholder="Rechercher journée, client, fournisseur..." id="tb-search-input">
+      <div class="tb-search" role="search">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <label for="tb-search-input" class="sr-only">Rechercher dans l'application</label>
+        <input type="search" placeholder="Rechercher journée, client, fournisseur..." id="tb-search-input" aria-label="Recherche">
       </div>
       <div class="tb-actions">
-        <button class="icon-btn" id="btn-sync" title="Forcer la synchronisation cloud"><i class="ti ti-cloud-upload"></i></button>
-        <button class="icon-btn theme-toggle" id="theme-toggle" title="Changer de thème">
-          <i class="ti ti-moon"></i>
-          <i class="ti ti-sun"></i>
+        <button class="icon-btn" id="btn-sync" title="Forcer la synchronisation cloud" aria-label="Forcer la synchronisation cloud"><i class="ti ti-cloud-upload" aria-hidden="true"></i></button>
+        <button class="icon-btn theme-toggle" id="theme-toggle" title="Changer de thème" aria-label="Changer de thème">
+          <i class="ti ti-moon" aria-hidden="true"></i>
+          <i class="ti ti-sun" aria-hidden="true"></i>
         </button>
-        <button class="icon-btn" title="Notifications"><i class="ti ti-bell"></i><span class="dot"></span></button>
-        <button class="icon-btn" title="Paramètres"><i class="ti ti-settings"></i></button>
-        <div class="tb-avatar" title="Mon compte">M</div>
+        <button class="icon-btn" title="Notifications" aria-label="Notifications"><i class="ti ti-bell" aria-hidden="true"></i><span class="dot" aria-hidden="true"></span></button>
+        <button class="icon-btn" title="Paramètres" aria-label="Paramètres"><i class="ti ti-settings" aria-hidden="true"></i></button>
+        <button class="tb-avatar" type="button" title="Mon compte" aria-label="Mon compte">M</button>
       </div>
     </header>
 
@@ -1083,11 +1086,11 @@
       </div>
     </div>
 
-  </div><!-- end main -->
+  </main><!-- end main -->
 </div><!-- end app -->
 
 <!-- MODALS (injectés par JS) -->
-<div id="modal-container"></div>
+<div id="modal-container" role="region" aria-label="Boîtes de dialogue"></div>
 
 <script src="js/config.js?v=20260516-inline-1779064715"></script>
 <script src="js/auth.js?v=20260516-inline-1779064715"></script>
