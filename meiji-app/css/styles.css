@@ -1970,3 +1970,91 @@ label {
   thead th, tbody td { padding: 6px 8px; font-size: 12px; }
   .period-bar-title { font-size: 14px; }
 }
+
+/* ─────────────────────────────────────────────
+   Authentification — surcouche de connexion
+   ───────────────────────────────────────────── */
+body.auth-locked { overflow: hidden; }
+body.auth-locked > *:not(#login-overlay) {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+
+#login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 18, 24, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: var(--s-3, 16px);
+}
+
+#login-overlay .login-card {
+  background: var(--c-surface, #fff);
+  color: var(--c-text, #111);
+  width: 100%;
+  max-width: 380px;
+  padding: 28px 24px;
+  border-radius: var(--r-lg, 16px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--c-border, rgba(0,0,0,0.08));
+}
+
+#login-overlay .login-logo {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 4px;
+  color: var(--c-primary, #d62828);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+#login-overlay .login-logo i { font-size: 24px; }
+
+#login-overlay .login-sub {
+  text-align: center;
+  color: var(--c-muted, #666);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+#login-overlay form label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-muted, #666);
+  margin: 10px 0 4px;
+}
+
+#login-overlay form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border, #ddd);
+  border-radius: var(--r-md, 8px);
+  font-size: 14px;
+  background: var(--c-bg, #fff);
+  color: var(--c-text, #111);
+  box-sizing: border-box;
+}
+#login-overlay form input:focus {
+  outline: none;
+  border-color: var(--c-primary, #d62828);
+  box-shadow: 0 0 0 3px rgba(214, 40, 40, 0.15);
+}
+
+#login-overlay .login-error,
+.login-error {
+  color: #c0392b;
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 18px;
+  text-align: center;
+}
