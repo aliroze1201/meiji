@@ -162,9 +162,9 @@ const Auth = {
     if (!avatar || !this.profile) return;
     const display = this.profile.nom || this.toUsername(this.profile.email);
     avatar.textContent = (display || '?').charAt(0).toUpperCase();
-    avatar.title = `${display} · ${this.profile.role}`;
+    avatar.title = `${display} · ${this.profile.role} — cliquer pour se déconnecter`;
     avatar.style.cursor = 'pointer';
-    avatar.onclick = () => this._showUserMenu();
+    avatar.onclick = () => this.logout();
   },
 
   _showUserMenu() {
