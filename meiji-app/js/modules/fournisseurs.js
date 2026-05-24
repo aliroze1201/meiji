@@ -484,14 +484,29 @@ const Fournisseurs = {
       list.forEach(fa => {
         if (bal[fa.four] !== undefined) bal[fa.four] += (Number(fa.deb)||0) - (Number(fa.cred)||0);
       });
+
+      // Total des dettes en cours (factures non soldées sur la période filtrée)
+      let totalDettes = 0;
+      let nbDettes = 0;
+      list.forEach(fa => {
+        const s = Number(fa.solde) || 0;
+        if (s > 0) { totalDettes += s; nbDettes++; }
+      });
+      const totalTile = `
+        <div class="mc red" style="margin-bottom:16px">
+          <div class="mc-label red"><i class="ti ti-alert-triangle"></i> Total dettes en cours</div>
+          <div class="mc-val red">${Data.fmt(totalDettes)}</div>
+          <div class="mc-sub">${nbDettes} facture${nbDettes > 1 ? 's' : ''} non soldée${nbDettes > 1 ? 's' : ''}</div>
+        </div>`;
+
       if (!fourns.length) {
-        kpisEl.innerHTML = `
+        kpisEl.innerHTML = totalTile + `
           <div class="card" style="text-align:center;padding:18px;margin-bottom:16px">
             <div style="color:var(--c-muted);font-size:13px;margin-bottom:8px">Aucun fournisseur enregistré.</div>
             <button class="btn btn-primary" onclick="Fournisseurs.openFournForm(null)"><i class="ti ti-plus"></i> Ajouter un fournisseur</button>
           </div>`;
       } else {
-        kpisEl.innerHTML = '<div class="g4" style="margin-bottom:16px">' + fourns.map(f => `
+        kpisEl.innerHTML = totalTile + '<div class="g4" style="margin-bottom:16px">' + fourns.map(f => `
           <div class="mc blue">
             <div class="mc-label blue"><i class="ti ti-truck-delivery"></i> ${this._esc(f.nom)}</div>
             <div class="mc-val blue">${Data.fmt(bal[f.nom] || 0)}</div>
