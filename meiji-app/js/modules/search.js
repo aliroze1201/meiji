@@ -126,12 +126,27 @@ const Search = {
     const tryFind = (acceptPartial) => {
       const page = document.getElementById('page-' + pageId);
       if (!page) return null;
-      // a) Recherche directe par data-search-id (le plus fiable)
+      // a) Recherche directe par data-search-id. Plusieurs lignes peuvent
+      //    partager le même id (séquelle d'anciens doublons) : on les
+      //    départage par le texte (fragments).
       if (wantedId) {
-        const exact = page.querySelector(
+        const matches = page.querySelectorAll(
           'tbody tr[data-search-id="' + wantedId.replace(/"/g, '\\"') + '"]'
         );
-        if (exact) return { row: exact, score: 99 };
+        if (matches.length === 1) {
+          return { row: matches[0], score: 99 };
+        }
+        if (matches.length > 1) {
+          if (!frags.length) return { row: matches[0], score: 90 };
+          let bestRow = null, bestScore = -1;
+          for (const tr of matches) {
+            const txt = norm(tr.textContent);
+            let s = 0;
+            for (const f of frags) if (txt.includes(f)) s++;
+            if (s > bestScore) { bestScore = s; bestRow = tr; }
+          }
+          if (bestRow) return { row: bestRow, score: 95 };
+        }
       }
       // b) Fallback par texte
       if (!frags.length) return null;
