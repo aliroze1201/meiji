@@ -185,6 +185,41 @@ const Data = {
     this.nextId = max + 1;
   },
 
+  // Repère les doublons d'ID dans les collections (séquelle d'un ancien bug
+  // où nextId n'était pas restauré) et réattribue des IDs uniques aux
+  // occurrences excédentaires. Retourne la liste des collections modifiées
+  // pour que l'appelant puisse persister les changements.
+  dedupAllIds() {
+    this.bumpNextIdFromAllData();
+    const changed = new Set();
+    const fix = (arr, field, tag) => {
+      if (!Array.isArray(arr)) return;
+      const seen = new Set();
+      for (const it of arr) {
+        if (!it || it[field] == null) continue;
+        if (seen.has(it[field])) {
+          it[field] = this.newId();
+          changed.add(tag);
+        } else {
+          seen.add(it[field]);
+        }
+      }
+    };
+    fix(this.histDep, 'userId', 'deps');
+    fix(this.credits, 'id', 'credits');
+    fix(this.cheques, 'id', 'cheques');
+    fix(this.mvtsBanque, 'id', 'banque');
+    fix(this.mvtsMobile, 'id', 'mobile');
+    fix(this.employes, 'userId', 'employes');
+    fix(this.categories, 'id', 'categories');
+    fix(this.stockArticles, 'id', 'stock');
+    fix(this.stockMvts, 'id', 'stockMvts');
+    fix(this.fournisseurs, 'id', 'fournisseurs');
+    fix(this.associes, 'id', 'associes');
+    fix(this.prelevements, 'id', 'prelevements');
+    return changed;
+  },
+
   // ===================== HELPERS =====================
   caisse(j, k) {
     const d = j[k];

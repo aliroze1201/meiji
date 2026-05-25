@@ -494,7 +494,20 @@ const App = {
       (typeof Audit !== 'undefined' && Audit.restore ? Audit.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
-    .then(() => Data.bumpNextIdFromAllData())
+    .then(() => {
+      // Dédoublonne les IDs (séquelle d'un ancien bug) puis persiste les
+      // collections corrigées. bumpNextIdFromAllData() est appelé en interne.
+      const changed = Data.dedupAllIds();
+      if (changed.has('deps')        && typeof Depenses     !== 'undefined' && Depenses.persist)     try { Depenses.persist(); }     catch (e) { console.warn(e); }
+      if (changed.has('credits')     && typeof Credits      !== 'undefined' && Credits.persist)      try { Credits.persist(); }      catch (e) { console.warn(e); }
+      if (changed.has('cheques')     && typeof Suivi        !== 'undefined' && Suivi.persist)        try { Suivi.persist(); }        catch (e) { console.warn(e); }
+      if (changed.has('banque')      && typeof Banque       !== 'undefined' && Banque.save)          try { Banque.save(); }          catch (e) { console.warn(e); }
+      if (changed.has('mobile')      && typeof Mobile       !== 'undefined' && Mobile.save)          try { Mobile.save(); }          catch (e) { console.warn(e); }
+      if (changed.has('employes')    && typeof Employes     !== 'undefined' && Employes.save)        try { Employes.save(); }        catch (e) { console.warn(e); }
+      if (changed.has('categories')  && typeof Categories   !== 'undefined' && Categories.persist)   try { Categories.persist(); }   catch (e) { console.warn(e); }
+      if (changed.has('fournisseurs')&& typeof Fournisseurs !== 'undefined' && Fournisseurs.persist) try { Fournisseurs.persist(); } catch (e) { console.warn(e); }
+      if (changed.size) console.log('🛠 IDs dédoublonnés :', [...changed].join(', '));
+    })
     .then(() => this.renderAll())
     .catch(e => console.error('Restore modules:', e));
     console.log('🍣 MEIJI App initialisée');
