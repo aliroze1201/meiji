@@ -116,10 +116,38 @@ const Dashboard = {
     }
 
     // ============== CAISSES ==============
+    // Répartition des charges par caisse :
+    //   - dépenses avec dept SUSHI / BAR / CHICHA → caisse correspondante
+    //   - dépenses 'all' (Personnel, Loyer, etc.) → réparties au prorata du CA de chaque caisse
+    const deptKey = { SUSHI: 's', BAR: 'b', CHICHA: 'c' };
+    const chargesParCaisse = { s: 0, b: 0, c: 0 };
+    let chargesAll = 0;
+    for (const d of depsPeriode) {
+      const k = deptKey[d.dept];
+      if (k) chargesParCaisse[k] += (d.montant || 0);
+      else chargesAll += (d.montant || 0);
+    }
+    const caParCaisse = {
+      s: jj.reduce((s, j) => s + Data.caisse(j, 's'), 0),
+      b: jj.reduce((s, j) => s + Data.caisse(j, 'b'), 0),
+      c: jj.reduce((s, j) => s + Data.caisse(j, 'c'), 0),
+    };
+    const caTotalAll = caParCaisse.s + caParCaisse.b + caParCaisse.c;
+    if (chargesAll > 0 && caTotalAll > 0) {
+      chargesParCaisse.s += chargesAll * (caParCaisse.s / caTotalAll);
+      chargesParCaisse.b += chargesAll * (caParCaisse.b / caTotalAll);
+      chargesParCaisse.c += chargesAll * (caParCaisse.c / caTotalAll);
+    } else if (chargesAll > 0) {
+      // Aucun CA → répartition égale
+      chargesParCaisse.s += chargesAll / 3;
+      chargesParCaisse.b += chargesAll / 3;
+      chargesParCaisse.c += chargesAll / 3;
+    }
+
     const caisseTotaux = {
-      s: this._setCaisse('cs', 's', jj),
-      b: this._setCaisse('cb', 'b', jj),
-      c: this._setCaisse('cc', 'c', jj),
+      s: this._setCaisse('cs', 's', jj, chargesParCaisse.s),
+      b: this._setCaisse('cb', 'b', jj, chargesParCaisse.b),
+      c: this._setCaisse('cc', 'c', jj, chargesParCaisse.c),
     };
 
     // ============== VUE D'ENSEMBLE CASH ==============
@@ -281,7 +309,7 @@ const Dashboard = {
     el.style.fontWeight = '700';
   },
 
-  _setCaisse(pfx, k, jj) {
+  _setCaisse(pfx, k, jj, charges = 0) {
     // Une seule passe au lieu de 5 reduce successifs sur le même tableau.
     let total = 0, totEsp = 0, totChq = 0, totMob = 0, totCred = 0;
     for (const j of jj) {
@@ -306,6 +334,15 @@ const Dashboard = {
       : null;
     const reste = lastDate ? Data.cashEndOfDay(lastDate, k) : 0;
     this._set('dash-' + pfx + '-reste', Data.fmts(reste) + ' FCFA');
+
+    // Charges et bénéfice période
+    this._set('dash-' + pfx + '-charges', Data.fmts(Math.round(charges)) + ' FCFA');
+    const benef = total - charges;
+    const benefEl = document.getElementById('dash-' + pfx + '-benef');
+    if (benefEl) {
+      benefEl.textContent = Data.fmts(Math.round(benef)) + ' FCFA';
+      benefEl.style.color = benef >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
+    }
 
     // % CA Espèces et % CA Crédit
     const pctEsp = total ? (totEsp / total * 100) : 0;
