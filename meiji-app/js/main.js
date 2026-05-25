@@ -494,6 +494,7 @@ const App = {
       (typeof Audit !== 'undefined' && Audit.restore ? Audit.restore() : Promise.resolve()),
     ])
     .then(() => Recettes.restore())
+    .then(() => Data.bumpNextIdFromAllData())
     .then(() => this.renderAll())
     .catch(e => console.error('Restore modules:', e));
     console.log('🍣 MEIJI App initialisée');
