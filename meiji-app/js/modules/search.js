@@ -344,7 +344,7 @@ const Search = {
           title: d.label || '—',
           sub: `${d.date || ''} · ${d.dept || ''} · ${fmt(d.montant)}${d.fournisseur ? ' · ' + d.fournisseur : ''}`,
           action: (() => {
-            const sid = 'dep:' + (d.userId || `${d.date}|${(d.label||'').replace(/[|"]/g,'_')}|${d.montant}|${d.dept}`);
+            const sid = 'dep:' + (d._srcKey || d.userId || `${d.date}|${(d.label||'').replace(/[|"]/g,'_')}|${d.montant}|${d.dept}`);
             return gotoById('depenses', sid, d.label, fmtDs(d.date), fmts(d.montant));
           })(),
         });

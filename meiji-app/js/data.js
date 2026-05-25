@@ -334,13 +334,22 @@ const Data = {
   },
 
   getAllDeps() {
-    const all = this.histDep.map(d => ({ ...d }));
+    // _srcKey : identifiant interne stable pour cibler une dépense de manière
+    // unique depuis la barre de recherche (utilisé comme data-search-id).
+    //   - 'u:<userId>'      pour les dépenses créées par l'utilisateur
+    //   - 'h:<index>'       pour les seed deps (histDep sans userId)
+    //   - 'j:<date>:<k>:<i>' pour les deps issues d'une journée
+    const all = this.histDep.map((d, i) => ({
+      ...d,
+      _srcKey: d.userId ? ('u:' + d.userId) : ('h:' + i),
+    }));
     this.journees.forEach(j => {
       if (!j.deps) return;
       ['s', 'b', 'c'].forEach(dk => {
         const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk];
-        (j.deps[dk] || []).forEach(d => all.push({
-          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant
+        (j.deps[dk] || []).forEach((d, i) => all.push({
+          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant,
+          _srcKey: 'j:' + j.date + ':' + dk + ':' + i,
         }));
       });
     });
