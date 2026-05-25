@@ -158,6 +158,33 @@ const Data = {
   nextId: 1000,
   newId() { return this.nextId++; },
 
+  // Met nextId au-dessus du plus grand id existant dans toutes les collections
+  // utilisant Data.newId() (userId ou id). À appeler après restauration des
+  // données depuis le serveur pour éviter les collisions d'IDs.
+  bumpNextIdFromAllData() {
+    let max = this.nextId - 1;
+    const scan = (arr, field) => {
+      if (!Array.isArray(arr)) return;
+      for (const it of arr) {
+        const v = it && it[field];
+        if (typeof v === 'number' && v > max) max = v;
+      }
+    };
+    scan(this.histDep, 'userId');
+    scan(this.credits, 'id');
+    scan(this.cheques, 'id');
+    scan(this.mvtsBanque, 'id');
+    scan(this.mvtsMobile, 'id');
+    scan(this.employes, 'userId');
+    scan(this.categories, 'id');
+    scan(this.stockArticles, 'id');
+    scan(this.stockMvts, 'id');
+    scan(this.fournisseurs, 'id');
+    scan(this.associes, 'id');
+    scan(this.prelevements, 'id');
+    this.nextId = max + 1;
+  },
+
   // ===================== HELPERS =====================
   caisse(j, k) {
     const d = j[k];
