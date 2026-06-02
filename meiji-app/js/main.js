@@ -478,7 +478,18 @@ const App = {
     // Tous les modules sont async (Supabase). Premier rendu immédiat avec
     // les seeds, puis re-render dès que les données serveur arrivent.
     this.renderAll();
-    Promise.all([
+    this.loadData();
+    console.log('🍣 MEIJI App initialisée');
+  },
+
+  // ===================== CHARGEMENT DES DONNÉES =====================
+  // Hydrate tous les modules depuis Supabase (ou localStorage en repli),
+  // puis re-render. Appelée au démarrage ET après une connexion interactive
+  // (ex. changement d'appareil) : dans ce dernier cas, App.init() a chargé
+  // les données alors qu'on n'était pas encore authentifié, il faut donc
+  // rapatrier les vraies données du cloud une fois le profil disponible.
+  loadData() {
+    return Promise.all([
       Credits.restore(),   // doit précéder Recettes (journées peuvent porter des règlements)
       Depenses.restore(),
       Suivi.restore(),
@@ -497,7 +508,6 @@ const App = {
     .then(() => Data.bumpNextIdFromAllData())
     .then(() => this.renderAll())
     .catch(e => console.error('Restore modules:', e));
-    console.log('🍣 MEIJI App initialisée');
   }
 };
 

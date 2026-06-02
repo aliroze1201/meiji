@@ -49,16 +49,21 @@ const Auth = {
     this.client = supabase.createClient(Config.supabase.url, Config.supabase.anonKey);
 
     const { data: { session } } = await this.client.auth.getSession();
+    // Session déjà présente : App.init() chargera les données juste après,
+    // le profil étant prêt → pas de rechargement supplémentaire nécessaire.
     if (session) await this._onLogin(session.user);
     else this._showLogin();
 
     this.client.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) this._onLogin(session.user);
+      // Connexion interactive (formulaire) : le profil n'existait pas au
+      // démarrage, donc App.init() a chargé des données vides/seed. On
+      // recharge depuis le cloud une fois authentifié (cas « autre appareil »).
+      if (event === 'SIGNED_IN' && session) this._onLogin(session.user, { reload: true });
       if (event === 'SIGNED_OUT') location.reload();
     });
   },
 
-  async _onLogin(user) {
+  async _onLogin(user, opts = {}) {
     this.user = user;
     const { data, error } = await this.client.from('profiles').select('*').eq('id', user.id).single();
     if (error || !data) {
@@ -70,6 +75,12 @@ const Auth = {
     this._unlockUI();
     this._applyRolePermissions();
     this._renderUserBadge();
+    // Après une connexion interactive, rapatrier les données du cloud :
+    // sans ça, l'utilisateur reste sur les données locales/seed tant qu'il
+    // n'a pas rechargé la page manuellement.
+    if (opts.reload && typeof App !== 'undefined' && App.loadData) {
+      await App.loadData();
+    }
   },
 
   _showLogin() {
