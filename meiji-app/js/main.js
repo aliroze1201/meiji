@@ -486,15 +486,36 @@ const App = {
   // ===================== RAFRAÎCHISSEMENT AUTOMATIQUE =====================
   // Recharge les données depuis le cloud toutes les 10 minutes pour que
   // l'écran reflète les saisies faites depuis un autre appareil sans avoir
-  // à recharger la page. Ne fait rien si l'utilisateur n'est pas connecté
-  // (mode public) ou si l'onglet est en arrière-plan.
+  // à recharger la page. Ne touche QUE les données déjà enregistrées/validées :
+  // les brouillons en cours (tableaux drafts, séparés) ne sont jamais écrasés,
+  // et le rafraîchissement est reporté tant que l'utilisateur travaille
+  // (champ en cours de saisie, fenêtre ouverte, onglet en arrière-plan).
   AUTO_REFRESH_MS: 10 * 60 * 1000,
   startAutoRefresh() {
     if (this._autoRefreshTimer) clearInterval(this._autoRefreshTimer);
     this._autoRefreshTimer = setInterval(() => {
-      if (document.hidden) return; // onglet en arrière-plan : on attend son retour
-      if (typeof Auth !== 'undefined' && Auth.profile) this.loadData();
+      if (typeof Auth === 'undefined' || !Auth.profile) return; // mode public
+      if (this._isUserBusy()) return;                           // saisie en cours → on reporte
+      this.loadData();
     }, this.AUTO_REFRESH_MS);
+  },
+
+  // Vrai si l'utilisateur est en train de travailler : on évite alors tout
+  // rechargement/re-render qui pourrait gêner sa saisie. Le prochain tick
+  // (10 min plus tard) réessaiera une fois qu'il aura terminé.
+  _isUserBusy() {
+    // Onglet en arrière-plan : inutile de rafraîchir maintenant.
+    if (document.hidden) return true;
+    // Une fenêtre modale est ouverte (édition, confirmation…).
+    const modal = document.getElementById('modal-container');
+    if (modal && modal.innerHTML.trim() !== '') return true;
+    // Un champ est en cours de saisie (frappe au clavier en cours).
+    const el = document.activeElement;
+    if (el) {
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable) return true;
+    }
+    return false;
   },
 
   // ===================== CHARGEMENT DES DONNÉES =====================
