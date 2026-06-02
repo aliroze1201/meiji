@@ -479,7 +479,22 @@ const App = {
     // les seeds, puis re-render dès que les données serveur arrivent.
     this.renderAll();
     this.loadData();
+    this.startAutoRefresh();
     console.log('🍣 MEIJI App initialisée');
+  },
+
+  // ===================== RAFRAÎCHISSEMENT AUTOMATIQUE =====================
+  // Recharge les données depuis le cloud toutes les 10 minutes pour que
+  // l'écran reflète les saisies faites depuis un autre appareil sans avoir
+  // à recharger la page. Ne fait rien si l'utilisateur n'est pas connecté
+  // (mode public) ou si l'onglet est en arrière-plan.
+  AUTO_REFRESH_MS: 10 * 60 * 1000,
+  startAutoRefresh() {
+    if (this._autoRefreshTimer) clearInterval(this._autoRefreshTimer);
+    this._autoRefreshTimer = setInterval(() => {
+      if (document.hidden) return; // onglet en arrière-plan : on attend son retour
+      if (typeof Auth !== 'undefined' && Auth.profile) this.loadData();
+    }, this.AUTO_REFRESH_MS);
   },
 
   // ===================== CHARGEMENT DES DONNÉES =====================
