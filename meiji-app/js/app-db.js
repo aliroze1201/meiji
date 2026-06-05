@@ -9,12 +9,60 @@
 const AppDB = {
   TABLE: 'app_state',
 
+  // Dernière erreur cloud rencontrée (lecture/écriture). Permet à l'UI
+  // d'afficher un état de synchro fiable au lieu d'échouer en silence.
+  lastError: null,
+  // Hook optionnel branché par main.js pour remonter les erreurs à l'écran.
+  onError: null,
+
   enabled() {
     return typeof Auth !== 'undefined'
         && Auth.client
         && Auth.profile
         && typeof Config !== 'undefined'
         && Config.isAuthEnabled();
+  },
+
+  // Centralise le report d'erreur : console + state + toast éventuel.
+  _report(op, key, error) {
+    this.lastError = { op, key, message: error?.message || String(error), at: Date.now() };
+    console.error(`[AppDB] ${op} ${key}:`, error);
+    if (typeof this.onError === 'function') {
+      try { this.onError(this.lastError); } catch {}
+    }
+  },
+
+  // Vérifie que la table cloud est accessible (existe + RLS OK) en écriture.
+  // Retourne { ok:true } ou { ok:false, reason, message } pour un affichage clair.
+  async healthCheck() {
+    if (!this.enabled()) return { ok: false, reason: 'disabled', message: 'Mode public (pas connecté au cloud).' };
+    // 1) Lecture : la table app_state existe-t-elle et est-elle lisible ?
+    const probeKey = '__healthcheck__';
+    const { error: readErr } = await Auth.client
+      .from(this.TABLE).select('key').eq('key', probeKey).maybeSingle();
+    if (readErr) return this._diagnose(this.TABLE, readErr);
+    // 2) Écriture : peut-on réellement écrire (RLS write) ?
+    const { error: writeErr } = await Auth.client.from(this.TABLE).upsert(
+      { key: probeKey, data: { ts: Date.now() }, updated_at: new Date().toISOString(),
+        updated_by: Auth.user?.id || null }, { onConflict: 'key' });
+    if (writeErr) return this._diagnose(this.TABLE, writeErr);
+    return { ok: true };
+  },
+
+  // Traduit une erreur Supabase brute en message clair pour l'utilisateur.
+  _diagnose(table, error) {
+    const msg  = (error?.message || '').toLowerCase();
+    const code = error?.code || '';
+    if (msg.includes('does not exist') || msg.includes('not find the table')
+        || code === 'PGRST205' || code === '42P01') {
+      return { ok: false, reason: 'missing-table',
+        message: `La table « ${table} » n'existe pas dans Supabase. Exécute le script SQL (voir SUPABASE_SETUP.md) une fois dans le SQL Editor.` };
+    }
+    if (msg.includes('row-level security') || msg.includes('permission') || code === '42501') {
+      return { ok: false, reason: 'rls',
+        message: `Accès refusé sur « ${table} » (politique RLS). Vérifie les policies du script SQL.` };
+    }
+    return { ok: false, reason: 'error', message: error?.message || 'Erreur de connexion au cloud.' };
   },
 
   // Charge cloud si dispo, sinon local. Auto-migre local → cloud si cloud vide.
@@ -55,7 +103,7 @@ const AppDB = {
   async _cloudGet(key) {
     const { data, error } = await Auth.client
       .from(this.TABLE).select('data').eq('key', key).maybeSingle();
-    if (error) { console.error('[AppDB] get '+key+':', error); return undefined; }
+    if (error) { this._report('get', key, error); return undefined; }
     return data ? data.data : undefined;
   },
   async _cloudSet(key, value) {
@@ -66,6 +114,7 @@ const AppDB = {
     };
     const { error } = await Auth.client
       .from(this.TABLE).upsert(row, { onConflict: 'key' });
-    if (error) console.error('[AppDB] set '+key+':', error);
+    if (error) { this._report('set', key, error); return false; }
+    return true;
   },
 };

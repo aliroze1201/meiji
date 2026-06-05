@@ -8,6 +8,28 @@ L'application MEIJI supporte une authentification multi-utilisateur avec 4 rôle
 
 Tant que Supabase n'est pas configuré, l'app reste accessible **sans login** (mode public).
 
+---
+
+## ⚠️ IMPORTANT — Synchronisation entre appareils
+
+Pour que tes données (recettes, dépenses, etc.) soient **à jour sur tous tes
+appareils**, il ne suffit pas de pouvoir te connecter. Il faut aussi avoir créé
+les **tables de données** dans Supabase.
+
+> Si tu te connectes correctement mais que **rien ne se synchronise** entre
+> ton téléphone et ton ordinateur, c'est presque toujours que ces tables
+> n'ont jamais été créées. Tes données restent alors seulement dans le
+> navigateur de l'appareil courant.
+
+**Solution (à faire une seule fois)** : ouvre Supabase → **SQL Editor** →
+*New query*, colle le contenu du fichier [`supabase-tables.sql`](supabase-tables.sql)
+puis clique **Run**. La requête de vérification en bas doit lister 3 tables :
+`app_state`, `journee_deps`, `journees`.
+
+Au prochain chargement de l'app, l'icône de synchro (☁️ en haut à droite)
+devient **verte** = cloud OK. Si elle est **rouge**, un message t'indique
+précisément ce qui manque.
+
 ## 📌 À savoir : pas besoin de vrais emails pour vos collègues
 
 L'app utilise des **identifiants simples** (ex: `ali`, `marie`, `jean`), pas des emails.
