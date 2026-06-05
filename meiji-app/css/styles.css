@@ -2058,3 +2058,53 @@ body.auth-locked > *:not(#login-overlay) {
   min-height: 18px;
   text-align: center;
 }
+
+/* ===================== ÉTAT DE SYNCHRO (bouton cloud) ===================== */
+#btn-sync.sync-ok    { color: var(--c-success); }
+#btn-sync.sync-error { color: var(--c-danger); }
+#btn-sync.sync-local { color: var(--c-muted-2); }
+#btn-sync.sync-busy  { color: var(--c-warning); }
+#btn-sync.sync-busy .ti { animation: sync-spin 0.9s linear infinite; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }
+
+/* ===================== TOASTS ===================== */
+.toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+  border-left: 4px solid var(--c-muted);
+  border-radius: var(--r-md);
+  box-shadow: 0 8px 28px rgba(0,0,0,.18);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  animation: toast-in .2s ease;
+}
+.toast-success { border-left-color: var(--c-success); }
+.toast-error   { border-left-color: var(--c-danger); }
+.toast-info    { border-left-color: var(--c-primary); }
+.toast-x {
+  background: none;
+  border: none;
+  color: var(--c-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  flex: 0 0 auto;
+}
+.toast-x:hover { color: var(--c-text); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

@@ -478,7 +478,17 @@ const App = {
     // Tous les modules sont async (Supabase). Premier rendu immédiat avec
     // les seeds, puis re-render dès que les données serveur arrivent.
     this.renderAll();
-    Promise.all([
+    this.restoreAll()
+      .then(() => this.initCloudSync())
+      .catch(e => console.error('Restore modules:', e));
+    console.log('🍣 MEIJI App initialisée');
+  },
+
+  // ===================== RESTAURATION DEPUIS LE CLOUD =====================
+  // Recharge TOUTES les données depuis Supabase (ou localStorage en repli),
+  // puis re-render. Réutilisée au démarrage ET par le rafraîchissement auto.
+  restoreAll() {
+    return Promise.all([
       Credits.restore(),   // doit précéder Recettes (journées peuvent porter des règlements)
       Depenses.restore(),
       Suivi.restore(),
@@ -495,9 +505,106 @@ const App = {
     ])
     .then(() => Recettes.restore())
     .then(() => Data.bumpNextIdFromAllData())
-    .then(() => this.renderAll())
-    .catch(e => console.error('Restore modules:', e));
-    console.log('🍣 MEIJI App initialisée');
+    .then(() => this.renderAll());
+  },
+
+  // ===================== SYNCHRO CLOUD : ÉTAT + AUTO-REFRESH =====================
+  _lastRefresh: 0,
+  _refreshing: false,
+
+  initCloudSync() {
+    // Mode public : pas de cloud, on l'indique discrètement et on s'arrête là.
+    if (typeof Config === 'undefined' || !Config.isAuthEnabled || !Config.isAuthEnabled()) {
+      this.setSyncStatus('local', 'Mode local (non connecté au cloud)');
+      return;
+    }
+
+    // Remonter à l'écran toute erreur cloud silencieuse (écriture/lecture).
+    if (typeof AppDB !== 'undefined') {
+      AppDB.onError = (err) => {
+        this.setSyncStatus('error', err.message);
+        this.toast(err.message, 'error');
+      };
+    }
+
+    // Test de connexion au démarrage : confirme que les données se synchronisent
+    // vraiment (table présente + droits OK), sinon explique pourquoi.
+    if (typeof AppDB !== 'undefined' && AppDB.healthCheck) {
+      AppDB.healthCheck().then((res) => {
+        if (res.ok) {
+          this.setSyncStatus('ok', 'Données synchronisées avec le cloud');
+        } else if (res.reason === 'disabled') {
+          this.setSyncStatus('local', res.message);
+        } else {
+          this.setSyncStatus('error', res.message);
+          this.toast('⚠️ Synchronisation cloud impossible : ' + res.message, 'error', 12000);
+        }
+      });
+    }
+
+    // Rafraîchissement automatique : dès que l'utilisateur revient sur l'app
+    // (changement d'onglet, réveil du téléphone), on recharge depuis le cloud
+    // pour refléter ce qui a pu être saisi sur un autre appareil.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.refreshFromCloud();
+    });
+    window.addEventListener('focus', () => this.refreshFromCloud());
+    window.addEventListener('online', () => this.refreshFromCloud());
+  },
+
+  // Recharge depuis le cloud, avec garde-fous : pas si déconnecté, pas si une
+  // modale/saisie est ouverte (on évite d'écraser une saisie en cours), et
+  // pas plus d'une fois toutes les 5 s.
+  async refreshFromCloud() {
+    if (typeof AppDB === 'undefined' || !AppDB.enabled || !AppDB.enabled()) return;
+    if (this._refreshing) return;
+    if (Date.now() - this._lastRefresh < 5000) return;
+    // Ne pas perturber une saisie en cours
+    if (document.getElementById('modal-container')?.innerHTML.trim()) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    this._refreshing = true;
+    this.setSyncStatus('sync', 'Rafraîchissement…');
+    try {
+      await this.restoreAll();
+      this._lastRefresh = Date.now();
+      this.setSyncStatus('ok', 'Données à jour');
+    } catch (e) {
+      console.error('refreshFromCloud:', e);
+      this.setSyncStatus('error', 'Échec du rafraîchissement');
+    } finally {
+      this._refreshing = false;
+    }
+  },
+
+  // Met à jour l'état visuel du bouton de synchro (couleur + infobulle).
+  setSyncStatus(state, title) {
+    const btn = document.getElementById('btn-sync');
+    if (!btn) return;
+    btn.classList.remove('sync-ok', 'sync-error', 'sync-local', 'sync-busy');
+    const map = { ok: 'sync-ok', error: 'sync-error', local: 'sync-local', sync: 'sync-busy' };
+    if (map[state]) btn.classList.add(map[state]);
+    if (title) btn.title = title;
+  },
+
+  // ===================== TOAST =====================
+  toast(message, type = 'info', duration = 5000) {
+    let host = document.getElementById('toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'toast-host';
+      host.className = 'toast-host';
+      host.setAttribute('aria-live', 'polite');
+      document.body.appendChild(host);
+    }
+    const el = document.createElement('div');
+    el.className = 'toast toast-' + type;
+    el.setAttribute('role', 'status');
+    el.innerHTML = `<span>${message}</span><button class="toast-x" aria-label="Fermer">&times;</button>`;
+    el.querySelector('.toast-x').addEventListener('click', () => el.remove());
+    host.appendChild(el);
+    if (duration > 0) setTimeout(() => el.remove(), duration);
   }
 };
 
