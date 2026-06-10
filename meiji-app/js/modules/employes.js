@@ -75,7 +75,7 @@ const Employes = {
       net: brut + prime - avance,
     };
     const isUpdate = idx >= 0;
-    if (isUpdate) Data.employes[idx] = entry;
+    if (isUpdate) Data.employes[idx] = { ...Data.employes[idx], ...entry };
     else Data.employes.push(entry);
     try {
       if (typeof Audit !== 'undefined') Audit.log(isUpdate ? 'update' : 'create', 'employes',

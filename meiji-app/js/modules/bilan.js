@@ -23,6 +23,10 @@ const Bilan = {
     set('bi-ta', Data.fmt(actif));
     set('bi-de', Data.fmt(totDep));
 
+    const masse = (Data.employes || []).reduce((s, e) => s + (Number(e.net) || 0), 0);
+    const salEl = document.getElementById('bi-salaires');
+    if (salEl) salEl.textContent = Data.fmt(masse) + ' FCFA';
+
     const rnel = document.getElementById('bi-rn');
     if (rnel) { rnel.textContent = Data.fmt(rn); rnel.style.color = rn >= 0 ? '#0F6E56' : '#A32D2D'; }
   },

@@ -3,7 +3,19 @@
  */
 
 const CEmployes = {
+  STORAGE_KEY: 'meiji-comptes-emp',
+
+  save() { AppDB.save(this.STORAGE_KEY, Data.compteEmp); },
+
+  async restore() {
+    const obj = await AppDB.load(this.STORAGE_KEY);
+    if (obj && typeof obj === 'object') Data.compteEmp = obj;
+  },
+
   openModal() {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('comptes-emp')) {
+      alert('Accès refusé.'); return;
+    }
     App.showModal(`
       <div class="modal-overlay">
         <div class="modal">
@@ -38,6 +50,7 @@ const CEmployes = {
     };
     if (!e.lib) { alert('Désignation requise'); return; }
     Data.compteEmp[emp].push(e);
+    this.save();
     App.closeModal();
     this.render();
   },
