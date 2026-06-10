@@ -224,6 +224,215 @@ const Employes = {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   },
 
+  // ===================== FICHE DE DETTE =====================
+
+  _detteSolde(d) {
+    const paye = (d.reglements || []).reduce((s, r) => s + (r.montant || 0), 0);
+    return Math.max(0, (d.montant || 0) - paye);
+  },
+
+  _detteTotaux(e) {
+    const dettes = Array.isArray(e.dettes) ? e.dettes : [];
+    const totalDette = dettes.reduce((s, d) => s + (d.montant || 0), 0);
+    const totalRegle = dettes.reduce((s, d) => s + (d.reglements || []).reduce((sr, r) => sr + (r.montant || 0), 0), 0);
+    return { totalDette, totalRegle, soldeRestant: Math.max(0, totalDette - totalRegle) };
+  },
+
+  openFicheDette(idx) {
+    const e = Data.employes[idx];
+    if (!e) return;
+    this._renderFicheDette(idx);
+  },
+
+  _renderFicheDette(idx) {
+    const e = Data.employes[idx];
+    if (!e) return;
+    const dettes = Array.isArray(e.dettes) ? e.dettes : [];
+    const { totalDette, totalRegle, soldeRestant } = this._detteTotaux(e);
+
+    const lignesDettes = dettes.length ? dettes.map((d, di) => {
+      const solde = this._detteSolde(d);
+      const paye = (d.reglements || []).reduce((s, r) => s + (r.montant || 0), 0);
+      const statut = solde <= 0 ? `<span class="badge b-green">Réglé</span>` : `<span class="badge b-red">Solde : ${Data.fmts(solde)}</span>`;
+      const lignesReg = (d.reglements || []).map(r =>
+        `<div style="font-size:11px;color:var(--c-muted);padding:2px 0 2px 12px">
+          ↳ ${Data.fmtDs(r.date)} · Règlement ${Data.fmts(r.montant)} · Caisse ${r.caisse}
+         </div>`).join('');
+      const btnRegler = solde > 0
+        ? `<button class="btn btn-sm btn-primary" onclick="Employes.openReglementDette(${idx}, ${di})" style="margin-top:4px"><i class="ti ti-coin"></i> Régler</button>`
+        : '';
+      return `
+        <div style="background:var(--c-surface);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--c-border)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div>
+              <div style="font-weight:600;font-size:13px">${this._escape(d.motif)}</div>
+              <div style="font-size:11px;color:var(--c-muted)">${Data.fmtDs(d.date)} · Montant initial : ${Data.fmts(d.montant)}</div>
+              ${lignesReg}
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              ${statut}
+              ${btnRegler}
+            </div>
+          </div>
+        </div>`;
+    }).join('') : `<div class="empty" style="padding:16px 0;text-align:center;color:var(--c-muted)">Aucune dette enregistrée</div>`;
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:560px">
+          <div class="modal-title"><i class="ti ti-receipt-2"></i> Fiche de dette — ${this._escape(e.nom)}</div>
+
+          <div class="fr" style="gap:8px;margin-bottom:12px">
+            <div style="flex:1;background:var(--c-surface);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:var(--c-muted);text-transform:uppercase;letter-spacing:1px">Total dette</div>
+              <div style="font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--c-red)">${Data.fmts(totalDette)}</div>
+            </div>
+            <div style="flex:1;background:var(--c-surface);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:var(--c-muted);text-transform:uppercase;letter-spacing:1px">Déjà réglé</div>
+              <div style="font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--c-green)">${Data.fmts(totalRegle)}</div>
+            </div>
+            <div style="flex:1;background:var(--c-surface);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:var(--c-muted);text-transform:uppercase;letter-spacing:1px">Reste à régler</div>
+              <div style="font-family:var(--font-display);font-size:18px;font-weight:800;color:${soldeRestant>0?'var(--c-red)':'var(--c-green)'}">${Data.fmts(soldeRestant)}</div>
+            </div>
+          </div>
+
+          <div style="font-size:12px;color:var(--c-muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Détail des dettes</div>
+          <div id="dette-liste" style="max-height:260px;overflow-y:auto">${lignesDettes}</div>
+
+          <div style="border-top:1px solid var(--c-border);margin-top:12px;padding-top:12px">
+            <div style="font-size:12px;color:var(--c-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Ajouter une nouvelle dette</div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Date</label><input type="date" id="nd-date" value="${Data.today()}"></div>
+              <div class="fg"><label class="fl">Montant (FCFA)</label><input type="number" id="nd-montant" min="1" placeholder="0"></div>
+            </div>
+            <div class="fg"><label class="fl">Motif / Description</label><input type="text" id="nd-motif" placeholder="Ex: Avance sur marchandises, prêt personnel..."></div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Fermer</button>
+            <button class="btn btn-primary" onclick="Employes.saveDette(${idx})"><i class="ti ti-plus"></i> Enregistrer la dette</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  saveDette(idx) {
+    const e = Data.employes[idx];
+    if (!e) return;
+    const date = document.getElementById('nd-date')?.value || Data.today();
+    const montant = parseFloat(document.getElementById('nd-montant')?.value) || 0;
+    const motif = document.getElementById('nd-motif')?.value.trim() || '';
+    if (montant <= 0) { alert('Le montant doit être supérieur à 0.'); return; }
+    if (!motif) { alert('Le motif est requis.'); return; }
+
+    if (!Array.isArray(e.dettes)) e.dettes = [];
+    const dette = { id: Data.newId(), date, motif, montant, reglements: [] };
+    e.dettes.push(dette);
+
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'employes',
+        `Dette ${e.nom}`, `${motif} · ${Data.fmt(montant)}`, { after: dette });
+    } catch(err) {}
+
+    this.save();
+    this._renderFicheDette(idx);
+  },
+
+  openReglementDette(empIdx, detteIdx) {
+    const e = Data.employes[empIdx];
+    if (!e) return;
+    const d = (e.dettes || [])[detteIdx];
+    if (!d) return;
+    const solde = this._detteSolde(d);
+    const deptDefault = e.dept === 'RESTAURANT' ? 'SUSHI' : (e.dept || 'BAR');
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-title"><i class="ti ti-coin"></i> Règlement de dette — ${this._escape(e.nom)}</div>
+          <div style="background:var(--c-surface);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px">
+            <div style="font-weight:600">${this._escape(d.motif)}</div>
+            <div style="color:var(--c-muted);font-size:12px">Dette initiale : ${Data.fmts(d.montant)} · Solde restant : <strong style="color:var(--c-red)">${Data.fmts(solde)}</strong></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Date</label><input type="date" id="reg-date" value="${Data.today()}"></div>
+            <div class="fg"><label class="fl">Montant à régler (FCFA)</label><input type="number" id="reg-montant" min="1" max="${solde}" value="${solde}" placeholder="0"></div>
+          </div>
+          <div class="fg"><label class="fl">Caisse impactée</label>
+            <select id="reg-caisse">
+              <option value="SUSHI"  ${deptDefault==='SUSHI'?'selected':''}>SUSHI</option>
+              <option value="BAR"    ${deptDefault==='BAR'?'selected':''}>BAR</option>
+              <option value="CHICHA" ${deptDefault==='CHICHA'?'selected':''}>CHICHA</option>
+            </select>
+          </div>
+          <div style="background:var(--c-surface);padding:10px 12px;border-radius:8px;font-size:12px;color:var(--c-muted);margin:6px 0">
+            <i class="ti ti-info-circle"></i> Ce règlement crée une dépense sur la caisse sélectionnée et déduit le montant du salaire net restant à payer à l'employé.
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="Employes.openFicheDette(${empIdx})">Retour</button>
+            <button class="btn btn-primary" onclick="Employes.confirmReglementDette(${empIdx}, ${detteIdx})"><i class="ti ti-check"></i> Valider le règlement</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  confirmReglementDette(empIdx, detteIdx) {
+    const e = Data.employes[empIdx];
+    if (!e) return;
+    const d = (e.dettes || [])[detteIdx];
+    if (!d) return;
+    const solde = this._detteSolde(d);
+
+    const date    = document.getElementById('reg-date')?.value || Data.today();
+    const montant = parseFloat(document.getElementById('reg-montant')?.value) || 0;
+    const caisse  = document.getElementById('reg-caisse')?.value || 'BAR';
+
+    if (montant <= 0) { alert('Le montant doit être supérieur à 0.'); return; }
+    if (montant > solde + 0.01) { alert(`Le montant ne peut pas dépasser le solde restant (${Data.fmts(solde)}).`); return; }
+
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(date)) {
+      alert('Le mois de cette date est clôturé : règlement bloqué.');
+      return;
+    }
+
+    // Enregistre le règlement sur la dette
+    if (!Array.isArray(d.reglements)) d.reglements = [];
+    const regId = Data.newId();
+    d.reglements.push({ id: regId, date, montant, caisse });
+
+    // Déduit du salaire net : on augmente l'avance (net = brut + prime - avance)
+    e.avance = (Number(e.avance) || 0) + montant;
+    e.net = (Number(e.brut) || 0) + (Number(e.prime) || 0) - (Number(e.avance) || 0);
+
+    // Crée une dépense qui impact la caisse
+    const depense = {
+      userId: regId,
+      date,
+      dept: caisse,
+      label: `Règlement dette ${e.nom}`,
+      groupe: 'Personnel',
+      qte: null, prix: null,
+      montant,
+      observation: `Règlement dette : ${d.motif}`,
+      paiement: 'esp',
+      empNom: e.nom,
+      payType: 'dette',
+    };
+    Data.histDep.push(depense);
+    if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
+        `Règlement dette ${e.nom}`, `${Data.fmt(montant)} · caisse ${caisse} · ${d.motif}`,
+        { id: regId, after: depense });
+    } catch(err) {}
+
+    this.save();
+    App.renderAll();
+    this.openFicheDette(empIdx);
+  },
+
   render() {
     const filter = App.filters.emp;
     const list = filter === 'all' ? Data.employes : Data.employes.filter(e => e.dept === filter);
@@ -231,14 +440,17 @@ const Employes = {
 
     const totBrut = list.reduce((s, e) => s + (e.brut || 0), 0);
     const totAvance = list.reduce((s, e) => s + (e.avance || 0), 0);
+    const totDettes = list.reduce((s, e) => s + this._detteTotaux(e).soldeRestant, 0);
     set('emp-effectif', list.length);
     set('emp-brut', Data.fmt(totBrut));
     set('emp-avances', Data.fmt(totAvance));
+    const elDettes = document.getElementById('emp-dettes-total');
+    if (elDettes) elDettes.textContent = Data.fmt(totDettes);
 
     const tb = document.getElementById('emp-table');
     if (!tb) return;
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="8" class="empty">Aucun employé</td></tr>';
+      tb.innerHTML = '<tr><td colspan="9" class="empty">Aucun employé</td></tr>';
       return;
     }
     tb.innerHTML = list.map((e) => {
@@ -249,6 +461,10 @@ const Employes = {
       const lastLabel = lastPay
         ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">Payé le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
         : '';
+      const { soldeRestant } = this._detteTotaux(e);
+      const detteBadge = soldeRestant > 0
+        ? `<span class="badge b-red" style="margin-left:4px;font-size:10px" title="Dette restante">Dette ${Data.fmts(soldeRestant)}</span>`
+        : '';
       return `
       <tr data-search-id="emp:${this._escape(e.nom)}">
         <td class="fw-bold">${e.nom}${lastLabel}</td>
@@ -257,9 +473,10 @@ const Employes = {
         <td class="text-right">${Data.fmts(e.brut)}</td>
         <td class="text-right text-green">${e.prime ? '+' + Data.fmts(e.prime) : '-'}</td>
         <td class="text-right text-red">${e.avance ? Data.fmts(e.avance) : '-'}</td>
-        <td class="text-right fw-bold">${Data.fmts(e.net)}</td>
+        <td class="text-right fw-bold">${Data.fmts(e.net)}${detteBadge}</td>
         <td class="nowrap">
           <button class="btn btn-sm btn-primary" onclick="Employes.openPayModal(${realIdx})" title="Payer cet employé"><i class="ti ti-cash"></i> Payer</button>
+          <button class="btn btn-sm" onclick="Employes.openFicheDette(${realIdx})" title="Fiche de dette" style="${soldeRestant>0?'color:var(--c-red);font-weight:600':''}"><i class="ti ti-receipt-2"></i> Dettes</button>
           <button class="btn btn-sm" onclick="Employes.openModal(${realIdx})" title="Modifier"><i class="ti ti-edit"></i></button>
           <button class="btn btn-sm" onclick="Employes.delete(${realIdx})" title="Supprimer" style="color:var(--c-red)"><i class="ti ti-trash"></i></button>
         </td>
