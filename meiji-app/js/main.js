@@ -602,8 +602,15 @@ const App = {
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
     el.setAttribute('role', 'status');
-    el.innerHTML = `<span>${message}</span><button class="toast-x" aria-label="Fermer">&times;</button>`;
-    el.querySelector('.toast-x').addEventListener('click', () => el.remove());
+    const span = document.createElement('span');
+    span.textContent = message;
+    const btn = document.createElement('button');
+    btn.className = 'toast-x';
+    btn.setAttribute('aria-label', 'Fermer');
+    btn.innerHTML = '&times;';
+    btn.addEventListener('click', () => el.remove());
+    el.appendChild(span);
+    el.appendChild(btn);
     host.appendChild(el);
     if (duration > 0) setTimeout(() => el.remove(), duration);
   }

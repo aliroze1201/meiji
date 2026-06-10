@@ -178,7 +178,7 @@ const Data = {
     scan(this.employes, 'userId');
     scan(this.categories, 'id');
     scan(this.stockArticles, 'id');
-    scan(this.stockMvts, 'id');
+    scan(this.stockMouvements, 'id');
     scan(this.fournisseurs, 'id');
     scan(this.associes, 'id');
     scan(this.prelevements, 'id');

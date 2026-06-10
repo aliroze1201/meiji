@@ -5,6 +5,7 @@
 
 const Utilisateurs = {
   rows: [],
+  _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
 
   async render() {
     const root = document.getElementById('page-utilisateurs');
@@ -77,7 +78,7 @@ const Utilisateurs = {
       return `
       <tr data-id="${u.id}">
         <td><b>${Auth.toUsername(u.email)}</b></td>
-        <td><input class="u-nom" type="text" value="${(u.nom || '').replace(/"/g, '&quot;')}" placeholder="Prénom Nom"></td>
+        <td><input class="u-nom" type="text" value="${this._esc(u.nom || '')}" placeholder="Prénom Nom"></td>
         <td>
           <select class="u-role">
             ${ROLES.map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}
