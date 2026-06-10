@@ -107,9 +107,9 @@ const App = {
     if (typeof Suivi    !== 'undefined' && Suivi.persist) await tryStep(`${(Data.cheques||[]).length} chèque(s)`,   () => Suivi.persist());
     if (typeof Credits  !== 'undefined' && Credits.persist) await tryStep(`${(Data.credits||[]).length} crédit(s)`,  () => Credits.persist());
     if (typeof Employes !== 'undefined' && Employes.save)  await tryStep(`${(Data.employes||[]).length} employé(s)`, () => Employes.save());
+    if (typeof CEmployes !== 'undefined' && CEmployes.save) await tryStep('Comptes employés', () => CEmployes.save());
     if (typeof Clotures !== 'undefined' && Clotures.persist) await tryStep('Clôtures', () => Clotures.persist());
-    if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep('Articles + mouvements stock',          () => Stock.save());
-    if (typeof Stock    !== 'undefined' && Stock.save)       await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
+    if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
     if (typeof Categories !== 'undefined' && Categories.persist) await tryStep(`${(Data.categories||[]).length} catégorie(s)`, () => Categories.persist());
     if (typeof Fournisseurs !== 'undefined' && Fournisseurs.persist) await tryStep(`${(Data.fournisseurs||[]).length} facture(s) fournisseur`, () => Fournisseurs.persist());
     if (typeof Fournisseurs !== 'undefined' && Fournisseurs.saveList) await tryStep(`Liste fournisseurs (${(Data.fournisseursListe||[]).length})`, () => Fournisseurs.saveList());
@@ -500,6 +500,7 @@ const App = {
       (typeof Stock !== 'undefined' && Stock.restore ? Stock.restore() : Promise.resolve()),
       (typeof Categories !== 'undefined' && Categories.restore ? Categories.restore() : Promise.resolve()),
       (typeof Fournisseurs !== 'undefined' && Fournisseurs.restore ? Fournisseurs.restore() : Promise.resolve()),
+      (typeof CEmployes !== 'undefined' && CEmployes.restore ? CEmployes.restore() : Promise.resolve()),
       (typeof Associes !== 'undefined' && Associes.restore ? Associes.restore() : Promise.resolve()),
       (typeof Audit !== 'undefined' && Audit.restore ? Audit.restore() : Promise.resolve()),
     ])
