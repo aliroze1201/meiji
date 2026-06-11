@@ -16,20 +16,23 @@ const CEmployes = {
     if (obj && typeof obj === 'object') Data.compteEmp = obj;
   },
 
-  // Tous les noms d'employés à proposer dans le sélecteur du modal :
-  // l'union des employés actifs (Data.employes) + des comptes existants
-  // (pour préserver les anciennes écritures CHRIST/FRANCIS/KING même si
-  // l'employé a été supprimé).
+  // Tous les noms à proposer :
+  // - tous les employés de Data.employes (onglet Employés)
+  // - + les comptes existants ayant des écritures (pour conserver l'historique
+  //   si un employé a été supprimé)
+  // Les clés génériques héritées (CHRIST, FRANCIS, KING) sans écriture sont ignorées.
   _allNames() {
     const set = new Set();
     (Data.employes || []).forEach(e => { if (e.nom) set.add(e.nom); });
-    Object.keys(Data.compteEmp || {}).forEach(k => set.add(k));
+    Object.entries(Data.compteEmp || {}).forEach(([k, v]) => {
+      if (Array.isArray(v) && v.length > 0) set.add(k); // conserve si écritures
+    });
     return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
   },
 
-  // Employés à afficher : ceux qui ont au moins une écriture.
+  // Employés à afficher : tous les employés + ceux qui ont des anciennes écritures.
   _activeNames() {
-    return this._allNames().filter(n => (Data.compteEmp[n] || []).length > 0);
+    return this._allNames();
   },
 
   _escape(s) {
@@ -194,8 +197,8 @@ const CEmployes = {
       container.innerHTML = `
         <div class="card" style="text-align:center;padding:32px;color:var(--c-muted)">
           <i class="ti ti-user-dollar" style="font-size:32px;display:block;margin-bottom:8px"></i>
-          Aucune écriture pour le moment.<br>
-          Cliquez sur <b>Écriture</b> pour enregistrer un prêt ou un remboursement.
+          Aucun employé trouvé.<br>
+          Ajoutez d'abord des employés dans l'onglet <b>Employés</b>.
         </div>`;
       return;
     }
