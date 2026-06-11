@@ -490,7 +490,7 @@ const Employes = {
       const statut = solde <= 0 ? `<span class="badge b-green">Réglé</span>` : `<span class="badge b-red">Solde : ${Data.fmts(solde)}</span>`;
       const lignesReg = (d.reglements || []).map(r =>
         `<div style="font-size:11px;color:var(--c-muted);padding:2px 0 2px 12px">
-          ↳ ${Data.fmtDs(r.date)} · Règlement ${Data.fmts(r.montant)} · Caisse ${r.caisse}
+          ↳ ${Data.fmtDs(r.date)} · Remboursement ${Data.fmts(r.montant)} · déduit du salaire
          </div>`).join('');
       const btnRegler = solde > 0
         ? `<button class="btn btn-sm btn-primary" onclick="Employes.openReglementDette(${idx}, ${di})" style="margin-top:4px"><i class="ti ti-coin"></i> Régler</button>`
@@ -579,7 +579,6 @@ const Employes = {
     const d = (e.dettes || [])[detteIdx];
     if (!d) return;
     const solde = this._detteSolde(d);
-    const deptDefault = e.dept === 'RESTAURANT' ? 'SUSHI' : (e.dept || 'BAR');
 
     App.showModal(`
       <div class="modal-overlay">
@@ -593,15 +592,9 @@ const Employes = {
             <div class="fg"><label class="fl">Date</label><input type="date" id="reg-date" value="${Data.today()}"></div>
             <div class="fg"><label class="fl">Montant à régler (FCFA)</label><input type="number" id="reg-montant" min="1" max="${solde}" value="${solde}" placeholder="0"></div>
           </div>
-          <div class="fg"><label class="fl">Caisse impactée</label>
-            <select id="reg-caisse">
-              <option value="SUSHI"  ${deptDefault==='SUSHI'?'selected':''}>SUSHI</option>
-              <option value="BAR"    ${deptDefault==='BAR'?'selected':''}>BAR</option>
-              <option value="CHICHA" ${deptDefault==='CHICHA'?'selected':''}>CHICHA</option>
-            </select>
-          </div>
-          <div style="background:var(--c-surface);padding:10px 12px;border-radius:8px;font-size:12px;color:var(--c-muted);margin:6px 0">
-            <i class="ti ti-info-circle"></i> Ce règlement crée une dépense sur la caisse sélectionnée et déduit le montant du salaire net restant à payer à l'employé.
+          <div style="background:#0F6E5615;border:1px solid #0F6E5640;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--c-text);margin:6px 0">
+            <i class="ti ti-info-circle" style="color:#0F6E56"></i>
+            Le montant remboursé sera <strong>déduit du salaire net</strong> de l'employé (ajouté aux avances de l'onglet Employés).
           </div>
           <div class="modal-actions">
             <button class="btn" onclick="Employes.openFicheDette(${empIdx})">Retour</button>
@@ -620,7 +613,6 @@ const Employes = {
 
     const date    = document.getElementById('reg-date')?.value || Data.today();
     const montant = parseFloat(document.getElementById('reg-montant')?.value) || 0;
-    const caisse  = document.getElementById('reg-caisse')?.value || 'BAR';
 
     if (montant <= 0) { alert('Le montant doit être supérieur à 0.'); return; }
     if (montant > solde + 0.01) { alert(`Le montant ne peut pas dépasser le solde restant (${Data.fmts(solde)}).`); return; }
@@ -633,33 +625,17 @@ const Employes = {
     // Enregistre le règlement sur la dette
     if (!Array.isArray(d.reglements)) d.reglements = [];
     const regId = Data.newId();
-    d.reglements.push({ id: regId, date, montant, caisse });
+    d.reglements.push({ id: regId, date, montant });
 
-    // Déduit du salaire net : on augmente l'avance (net = brut + prime - avance)
+    // Déduit du salaire net : avance += montant → net = brut + prime - avance
     e.avance = (Number(e.avance) || 0) + montant;
-    e.net = (Number(e.brut) || 0) + (Number(e.prime) || 0) - (Number(e.avance) || 0);
-
-    // Crée une dépense qui impact la caisse
-    const depense = {
-      userId: regId,
-      date,
-      dept: caisse,
-      label: `Règlement dette ${e.nom}`,
-      groupe: 'Personnel',
-      qte: null, prix: null,
-      montant,
-      observation: `Règlement dette : ${d.motif}`,
-      paiement: 'esp',
-      empNom: e.nom,
-      payType: 'dette',
-    };
-    Data.histDep.push(depense);
-    if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+    e.net    = (Number(e.brut)   || 0) + (Number(e.prime) || 0) - (Number(e.avance) || 0);
 
     try {
-      if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
-        `Règlement dette ${e.nom}`, `${Data.fmt(montant)} · caisse ${caisse} · ${d.motif}`,
-        { id: regId, after: depense });
+      if (typeof Audit !== 'undefined') Audit.log('create', 'employes',
+        `Règlement dette ${e.nom}`,
+        `${Data.fmt(montant)} · déduit salaire · ${d.motif}`,
+        { id: regId });
     } catch(err) {}
 
     this.save();
