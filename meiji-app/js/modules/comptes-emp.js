@@ -215,10 +215,12 @@ const CEmployes = {
       const totD = ops.reduce((s, o) => s + (o.deb || 0), 0);
       const totC = ops.reduce((s, o) => s + (o.cred || 0), 0);
       const solde = totD - totC;
-      const fiche = (Data.employes || []).find(e => e.nom === emp);
+      const ficheIdx = (Data.employes || []).findIndex(e => e.nom === emp);
+      const fiche = ficheIdx >= 0 ? Data.employes[ficheIdx] : null;
       const sousTitre = fiche ? `${fiche.poste || ''} · ${fiche.dept || ''}` : '';
       const empAttr = this._escape(emp);
 
+      // ── Écritures de compte (prêts / remboursements) ──
       const rows = ops.length
         ? [...ops].reverse().map(o => {
             const cm = o.caisse ? caisseMeta[o.caisse] : null;
@@ -243,6 +245,55 @@ const CEmployes = {
       const soldeCouleur = solde > 0 ? '#A32D2D' : solde < 0 ? '#0F6E56' : '#aaa';
       const soldeLabel   = solde > 0 ? 'dû' : solde < 0 ? 'crédit' : '';
 
+      // ── Section dettes (si employé trouvé dans Data.employes) ──
+      let detteSection = '';
+      if (fiche) {
+        const dettes = Array.isArray(fiche.dettes) ? fiche.dettes : [];
+        const totalDette = dettes.reduce((s, d) => s + (d.montant || 0), 0);
+        const totalRegle = dettes.reduce((s, d) => s + (d.reglements || []).reduce((sr, r) => sr + (r.montant || 0), 0), 0);
+        const soldeRestant = Math.max(0, totalDette - totalRegle);
+        const detteBadge = soldeRestant > 0
+          ? `<span class="badge b-red" style="font-size:11px">Solde : ${Data.fmts(soldeRestant)}</span>`
+          : dettes.length ? `<span class="badge b-green" style="font-size:11px">Tout réglé</span>` : '';
+
+        const detteRows = dettes.length ? dettes.map((d, di) => {
+          const s = Math.max(0, (d.montant || 0) - (d.reglements || []).reduce((sr, r) => sr + (r.montant || 0), 0));
+          const statut = s <= 0
+            ? `<span class="badge b-green" style="font-size:10px">Réglé</span>`
+            : `<span class="badge b-red" style="font-size:10px">${Data.fmts(s)}</span>`;
+          const btnR = s > 0
+            ? `<button class="btn btn-sm btn-primary" onclick="Employes.openReglementDette(${ficheIdx},${di})"><i class="ti ti-coin"></i> Régler</button>`
+            : '';
+          return `<tr>
+            <td>${Data.fmtDs(d.date)}</td>
+            <td>${this._escape(d.motif)}</td>
+            <td class="text-right">${Data.fmts(d.montant)}</td>
+            <td>${statut}</td>
+            <td class="nowrap">${btnR}</td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="5" class="empty">Aucune dette</td></tr>`;
+
+        detteSection = `
+          <div style="border-top:2px solid var(--c-border);margin-top:16px;padding-top:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+              <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px">
+                <i class="ti ti-receipt-2"></i> Dettes ${detteBadge}
+              </div>
+              <button class="btn btn-sm btn-primary" onclick="Employes.openFicheDette(${ficheIdx})">
+                <i class="ti ti-plus"></i> Ajouter / Gérer
+              </button>
+            </div>
+            <table>
+              <thead><tr>
+                <th>Date</th><th>Motif</th>
+                <th class="text-right">Montant</th>
+                <th>Statut</th><th></th>
+              </tr></thead>
+              <tbody>${detteRows}</tbody>
+            </table>
+          </div>`;
+      }
+
       return `
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -255,7 +306,7 @@ const CEmployes = {
                 <i class="ti ti-cash"></i> Remboursement
               </button>
               <div style="text-align:right">
-                <div style="font-size:11px;color:#aaa">Solde</div>
+                <div style="font-size:11px;color:#aaa">Solde prêts</div>
                 <div style="font-size:16px;font-weight:700;color:${soldeCouleur}">
                   ${Data.fmt(Math.abs(solde))} <span style="font-size:12px">${soldeLabel}</span>
                 </div>
@@ -279,6 +330,7 @@ const CEmployes = {
             </thead>
             <tbody>${rows}</tbody>
           </table>
+          ${detteSection}
         </div>`;
     }).join('');
   },

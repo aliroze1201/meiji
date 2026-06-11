@@ -674,17 +674,14 @@ const Employes = {
 
     const totBrut = list.reduce((s, e) => s + (e.brut || 0), 0);
     const totAvance = list.reduce((s, e) => s + (e.avance || 0), 0);
-    const totDettes = list.reduce((s, e) => s + this._detteTotaux(e).soldeRestant, 0);
     set('emp-effectif', list.length);
     set('emp-brut', Data.fmt(totBrut));
     set('emp-avances', Data.fmt(totAvance));
-    const elDettes = document.getElementById('emp-dettes-total');
-    if (elDettes) elDettes.textContent = Data.fmt(totDettes);
 
     const tb = document.getElementById('emp-table');
     if (!tb) return;
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="9" class="empty">Aucun employé</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" class="empty">Aucun employé</td></tr>';
       return;
     }
     tb.innerHTML = list.map((e) => {
@@ -695,10 +692,6 @@ const Employes = {
       const lastLabel = lastPay
         ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">Payé le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
         : '';
-      const { soldeRestant } = this._detteTotaux(e);
-      const detteBadge = soldeRestant > 0
-        ? `<span class="badge b-red" style="margin-left:4px;font-size:10px" title="Dette restante">Dette ${Data.fmts(soldeRestant)}</span>`
-        : '';
       return `
       <tr data-search-id="emp:${this._escape(e.nom)}">
         <td class="fw-bold">${e.nom}${lastLabel}</td>
@@ -707,10 +700,9 @@ const Employes = {
         <td class="text-right">${Data.fmts(e.brut)}</td>
         <td class="text-right text-green">${e.prime ? '+' + Data.fmts(e.prime) : '-'}</td>
         <td class="text-right text-red">${e.avance ? Data.fmts(e.avance) : '-'}</td>
-        <td class="text-right fw-bold">${Data.fmts(e.net)}${detteBadge}</td>
+        <td class="text-right fw-bold">${Data.fmts(e.net)}</td>
         <td class="nowrap">
           <button class="btn btn-sm btn-primary" onclick="Employes.openPayModal(${realIdx})" title="Payer cet employé"><i class="ti ti-cash"></i> Payer</button>
-          <button class="btn btn-sm" onclick="Employes.openFicheDette(${realIdx})" title="Fiche de dette" style="${soldeRestant>0?'color:var(--c-red);font-weight:600':''}"><i class="ti ti-receipt-2"></i> Dettes</button>
           <button class="btn btn-sm" onclick="Employes.openModal(${realIdx})" title="Modifier"><i class="ti ti-edit"></i></button>
           <button class="btn btn-sm" onclick="Employes.delete(${realIdx})" title="Supprimer" style="color:var(--c-red)"><i class="ti ti-trash"></i></button>
         </td>
