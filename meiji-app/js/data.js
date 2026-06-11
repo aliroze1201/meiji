@@ -216,6 +216,12 @@ const Data = {
         .filter(m => m.date === date && m.type === 'out' && m.caisse === k)
         .reduce((s, m) => s + (Number(m.mnt) || 0), 0);
     }
+    // Remboursements employés en espèces vers cette caisse
+    Object.values(this.compteEmp || {}).forEach(arr => {
+      total += (arr || [])
+        .filter(e => e.date === date && e.type === 'remb' && e.caisse === k)
+        .reduce((s, e) => s + (Number(e.cred) || 0), 0);
+    });
     return total;
   },
   // Dépenses espèces d'une caisse sur une date.
@@ -248,6 +254,12 @@ const Data = {
         .filter(m => m.date === date && m.type === 'in' && m.caisse === k)
         .reduce((s, m) => s + (Number(m.mnt) || 0), 0);
     }
+    // Prêts employés en espèces sortant de cette caisse
+    Object.values(this.compteEmp || {}).forEach(arr => {
+      total += (arr || [])
+        .filter(e => e.date === date && e.type === 'pret' && e.caisse === k)
+        .reduce((s, e) => s + (Number(e.deb) || 0), 0);
+    });
     return total;
   },
 
@@ -268,6 +280,9 @@ const Data = {
     (this.mvtsBanque || []).forEach(m => { if (m.date && m.caisse) set.add(m.date); });
     (this.mvtsMobile || []).forEach(m => { if (m.date && m.caisse) set.add(m.date); });
     (this.prelevements || []).forEach(p => { if (p.date && p.paiement === 'esp') set.add(p.date); });
+    Object.values(this.compteEmp || {}).forEach(arr => {
+      (arr || []).forEach(e => { if (e.date && e.caisse) set.add(e.date); });
+    });
     return [...set].sort();
   },
   // Solde espèces reporté au DÉBUT d'une date pour la caisse k.
