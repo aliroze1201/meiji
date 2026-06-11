@@ -1,5 +1,6 @@
 /**
- * comptes-emp.js — Comptes individuels CHRIST/FRANCIS/KING.
+ * comptes-emp.js — Comptes individuels des employés.
+ * Liste dynamique : alimentée par Data.employes (onglet Employés).
  * Prêts : décaissent la caisse sélectionnée.
  * Remboursements : réalimentent la caisse sélectionnée.
  */
@@ -15,13 +16,42 @@ const CEmployes = {
     if (obj && typeof obj === 'object') Data.compteEmp = obj;
   },
 
-  // opts: { emp, type, pretEmp } — type = 'pret' | 'remb' | 'autre'
+  // Tous les noms d'employés à proposer dans le sélecteur du modal :
+  // l'union des employés actifs (Data.employes) + des comptes existants
+  // (pour préserver les anciennes écritures CHRIST/FRANCIS/KING même si
+  // l'employé a été supprimé).
+  _allNames() {
+    const set = new Set();
+    (Data.employes || []).forEach(e => { if (e.nom) set.add(e.nom); });
+    Object.keys(Data.compteEmp || {}).forEach(k => set.add(k));
+    return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
+  },
+
+  // Employés à afficher : ceux qui ont au moins une écriture.
+  _activeNames() {
+    return this._allNames().filter(n => (Data.compteEmp[n] || []).length > 0);
+  },
+
+  _escape(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  },
+
+  // opts: { emp, type } — type = 'pret' | 'remb' | 'autre'
   openModal(opts = {}) {
     if (typeof Auth !== 'undefined' && !Auth.canEdit('comptes-emp')) {
       alert('Accès refusé.'); return;
     }
-    const emp  = opts.emp  || 'CHRIST';
+    const names = this._allNames();
+    if (!names.length) {
+      alert("Aucun employé disponible. Ajoutez d'abord un employé dans l'onglet Employés.");
+      return;
+    }
+    const emp  = opts.emp && names.includes(opts.emp) ? opts.emp : names[0];
     const type = opts.type || 'pret';
+
+    const empOptions = names.map(n =>
+      `<option value="${this._escape(n)}" ${n === emp ? 'selected' : ''}>${this._escape(n)}</option>`
+    ).join('');
 
     App.showModal(`
       <div class="modal-overlay">
@@ -29,11 +59,7 @@ const CEmployes = {
           <div class="modal-title">Écriture compte employé</div>
           <div class="fr">
             <div class="fg"><label class="fl">Employé</label>
-              <select id="ce-emp">
-                <option ${emp==='CHRIST'  ? 'selected' : ''}>CHRIST</option>
-                <option ${emp==='FRANCIS' ? 'selected' : ''}>FRANCIS</option>
-                <option ${emp==='KING'    ? 'selected' : ''}>KING</option>
-              </select>
+              <select id="ce-emp">${empOptions}</select>
             </div>
             <div class="fg"><label class="fl">Date</label>
               <input type="date" id="ce-date" value="${Data.today()}">
@@ -113,6 +139,7 @@ const CEmployes = {
       cred = parseFloat(document.getElementById('ce-cred')?.value) || 0;
     }
 
+    if (!emp)                            { alert('Employé requis');     return; }
     if (!lib)                            { alert('Désignation requise'); return; }
     if (type === 'pret'  && deb  <= 0)   { alert('Montant requis');      return; }
     if (type === 'remb'  && cred <= 0)   { alert('Montant requis');      return; }
@@ -130,11 +157,48 @@ const CEmployes = {
     this.openModal({ emp, type: 'remb' });
   },
 
+  // Reconstruit les onglets en fonction des employés ayant des écritures.
+  renderTabs() {
+    const container = document.getElementById('cemp-tabs');
+    if (!container) return;
+    const active = this._activeNames();
+    const filter = App.filters.cemp || 'all';
+    const isValid = filter === 'all' || active.includes(filter);
+    if (!isValid) App.filters.cemp = 'all';
+
+    const tabs = [
+      `<button class="tab ${App.filters.cemp==='all'?'active':''}" data-filter="all">Tous</button>`,
+      ...active.map(n => `<button class="tab ${App.filters.cemp===n?'active':''}" data-filter="${this._escape(n)}">${this._escape(n)}</button>`),
+    ].join('');
+    container.innerHTML = tabs;
+
+    container.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        App.filters.cemp = tab.dataset.filter;
+        this.render();
+      });
+    });
+  },
+
   render() {
-    const filter = App.filters.cemp;
-    const names  = filter === 'all' ? ['CHRIST', 'FRANCIS', 'KING'] : [filter];
+    this.renderTabs();
+    const filter = App.filters.cemp || 'all';
+    const active = this._activeNames();
+    const names  = filter === 'all' ? active : [filter];
     const container = document.getElementById('cemp-cards');
     if (!container) return;
+
+    if (!names.length) {
+      container.innerHTML = `
+        <div class="card" style="text-align:center;padding:32px;color:var(--c-muted)">
+          <i class="ti ti-user-dollar" style="font-size:32px;display:block;margin-bottom:8px"></i>
+          Aucune écriture pour le moment.<br>
+          Cliquez sur <b>Écriture</b> pour enregistrer un prêt ou un remboursement.
+        </div>`;
+      return;
+    }
 
     const caisseMeta = {
       s: { label: 'SUSHI',  color: '#185FA5', bg: '#185FA515' },
@@ -148,6 +212,9 @@ const CEmployes = {
       const totD = ops.reduce((s, o) => s + (o.deb || 0), 0);
       const totC = ops.reduce((s, o) => s + (o.cred || 0), 0);
       const solde = totD - totC;
+      const fiche = (Data.employes || []).find(e => e.nom === emp);
+      const sousTitre = fiche ? `${fiche.poste || ''} · ${fiche.dept || ''}` : '';
+      const empAttr = this._escape(emp);
 
       const rows = ops.length
         ? [...ops].reverse().map(o => {
@@ -157,18 +224,18 @@ const CEmployes = {
               : '';
             const icon = `<span style="color:${o.deb>0?'#A32D2D':'#0F6E56'};font-size:12px;margin-right:4px">${typeIcon[o.type]||'·'}</span>`;
             const reglBtn = (o.type === 'pret')
-              ? `<button class="btn" style="padding:2px 8px;font-size:11px" onclick="CEmployes.openReglModal('${emp}')"><i class="ti ti-cash"></i> Régler</button>`
+              ? `<button class="btn" style="padding:2px 8px;font-size:11px" onclick="CEmployes.openReglModal('${empAttr}')"><i class="ti ti-cash"></i> Régler</button>`
               : '';
             return `<tr>
               <td>${Data.fmtDs(o.date)}</td>
-              <td>${icon}${o.lib}${caisseBadge}</td>
+              <td>${icon}${this._escape(o.lib)}${caisseBadge}</td>
               <td class="text-right text-red">${o.deb  ? Data.fmts(o.deb)  : '-'}</td>
               <td class="text-right text-green">${o.cred ? Data.fmts(o.cred) : '-'}</td>
               <td class="text-right fw-bold">${Data.fmts(o.deb - o.cred)}</td>
               <td style="white-space:nowrap">${reglBtn}</td>
             </tr>`;
           }).join('')
-        : '<tr><td colspan="6" class="empty">Aucune écriture — ajoutez via le formulaire</td></tr>';
+        : '<tr><td colspan="6" class="empty">Aucune écriture</td></tr>';
 
       const soldeCouleur = solde > 0 ? '#A32D2D' : solde < 0 ? '#0F6E56' : '#aaa';
       const soldeLabel   = solde > 0 ? 'dû' : solde < 0 ? 'crédit' : '';
@@ -176,9 +243,12 @@ const CEmployes = {
       return `
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-            <div style="font-size:14px;font-weight:700">${emp}</div>
+            <div>
+              <div style="font-size:14px;font-weight:700">${this._escape(emp)}</div>
+              ${sousTitre ? `<div style="font-size:11px;color:var(--c-muted)">${this._escape(sousTitre)}</div>` : ''}
+            </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <button class="btn" style="font-size:12px;padding:4px 12px" onclick="CEmployes.openReglModal('${emp}')">
+              <button class="btn" style="font-size:12px;padding:4px 12px" onclick="CEmployes.openReglModal('${empAttr}')">
                 <i class="ti ti-cash"></i> Remboursement
               </button>
               <div style="text-align:right">

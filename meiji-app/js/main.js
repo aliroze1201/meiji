@@ -384,7 +384,7 @@ const App = {
     this.initTabs('dep-tabs', f => { this.filters.dep = f; Depenses.renderTable(); });
     this.initTabs('emp-tabs', f => { this.filters.emp = f; Employes.render(); });
     this.initTabs('cred-tabs', f => { this.filters.cred = f; Credits.render(); });
-    this.initTabs('cemp-tabs', f => { this.filters.cemp = f; CEmployes.render(); });
+    // cemp-tabs : les onglets sont reconstruits dynamiquement par CEmployes.renderTabs()
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
 
     // Dropdown "Nouvelle ligne"
