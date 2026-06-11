@@ -317,6 +317,8 @@ const Employes = {
     this.save();
     App.closeModal();
     this.render();
+    // Synchronise les onglets de Comptes employés (liste peut avoir changé)
+    if (typeof CEmployes !== 'undefined') CEmployes.render();
   },
 
   delete(idx) {
@@ -331,6 +333,7 @@ const Employes = {
     } catch (e) {}
     this.save();
     this.render();
+    if (typeof CEmployes !== 'undefined') CEmployes.render();
   },
 
   // ===================== PAIEMENT EMPLOYÉ =====================
