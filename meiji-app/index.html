@@ -693,6 +693,7 @@
     <div class="page" id="page-employes">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-users"></i> Employés</span>
         <button class="btn btn-primary" id="btn-new-emp"><i class="ti ti-plus"></i> Nouvel employé</button>
+        <button class="btn" id="btn-cloture-emp" title="Archiver le mois et remettre primes/avances à zéro"><i class="ti ti-calendar-check"></i> Clôturer le mois</button>
         <div class="tabs ml-auto" id="emp-tabs">
           <button class="tab active" data-filter="all">Tous</button>
           <button class="tab" data-filter="BAR">BAR</button>
@@ -708,6 +709,7 @@
           <div class="mc red"><div class="mc-label red"><i class="ti ti-receipt-2"></i> Dettes (solde)</div><div class="mc-val red" id="emp-dettes-total">0 FCFA</div></div>
         </div>
         <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Nom</th><th>Poste</th><th>Dept</th><th style="text-align:right">Brut</th><th style="text-align:right">Prime</th><th style="text-align:right">Avance</th><th style="text-align:right">Net</th><th>Actions</th></tr></thead><tbody id="emp-table"></tbody></table></div>
+        <div id="emp-historique" style="margin-top:16px"></div>
       </div>
     </div>
 

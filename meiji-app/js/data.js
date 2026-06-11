@@ -104,6 +104,11 @@ const Data = {
   // ===================== COMPTES EMPLOYÉS =====================
   compteEmp: { CHRIST: [], FRANCIS: [], KING: [] },
 
+  // ===================== HISTORIQUE MENSUEL EMPLOYÉS =====================
+  // Snapshot pris à chaque clôture du mois sur l'onglet Employés.
+  // [{ ym:'YYYY-MM', closedAt, closedBy, employes:[...] }]
+  empHistorique: [],
+
   // ===================== CRÉDITS CLIENTS =====================
   credits: [
     {id:1,date:'2026-04-19',ticket:'193',client:'RAAD',dept:'SUSHI',montant:79000,statut:'ouvert'},

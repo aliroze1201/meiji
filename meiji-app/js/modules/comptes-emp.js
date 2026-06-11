@@ -8,6 +8,7 @@ const CEmployes = {
   STORAGE_KEY: 'meiji-comptes-emp',
 
   persist() { AppDB.save(this.STORAGE_KEY, Data.compteEmp); },
+  save() { return this.persist(); },
 
   async restore() {
     const obj = await AppDB.load(this.STORAGE_KEY);
