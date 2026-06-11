@@ -102,7 +102,12 @@ const Data = {
   ],
 
   // ===================== COMPTES EMPLOYÉS =====================
-  compteEmp: { CHRIST: [], FRANCIS: [], KING: [] },
+  compteEmp: {},
+
+  // ===================== HISTORIQUE MENSUEL EMPLOYÉS =====================
+  // Snapshot pris à chaque clôture du mois sur l'onglet Employés.
+  // [{ ym:'YYYY-MM', closedAt, closedBy, employes:[...] }]
+  empHistorique: [],
 
   // ===================== CRÉDITS CLIENTS =====================
   credits: [

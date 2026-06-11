@@ -693,6 +693,7 @@
     <div class="page" id="page-employes">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-users"></i> Employés</span>
         <button class="btn btn-primary" id="btn-new-emp"><i class="ti ti-plus"></i> Nouvel employé</button>
+        <button class="btn" id="btn-cloture-emp" title="Archiver le mois et remettre primes/avances à zéro"><i class="ti ti-calendar-check"></i> Clôturer le mois</button>
         <div class="tabs ml-auto" id="emp-tabs">
           <button class="tab active" data-filter="all">Tous</button>
           <button class="tab" data-filter="BAR">BAR</button>
@@ -701,13 +702,13 @@
         </div>
       </div>
       <div class="content">
-        <div class="g3" style="grid-template-columns:repeat(4,1fr)">
+        <div class="g3">
           <div class="mc blue"><div class="mc-label blue"><i class="ti ti-user-check"></i> Effectif</div><div class="mc-val blue" id="emp-effectif">0</div></div>
           <div class="mc"><div class="mc-label"><i class="ti ti-cash"></i> Masse brute</div><div class="mc-val" id="emp-brut">0 FCFA</div></div>
           <div class="mc red"><div class="mc-label red"><i class="ti ti-arrow-down"></i> Avances</div><div class="mc-val red" id="emp-avances">0 FCFA</div></div>
-          <div class="mc red"><div class="mc-label red"><i class="ti ti-receipt-2"></i> Dettes (solde)</div><div class="mc-val red" id="emp-dettes-total">0 FCFA</div></div>
         </div>
         <div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Nom</th><th>Poste</th><th>Dept</th><th style="text-align:right">Brut</th><th style="text-align:right">Prime</th><th style="text-align:right">Avance</th><th style="text-align:right">Net</th><th>Actions</th></tr></thead><tbody id="emp-table"></tbody></table></div>
+        <div id="emp-historique" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -715,12 +716,7 @@
     <div class="page" id="page-comptes-emp">
       <div class="period-bar"><span class="period-bar-title"><i class="ti ti-user-dollar"></i> Comptes employés</span>
         <button class="btn btn-primary" id="btn-new-cemp"><i class="ti ti-plus"></i> Écriture</button>
-        <div class="tabs ml-auto" id="cemp-tabs">
-          <button class="tab active" data-filter="all">Tous</button>
-          <button class="tab" data-filter="CHRIST">CHRIST</button>
-          <button class="tab" data-filter="FRANCIS">FRANCIS</button>
-          <button class="tab" data-filter="KING">KING</button>
-        </div>
+        <div class="tabs ml-auto" id="cemp-tabs"></div>
       </div>
       <div class="content"><div id="cemp-cards"></div></div>
     </div>
@@ -1117,8 +1113,8 @@
 <script src="js/modules/banque.js?v=20260518-searchid"></script>
 <script src="js/modules/mobile.js?v=20260518-searchid"></script>
 <script src="js/modules/categories.js?v=20260518-searchid"></script>
-<script src="js/modules/employes.js?v=20260518-searchid"></script>
-<script src="js/modules/comptes-emp.js?v=20260516-inline-1779064715"></script>
+<script src="js/modules/employes.js?v=20260611-nodette"></script>
+<script src="js/modules/comptes-emp.js?v=20260611-dettes"></script>
 <script src="js/modules/credits.js?v=20260518-searchid"></script>
 <script src="js/modules/suivi.js?v=20260518-searchid"></script>
 <script src="js/modules/fournisseurs.js?v=20260518-searchid"></script>

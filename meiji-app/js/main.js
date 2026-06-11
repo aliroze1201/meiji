@@ -107,6 +107,7 @@ const App = {
     if (typeof Suivi    !== 'undefined' && Suivi.persist) await tryStep(`${(Data.cheques||[]).length} chèque(s)`,   () => Suivi.persist());
     if (typeof Credits  !== 'undefined' && Credits.persist) await tryStep(`${(Data.credits||[]).length} crédit(s)`,  () => Credits.persist());
     if (typeof Employes !== 'undefined' && Employes.save)  await tryStep(`${(Data.employes||[]).length} employé(s)`, () => Employes.save());
+    if (typeof Employes !== 'undefined' && Employes.persistHist) await tryStep(`Historique mensuel (${(Data.empHistorique||[]).length})`, () => Employes.persistHist());
     if (typeof CEmployes !== 'undefined' && CEmployes.save) await tryStep('Comptes employés', () => CEmployes.save());
     if (typeof Clotures !== 'undefined' && Clotures.persist) await tryStep('Clôtures', () => Clotures.persist());
     if (typeof Stock    !== 'undefined' && Stock.save)    await tryStep(`Stock (${(Data.stockArticles||[]).length} art. / ${(Data.stockMouvements||[]).length} mvt.)`, () => Stock.save());
@@ -383,7 +384,7 @@ const App = {
     this.initTabs('dep-tabs', f => { this.filters.dep = f; Depenses.renderTable(); });
     this.initTabs('emp-tabs', f => { this.filters.emp = f; Employes.render(); });
     this.initTabs('cred-tabs', f => { this.filters.cred = f; Credits.render(); });
-    this.initTabs('cemp-tabs', f => { this.filters.cemp = f; CEmployes.render(); });
+    // cemp-tabs : les onglets sont reconstruits dynamiquement par CEmployes.renderTabs()
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
 
     // Dropdown "Nouvelle ligne"
@@ -437,6 +438,7 @@ const App = {
     document.getElementById('btn-new-subcat')?.addEventListener('click', () => Categories.openSubModal());
     document.getElementById('btn-new-cemp')?.addEventListener('click', () => CEmployes.openModal());
     document.getElementById('btn-new-emp')?.addEventListener('click', () => Employes.openModal());
+    document.getElementById('btn-cloture-emp')?.addEventListener('click', () => Employes.openClotureModal());
     document.getElementById('btn-new-cred')?.addEventListener('click', () => Credits.openModal());
     document.getElementById('btn-new-chq')?.addEventListener('click', () => Suivi.openModal());
     this.initTabs('suivi-tabs', f => { Suivi.filter = f; Suivi.render(); });

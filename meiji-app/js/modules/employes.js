@@ -5,14 +5,245 @@
 // ===================== EMPLOYÉS =====================
 const Employes = {
   STORAGE_KEY: 'meiji-employes',
+  STORAGE_HIST: 'meiji-emp-historique',
 
   save() {
     AppDB.save(this.STORAGE_KEY, Data.employes);
   },
 
+  persistHist() {
+    AppDB.save(this.STORAGE_HIST, Data.empHistorique || []);
+  },
+
   async restore() {
     const arr = await AppDB.load(this.STORAGE_KEY);
     if (Array.isArray(arr)) Data.employes = arr;
+    const hist = await AppDB.load(this.STORAGE_HIST);
+    if (Array.isArray(hist)) Data.empHistorique = hist;
+  },
+
+  // ===================== CLÔTURE MENSUELLE =====================
+  _ymOf(d) { return (d || '').slice(0, 7); },
+  _moisFr(ym) {
+    const mois = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    if (!ym || ym.length < 7) return ym || '—';
+    const [y, m] = ym.split('-');
+    return `${mois[parseInt(m, 10)]} ${y}`;
+  },
+
+  openClotureModal() {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('employes')) {
+      alert('Accès refusé.'); return;
+    }
+    const ym = this._ymOf(Data.today());
+    const already = (Data.empHistorique || []).some(h => h.ym === ym);
+
+    const list = Data.employes || [];
+    const totBrut   = list.reduce((s, e) => s + (e.brut   || 0), 0);
+    const totPrime  = list.reduce((s, e) => s + (e.prime  || 0), 0);
+    const totAvance = list.reduce((s, e) => s + (e.avance || 0), 0);
+    const totNet    = list.reduce((s, e) => s + (e.net    || 0), 0);
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-title"><i class="ti ti-calendar-check"></i> Clôturer ${this._moisFr(ym)}</div>
+
+          ${already ? `
+            <div style="background:#A32D2D15;border:1px solid #A32D2D55;color:#A32D2D;padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:13px">
+              <i class="ti ti-alert-triangle"></i> Le mois <strong>${this._moisFr(ym)}</strong> a déjà été clôturé. Une nouvelle clôture <strong>remplacera</strong> l'archive existante.
+            </div>` : ''}
+
+          <div style="background:var(--c-surface);padding:12px;border-radius:8px;margin-bottom:12px;font-size:13px;line-height:1.6">
+            En clôturant ce mois :
+            <ul style="margin:8px 0 0 18px;padding:0">
+              <li>Un instantané de <b>${list.length}</b> employé(s) est archivé</li>
+              <li>Les <b>primes</b> et <b>avances</b> sont remises à <b>0</b></li>
+              <li>L'historique des <b>paiements</b> du mois est archivé puis vidé</li>
+              <li>Le <b>salaire brut</b> et le <b>poste</b> sont conservés</li>
+              <li>Les <b>dettes</b> en cours sont conservées (non remises à zéro)</li>
+            </ul>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px;font-size:12px">
+            <div style="background:var(--c-surface);padding:8px;border-radius:6px;display:flex;justify-content:space-between"><span>Masse brute</span><b>${Data.fmt(totBrut)}</b></div>
+            <div style="background:var(--c-surface);padding:8px;border-radius:6px;display:flex;justify-content:space-between"><span>Total primes</span><b style="color:var(--c-green)">${Data.fmt(totPrime)}</b></div>
+            <div style="background:var(--c-surface);padding:8px;border-radius:6px;display:flex;justify-content:space-between"><span>Total avances</span><b style="color:var(--c-red)">${Data.fmt(totAvance)}</b></div>
+            <div style="background:var(--c-surface);padding:8px;border-radius:6px;display:flex;justify-content:space-between"><span>Total net</span><b>${Data.fmt(totNet)}</b></div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Employes.confirmCloture('${ym}')"><i class="ti ti-check"></i> ${already ? 'Re-clôturer' : 'Confirmer la clôture'}</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  confirmCloture(ym) {
+    const list = Data.employes || [];
+    if (!Array.isArray(Data.empHistorique)) Data.empHistorique = [];
+
+    const snapshot = {
+      ym,
+      closedAt: new Date().toISOString(),
+      closedBy: (typeof Auth !== 'undefined' && Auth.profile) ? Auth.profile.nom : null,
+      totaux: {
+        effectif: list.length,
+        brut:   list.reduce((s, e) => s + (e.brut   || 0), 0),
+        prime:  list.reduce((s, e) => s + (e.prime  || 0), 0),
+        avance: list.reduce((s, e) => s + (e.avance || 0), 0),
+        net:    list.reduce((s, e) => s + (e.net    || 0), 0),
+      },
+      employes: list.map(e => ({
+        nom: e.nom,
+        poste: e.poste,
+        dept: e.dept,
+        brut: e.brut || 0,
+        prime: e.prime || 0,
+        avance: e.avance || 0,
+        net: e.net || 0,
+        paiements: Array.isArray(e.paiements) ? e.paiements.slice() : [],
+      })),
+    };
+
+    // Remplace une éventuelle clôture existante du même mois
+    Data.empHistorique = Data.empHistorique.filter(h => h.ym !== ym);
+    Data.empHistorique.push(snapshot);
+    Data.empHistorique.sort((a, b) => b.ym.localeCompare(a.ym));
+
+    // Reset des compteurs employés (brut conservé)
+    list.forEach(e => {
+      e.prime  = 0;
+      e.avance = 0;
+      e.net    = Number(e.brut) || 0;
+      e.paiements = [];
+    });
+
+    this.save();
+    this.persistHist();
+
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('create', 'employes',
+        `Clôture mois ${ym}`,
+        `${snapshot.totaux.effectif} employés · net ${Data.fmt(snapshot.totaux.net)}`,
+        { after: snapshot.totaux });
+    } catch (err) {}
+
+    App.closeModal();
+    App.renderAll();
+  },
+
+  renderHistorique() {
+    const container = document.getElementById('emp-historique');
+    if (!container) return;
+    const items = (Data.empHistorique || []).slice().sort((a, b) => b.ym.localeCompare(a.ym));
+    if (!items.length) {
+      container.innerHTML = '';
+      return;
+    }
+    const rows = items.map(h => `
+      <tr>
+        <td class="fw-bold">${this._moisFr(h.ym)}</td>
+        <td class="text-right">${h.totaux?.effectif ?? (h.employes?.length || 0)}</td>
+        <td class="text-right">${Data.fmt(h.totaux?.brut   || 0)}</td>
+        <td class="text-right text-green">${Data.fmt(h.totaux?.prime  || 0)}</td>
+        <td class="text-right text-red">${Data.fmt(h.totaux?.avance || 0)}</td>
+        <td class="text-right fw-bold">${Data.fmt(h.totaux?.net    || 0)}</td>
+        <td style="color:var(--c-muted);font-size:11px">${h.closedAt ? new Date(h.closedAt).toLocaleDateString('fr-FR') : '—'}</td>
+        <td class="nowrap">
+          <button class="btn btn-sm" onclick="Employes.openHistorique('${h.ym}')"><i class="ti ti-eye"></i> Consulter</button>
+        </td>
+      </tr>`).join('');
+
+    container.innerHTML = `
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:8px">
+          <i class="ti ti-history"></i>
+          <span style="font-weight:700">Historique mensuel</span>
+          <span style="color:var(--c-muted);font-size:12px">— ${items.length} clôture(s)</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Mois</th>
+            <th class="text-right">Effectif</th>
+            <th class="text-right">Brut</th>
+            <th class="text-right">Primes</th>
+            <th class="text-right">Avances</th>
+            <th class="text-right">Net</th>
+            <th>Clôturé le</th>
+            <th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  },
+
+  openHistorique(ym) {
+    const h = (Data.empHistorique || []).find(x => x.ym === ym);
+    if (!h) return;
+    const rows = (h.employes || []).map(e => {
+      const lastPay = Array.isArray(e.paiements) && e.paiements.length
+        ? e.paiements.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]
+        : null;
+      return `
+        <tr>
+          <td class="fw-bold">${this._escape(e.nom)}</td>
+          <td>${this._escape(e.poste || '-')}</td>
+          <td><span class="badge ${e.dept==='BAR'?'b-green':e.dept==='CHICHA'?'b-amber':'b-blue'}">${e.dept}</span></td>
+          <td class="text-right">${Data.fmts(e.brut)}</td>
+          <td class="text-right text-green">${e.prime ? '+' + Data.fmts(e.prime) : '-'}</td>
+          <td class="text-right text-red">${e.avance ? Data.fmts(e.avance) : '-'}</td>
+          <td class="text-right fw-bold">${Data.fmts(e.net)}</td>
+          <td style="font-size:11px;color:var(--c-muted)">${lastPay ? `${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}` : '—'}</td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="8" class="empty">Aucun employé archivé</td></tr>';
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:920px;width:95vw">
+          <div class="modal-title">
+            <i class="ti ti-history"></i> Archive — ${this._moisFr(h.ym)}
+            ${h.closedBy ? `<span style="font-size:11px;color:var(--c-muted);margin-left:8px">par ${this._escape(h.closedBy)}</span>` : ''}
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+            <div class="mc blue"><div class="mc-label blue">Effectif</div><div class="mc-val blue">${h.totaux?.effectif ?? 0}</div></div>
+            <div class="mc"><div class="mc-label">Brut</div><div class="mc-val">${Data.fmt(h.totaux?.brut || 0)}</div></div>
+            <div class="mc"><div class="mc-label">Avances</div><div class="mc-val" style="color:var(--c-red)">${Data.fmt(h.totaux?.avance || 0)}</div></div>
+            <div class="mc"><div class="mc-label">Net versé</div><div class="mc-val">${Data.fmt(h.totaux?.net || 0)}</div></div>
+          </div>
+
+          <div style="max-height:55vh;overflow:auto">
+            <table>
+              <thead><tr>
+                <th>Nom</th><th>Poste</th><th>Dept</th>
+                <th class="text-right">Brut</th>
+                <th class="text-right">Prime</th>
+                <th class="text-right">Avance</th>
+                <th class="text-right">Net</th>
+                <th>Dernier paiement</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+
+          <div class="modal-actions">
+            ${(typeof Auth === 'undefined' || (Auth.profile && Auth.profile.role === 'admin'))
+              ? `<button class="btn" style="color:var(--c-red)" onclick="Employes.deleteHistorique('${h.ym}')"><i class="ti ti-trash"></i> Supprimer cette archive</button>`
+              : ''}
+            <button class="btn btn-primary" onclick="App.closeModal()">Fermer</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  deleteHistorique(ym) {
+    if (!confirm(`Supprimer définitivement l'archive de ${this._moisFr(ym)} ?`)) return;
+    Data.empHistorique = (Data.empHistorique || []).filter(h => h.ym !== ym);
+    this.persistHist();
+    App.closeModal();
+    this.renderHistorique();
   },
 
   openModal(idx) {
@@ -86,6 +317,8 @@ const Employes = {
     this.save();
     App.closeModal();
     this.render();
+    // Synchronise les onglets de Comptes employés (liste peut avoir changé)
+    if (typeof CEmployes !== 'undefined') CEmployes.render();
   },
 
   delete(idx) {
@@ -100,6 +333,7 @@ const Employes = {
     } catch (e) {}
     this.save();
     this.render();
+    if (typeof CEmployes !== 'undefined') CEmployes.render();
   },
 
   // ===================== PAIEMENT EMPLOYÉ =====================
@@ -440,17 +674,14 @@ const Employes = {
 
     const totBrut = list.reduce((s, e) => s + (e.brut || 0), 0);
     const totAvance = list.reduce((s, e) => s + (e.avance || 0), 0);
-    const totDettes = list.reduce((s, e) => s + this._detteTotaux(e).soldeRestant, 0);
     set('emp-effectif', list.length);
     set('emp-brut', Data.fmt(totBrut));
     set('emp-avances', Data.fmt(totAvance));
-    const elDettes = document.getElementById('emp-dettes-total');
-    if (elDettes) elDettes.textContent = Data.fmt(totDettes);
 
     const tb = document.getElementById('emp-table');
     if (!tb) return;
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="9" class="empty">Aucun employé</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" class="empty">Aucun employé</td></tr>';
       return;
     }
     tb.innerHTML = list.map((e) => {
@@ -461,10 +692,6 @@ const Employes = {
       const lastLabel = lastPay
         ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">Payé le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
         : '';
-      const { soldeRestant } = this._detteTotaux(e);
-      const detteBadge = soldeRestant > 0
-        ? `<span class="badge b-red" style="margin-left:4px;font-size:10px" title="Dette restante">Dette ${Data.fmts(soldeRestant)}</span>`
-        : '';
       return `
       <tr data-search-id="emp:${this._escape(e.nom)}">
         <td class="fw-bold">${e.nom}${lastLabel}</td>
@@ -473,15 +700,16 @@ const Employes = {
         <td class="text-right">${Data.fmts(e.brut)}</td>
         <td class="text-right text-green">${e.prime ? '+' + Data.fmts(e.prime) : '-'}</td>
         <td class="text-right text-red">${e.avance ? Data.fmts(e.avance) : '-'}</td>
-        <td class="text-right fw-bold">${Data.fmts(e.net)}${detteBadge}</td>
+        <td class="text-right fw-bold">${Data.fmts(e.net)}</td>
         <td class="nowrap">
           <button class="btn btn-sm btn-primary" onclick="Employes.openPayModal(${realIdx})" title="Payer cet employé"><i class="ti ti-cash"></i> Payer</button>
-          <button class="btn btn-sm" onclick="Employes.openFicheDette(${realIdx})" title="Fiche de dette" style="${soldeRestant>0?'color:var(--c-red);font-weight:600':''}"><i class="ti ti-receipt-2"></i> Dettes</button>
           <button class="btn btn-sm" onclick="Employes.openModal(${realIdx})" title="Modifier"><i class="ti ti-edit"></i></button>
           <button class="btn btn-sm" onclick="Employes.delete(${realIdx})" title="Supprimer" style="color:var(--c-red)"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;
     }).join('');
+
+    this.renderHistorique();
   },
 };
 
