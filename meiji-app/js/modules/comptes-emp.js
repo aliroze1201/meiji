@@ -13,7 +13,13 @@ const CEmployes = {
 
   async restore() {
     const obj = await AppDB.load(this.STORAGE_KEY);
-    if (obj && typeof obj === 'object') Data.compteEmp = obj;
+    if (obj && typeof obj === 'object') {
+      Data.compteEmp = obj;
+      Object.values(Data.compteEmp).forEach(arr => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(e => { if (e.id == null) e.id = Data.newId(); });
+      });
+    }
   },
 
   // Tous les noms à proposer :
@@ -123,6 +129,9 @@ const CEmployes = {
     document.getElementById('ce-autre-row').style.display   = isAutre ? ''     : 'none';
   },
 
+  _editingId: null,
+  _editingEmp: null,
+
   submitModal() {
     const emp    = document.getElementById('ce-emp')?.value;
     const type   = document.getElementById('ce-type')?.value;
@@ -147,11 +156,127 @@ const CEmployes = {
     if (type === 'pret'  && deb  <= 0)   { alert('Montant requis');      return; }
     if (type === 'remb'  && cred <= 0)   { alert('Montant requis');      return; }
 
-    const entry = { id: Data.newId(), date, lib, type, caisse, deb, cred };
-    if (!Data.compteEmp[emp]) Data.compteEmp[emp] = [];
-    Data.compteEmp[emp].push(entry);
+    if (this._editingId !== null) {
+      const oldEmp = this._editingEmp;
+      const arr = Data.compteEmp[oldEmp] || [];
+      const idx = arr.findIndex(e => e.id === this._editingId);
+      if (idx >= 0) {
+        if (oldEmp !== emp) {
+          arr.splice(idx, 1);
+          if (!arr.length) delete Data.compteEmp[oldEmp];
+          if (!Data.compteEmp[emp]) Data.compteEmp[emp] = [];
+          Data.compteEmp[emp].push({ id: this._editingId, date, lib, type, caisse, deb, cred });
+        } else {
+          arr[idx] = { ...arr[idx], date, lib, type, caisse, deb, cred };
+        }
+      }
+      this._editingId = null;
+      this._editingEmp = null;
+    } else {
+      const entry = { id: Data.newId(), date, lib, type, caisse, deb, cred };
+      if (!Data.compteEmp[emp]) Data.compteEmp[emp] = [];
+      Data.compteEmp[emp].push(entry);
+    }
     this.persist();
     App.closeModal();
+    this.render();
+  },
+
+  openEditModal(emp, entryId) {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('comptes-emp')) {
+      alert('Accès refusé.'); return;
+    }
+    const arr = Data.compteEmp[emp] || [];
+    const entry = arr.find(e => e.id === entryId);
+    if (!entry) { alert('Écriture introuvable.'); return; }
+
+    this._editingId = entryId;
+    this._editingEmp = emp;
+
+    const names = this._allNames();
+    const type = entry.type || 'pret';
+
+    const empOptions = names.map(n =>
+      `<option value="${this._escape(n)}" ${n === emp ? 'selected' : ''}>${this._escape(n)}</option>`
+    ).join('');
+
+    const montant = type === 'pret' ? (entry.deb || 0) : type === 'remb' ? (entry.cred || 0) : 0;
+
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-title">Modifier l'écriture</div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Employé</label>
+              <select id="ce-emp">${empOptions}</select>
+            </div>
+            <div class="fg"><label class="fl">Date</label>
+              <input type="date" id="ce-date" value="${entry.date || Data.today()}">
+            </div>
+          </div>
+
+          <div class="fg"><label class="fl">Type</label>
+            <select id="ce-type" onchange="CEmployes.onTypeChange()">
+              <option value="pret"  ${type==='pret'  ? 'selected' : ''}>Prêt — sortie caisse</option>
+              <option value="remb"  ${type==='remb'  ? 'selected' : ''}>Remboursement — entrée caisse</option>
+              <option value="autre" ${type==='autre' ? 'selected' : ''}>Autre (sans impact caisse)</option>
+            </select>
+          </div>
+
+          <div class="fg" id="ce-caisse-row" style="display:${type!=='autre'?'':'none'}">
+            <label class="fl">Caisse impactée</label>
+            <select id="ce-caisse">
+              <option value="s" ${entry.caisse==='s'?'selected':''}>🍱 SUSHI</option>
+              <option value="b" ${entry.caisse==='b'?'selected':''}>🍸 BAR</option>
+              <option value="c" ${entry.caisse==='c'?'selected':''}>💨 CHICHA</option>
+            </select>
+          </div>
+
+          <div class="fg"><label class="fl">Désignation</label>
+            <input type="text" id="ce-lib" value="${this._escape(entry.lib || '')}" placeholder="Prêt, avance salaire...">
+          </div>
+
+          <div id="ce-montant-row" style="display:${type!=='autre'?'':'none'}">
+            <div class="fg"><label class="fl">Montant</label>
+              <input type="number" id="ce-montant" value="${montant}" placeholder="0" min="0">
+            </div>
+          </div>
+
+          <div id="ce-autre-row" style="display:${type==='autre'?'':'none'}">
+            <div class="fr">
+              <div class="fg"><label class="fl">Débit</label>
+                <input type="number" id="ce-deb" value="${entry.deb || 0}" placeholder="0" min="0">
+              </div>
+              <div class="fg"><label class="fl">Crédit</label>
+                <input type="number" id="ce-cred" value="${entry.cred || 0}" placeholder="0" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn" onclick="CEmployes._editingId=null;CEmployes._editingEmp=null;App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="CEmployes.submitModal()">Enregistrer</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  deleteEntry(emp, entryId) {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('comptes-emp')) {
+      alert('Accès refusé.'); return;
+    }
+    const arr = Data.compteEmp[emp] || [];
+    const entry = arr.find(e => e.id === entryId);
+    if (!entry) { alert('Écriture introuvable.'); return; }
+
+    const typeLabel = entry.type === 'pret' ? 'Prêt' : entry.type === 'remb' ? 'Remboursement' : 'Autre';
+    const montant = entry.deb || entry.cred || 0;
+    if (!confirm(`Supprimer cette écriture ?\n\n${typeLabel} — ${entry.lib || ''}\nMontant : ${Data.fmts(montant)}\nDate : ${Data.fmtDs(entry.date)}\n\n⚠️ Cette action impactera le solde de la caisse.`)) return;
+
+    const idx = arr.findIndex(e => e.id === entryId);
+    if (idx >= 0) arr.splice(idx, 1);
+    if (!arr.length) delete Data.compteEmp[emp];
+    this.persist();
     this.render();
   },
 
@@ -231,13 +356,19 @@ const CEmployes = {
             const reglBtn = (o.type === 'pret')
               ? `<button class="btn" style="padding:2px 8px;font-size:11px" onclick="CEmployes.openReglModal('${empAttr}')"><i class="ti ti-cash"></i> Régler</button>`
               : '';
+            const editBtn = o.id != null
+              ? `<button class="btn" style="padding:2px 6px;font-size:11px" title="Modifier" onclick="CEmployes.openEditModal('${empAttr}',${typeof o.id==='number'?o.id:"'"+o.id+"'"})"><i class="ti ti-pencil"></i></button>`
+              : '';
+            const delBtn = o.id != null
+              ? `<button class="btn" style="padding:2px 6px;font-size:11px;color:#A32D2D" title="Supprimer" onclick="CEmployes.deleteEntry('${empAttr}',${typeof o.id==='number'?o.id:"'"+o.id+"'"})"><i class="ti ti-trash"></i></button>`
+              : '';
             return `<tr>
               <td>${Data.fmtDs(o.date)}</td>
               <td>${icon}${this._escape(o.lib)}${caisseBadge}</td>
               <td class="text-right text-red">${o.deb  ? Data.fmts(o.deb)  : '-'}</td>
               <td class="text-right text-green">${o.cred ? Data.fmts(o.cred) : '-'}</td>
               <td class="text-right fw-bold">${Data.fmts(o.deb - o.cred)}</td>
-              <td style="white-space:nowrap">${reglBtn}</td>
+              <td style="white-space:nowrap;display:flex;gap:4px;align-items:center">${reglBtn}${editBtn}${delBtn}</td>
             </tr>`;
           }).join('')
         : '<tr><td colspan="6" class="empty">Aucune écriture</td></tr>';
@@ -325,7 +456,7 @@ const CEmployes = {
                 <th class="text-right">Débit</th>
                 <th class="text-right">Crédit</th>
                 <th class="text-right">Mvt</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>

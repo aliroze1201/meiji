@@ -225,6 +225,34 @@ const Pointage = {
         ).join('');
       }
     }
+
+    // Mouvements employés du jour (prêts / remboursements)
+    const empBox = document.getElementById('pt-emp-mvts');
+    if (empBox) {
+      const caisseName = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      const empMvts = [];
+      Object.entries(Data.compteEmp || {}).forEach(([emp, arr]) => {
+        (arr || []).filter(e => e.date === date && e.caisse).forEach(e => {
+          empMvts.push({ emp, ...e });
+        });
+      });
+      if (!empMvts.length) {
+        empBox.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:16px">Aucun mouvement employé ce jour</td></tr>';
+      } else {
+        empBox.innerHTML = empMvts.map(m => {
+          const typeLabel = m.type === 'pret' ? '↗ Prêt' : m.type === 'remb' ? '↙ Remb.' : '· Autre';
+          const color = m.type === 'pret' ? 'var(--c-red)' : 'var(--c-bar)';
+          const montant = m.type === 'pret' ? m.deb : m.cred;
+          const impact = m.type === 'pret' ? `−${Data.fmt(m.deb)}` : m.type === 'remb' ? `+${Data.fmt(m.cred)}` : '-';
+          return `<tr>
+            <td>${this._esc(m.emp)}</td>
+            <td><span style="color:${color};font-weight:600">${typeLabel}</span> ${this._esc(m.lib || '')} <span style="font-size:10px;color:var(--c-muted)">${caisseName[m.caisse] || ''}</span></td>
+            <td style="text-align:right;font-weight:600">${Data.fmt(montant)}</td>
+            <td style="text-align:right;font-weight:700;color:${color}">${impact}</td>
+          </tr>`;
+        }).join('');
+      }
+    }
   },
 
   _caisseCardHTML(c) {
