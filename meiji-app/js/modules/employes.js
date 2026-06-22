@@ -319,8 +319,54 @@ const Employes = {
       net: brut + prime - avance,
     };
     const isUpdate = idx >= 0;
+    const old = isUpdate ? Data.employes[idx] : null;
+
     if (isUpdate) Data.employes[idx] = { ...Data.employes[idx], ...entry };
     else Data.employes.push(entry);
+
+    const e = isUpdate ? Data.employes[idx] : Data.employes[Data.employes.length - 1];
+
+    // Si l'avance a augmenté via le formulaire, créer un paiement + dépense
+    if (isUpdate && old) {
+      const oldAvance = Number(old.avance) || 0;
+      const newAvance = Number(avance) || 0;
+      const diffAvance = newAvance - oldAvance;
+      if (diffAvance > 0) {
+        const deptDep = e.dept === 'RESTAURANT' ? 'SUSHI' : (e.dept || 'BAR');
+        const userId = Data.newId();
+        const depense = {
+          userId, date: Data.today(), dept: deptDep,
+          label: `Avance ${e.nom}`, groupe: 'Personnel',
+          qte: null, prix: null, montant: diffAvance,
+          observation: `Avance sur salaire ${e.nom} (${e.poste || ''})`.trim(),
+          paiement: 'esp', empNom: e.nom, payType: 'avance',
+        };
+        Data.histDep.push(depense);
+        if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+        e.paiements = Array.isArray(e.paiements) ? e.paiements : [];
+        e.paiements.push({ id: userId, date: Data.today(), montant: diffAvance, mode: 'esp', dept: deptDep, type: 'avance' });
+      }
+
+      const oldPrime = Number(old.prime) || 0;
+      const newPrime = Number(prime) || 0;
+      const diffPrime = newPrime - oldPrime;
+      if (diffPrime > 0) {
+        const deptDep = e.dept === 'RESTAURANT' ? 'SUSHI' : (e.dept || 'BAR');
+        const userId = Data.newId();
+        const depense = {
+          userId, date: Data.today(), dept: deptDep,
+          label: `Prime ${e.nom}`, groupe: 'Personnel',
+          qte: null, prix: null, montant: diffPrime,
+          observation: `Prime ${e.nom} (${e.poste || ''})`.trim(),
+          paiement: 'esp', empNom: e.nom, payType: 'prime',
+        };
+        Data.histDep.push(depense);
+        if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+        e.paiements = Array.isArray(e.paiements) ? e.paiements : [];
+        e.paiements.push({ id: userId, date: Data.today(), montant: diffPrime, mode: 'esp', dept: deptDep, type: 'prime' });
+      }
+    }
+
     try {
       if (typeof Audit !== 'undefined') Audit.log(isUpdate ? 'update' : 'create', 'employes',
         `Employé ${entry.nom}`,
@@ -704,10 +750,12 @@ const Employes = {
     tb.innerHTML = list.map((e) => {
       const realIdx = Data.employes.indexOf(e);
       const lastPay = Array.isArray(e.paiements) && e.paiements.length
-        ? e.paiements.slice().sort((a,b)=>b.date.localeCompare(a.date))[0]
+        ? e.paiements.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]
         : null;
+      const payTypeIcon = { salaire: '💼', avance: '⏬', prime: '⭐', dette: '📋' };
+      const payTypeLabel = { salaire: 'Salaire', avance: 'Avance', prime: 'Prime', dette: 'Dette' };
       const lastLabel = lastPay
-        ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">Payé le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
+        ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">${payTypeIcon[lastPay.type] || '💼'} ${payTypeLabel[lastPay.type] || 'Payé'} le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
         : '';
       return `
       <tr data-search-id="emp:${this._escape(e.nom)}">

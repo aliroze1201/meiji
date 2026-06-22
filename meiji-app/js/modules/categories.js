@@ -292,8 +292,9 @@ const Categories = {
           <div style="font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis">${this._esc(c.nom)}</div>
           <div style="font-size:10.5px;color:var(--c-muted)">${c.dept === 'all' ? 'Tous depts' : c.dept}${c.desc ? ' · ' + this._esc(c.desc) : ''}</div>
         </div>
-        <button class="btn-ghost" onclick="Categories.openModal(${c.id})" title="Éditer">✏️</button>
+        <button class="btn-ghost" onclick="Categories.openModal(${c.id})" title="Modifier">✏️</button>
         <button class="btn-ghost" onclick="Categories.addChild(${c.id})" title="Ajouter une sous-catégorie">➕</button>
+        <button class="btn-ghost" onclick="Categories.delete(${c.id})" title="Supprimer" style="color:var(--c-red)">🗑</button>
       </div>
       ${childrenHtml}`;
   },
