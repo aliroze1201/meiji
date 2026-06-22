@@ -15,36 +15,34 @@ const Categories = {
   STORAGE_KEY: 'meiji-categories',
   editId: null,
 
+  // Comparaison d'IDs tolérante (number vs string après JSON restore)
+  _eq(a, b) { return a != null && b != null && String(a) === String(b); },
+
   // ===================== HELPERS =====================
   isRoot(c)        { return !c.parentId; },
-  children(parentId) { return Data.categories.filter(c => c.parentId === parentId); },
+  children(parentId) { return Data.categories.filter(c => this._eq(c.parentId, parentId)); },
   roots(type)      {
     return Data.categories.filter(c => this.isRoot(c) && (
       !type || c.type === type || c.type === 'both'
     ));
   },
-  byId(id)         { return Data.categories.find(c => c.id === id); },
+  byId(id)         { return Data.categories.find(c => this._eq(c.id, id)); },
 
   // ===================== MODAL =====================
-  // Si parentIdHint est fourni, on ouvre le formulaire en mode "sous-catégorie"
-  // (parent verrouillé sur cette valeur). Sinon on ouvre en mode "catégorie".
-  // En édition, le mode est déduit du parentId existant.
   openModal(id, parentIdHint = null) {
     this.editId = id;
     const c = id ? this.byId(id) : null;
     const isEdit = !!c;
     const isSub  = isEdit ? !!c.parentId : (parentIdHint !== null);
-    // Le sentinel -1 signifie "mode sous-cat sans parent pré-sélectionné"
     const effectiveParentHint = (parentIdHint === -1) ? null : parentIdHint;
 
-    // Liste des catégories racines (parents possibles)
     const buildParentOptions = (selectedId) => {
       const opts = [];
       Data.categories
-        .filter(x => this.isRoot(x) && (!isEdit || x.id !== c.id))
+        .filter(x => this.isRoot(x) && (!isEdit || !this._eq(x.id, c.id)))
         .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''))
         .forEach(p => {
-          const sel = selectedId === p.id ? 'selected' : '';
+          const sel = this._eq(selectedId, p.id) ? 'selected' : '';
           opts.push(`<option value="${p.id}" ${sel}>${this._esc(p.nom)} — ${p.type === 'dep' ? 'Dépense' : p.type === 'rec' ? 'Recette' : 'Mixte'}</option>`);
         });
       return opts.join('') || '<option value="">— Aucune catégorie disponible —</option>';
@@ -55,10 +53,9 @@ const Categories = {
       ? (isEdit ? 'Modifier sous-catégorie' : 'Nouvelle sous-catégorie')
       : (isEdit ? 'Modifier catégorie'     : 'Nouvelle catégorie');
 
-    // Bloc "Catégorie parente" : visible uniquement en mode sous-catégorie
     const parentBlock = isSub ? `
       <div class="fg">
-        <label class="fl">Catégorie *</label>
+        <label class="fl">Catégorie parente *</label>
         <select id="cat-parent" required>${buildParentOptions(parentSelectedId)}</select>
         <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
           Cette sous-catégorie sera rattachée à la catégorie sélectionnée.
@@ -66,8 +63,6 @@ const Categories = {
       </div>
     ` : '<input type="hidden" id="cat-parent" value="">';
 
-    // Bloc Type : éditable seulement pour les catégories racines.
-    // En sous-catégorie, le type est hérité du parent (affiché en lecture seule).
     const typeBlock = isSub
       ? `<input type="hidden" id="cat-type" value="${c?.type || ''}">`
       : `
@@ -128,7 +123,6 @@ const Categories = {
         </div>
       </div>`);
 
-    // Focus pertinent selon le mode
     setTimeout(() => {
       if (isSub && !parentSelectedId) document.getElementById('cat-parent')?.focus();
       else                            document.getElementById('cat-nom')?.focus();
@@ -143,30 +137,25 @@ const Categories = {
     const parentRaw = document.getElementById('cat-parent')?.value;
     const parentId  = parentRaw ? parseInt(parentRaw, 10) : null;
 
-    // Si la modale a affiché le sélecteur Parent (mode sous-catégorie),
-    // on exige un parent valide.
     const parentSel = document.getElementById('cat-parent');
     if (parentSel && parentSel.tagName === 'SELECT' && !parentId) {
       alert('Choisis une catégorie parente.');
       return;
     }
 
-    // Type : si parent, hérite obligatoirement du parent (cohérence)
     let type = document.getElementById('cat-type')?.value;
     if (parentId) {
       const parent = this.byId(parentId);
       if (parent) type = parent.type;
     }
 
-    // Sécurité : empêcher de se déclarer parent de soi-même
-    if (this.editId && parentId === this.editId) {
+    if (this.editId && this._eq(parentId, this.editId)) {
       alert('Une catégorie ne peut pas être son propre parent.');
       return;
     }
-    // Sécurité : empêcher qu'une racine devienne sous-catégorie d'un de ses propres enfants
     if (this.editId && parentId) {
       const desc = this._descendantIds(this.editId);
-      if (desc.includes(parentId)) {
+      if (desc.some(did => this._eq(did, parentId))) {
         alert('Choix impossible : cela créerait une boucle (parent → enfant → parent).');
         return;
       }
@@ -184,7 +173,7 @@ const Categories = {
 
     const wasEdit = !!this.editId;
     if (this.editId) {
-      const idx = Data.categories.findIndex(c => c.id === this.editId);
+      const idx = Data.categories.findIndex(c => this._eq(c.id, this.editId));
       if (idx >= 0) Data.categories[idx] = cat;
     } else {
       Data.categories.push(cat);
@@ -201,17 +190,17 @@ const Categories = {
     this.render();
   },
 
-  delete(id) {
+  remove(id) {
     const kids = this.children(id);
     let msg = 'Supprimer cette catégorie ?';
     if (kids.length) msg = `Cette catégorie a ${kids.length} sous-catégorie(s). Toutes seront supprimées avec elle.\n\nContinuer ?`;
     if (!confirm(msg)) return;
-    const toRemove = new Set([id, ...this._descendantIds(id)]);
-    const removed = Data.categories.filter(c => toRemove.has(c.id));
-    Data.categories = Data.categories.filter(c => !toRemove.has(c.id));
+    const toRemoveIds = [id, ...this._descendantIds(id)];
+    const removed = Data.categories.filter(c => toRemoveIds.some(rid => this._eq(rid, c.id)));
+    Data.categories = Data.categories.filter(c => !toRemoveIds.some(rid => this._eq(rid, c.id)));
     try {
       if (typeof Audit !== 'undefined') {
-        const main = removed.find(c => c.id === id) || removed[0];
+        const main = removed.find(c => this._eq(c.id, id)) || removed[0];
         Audit.log('delete', 'categories',
           `Catégorie ${main?.nom || ''}`,
           removed.length > 1 ? `${removed.length} catégorie(s) supprimée(s)` : null,
@@ -222,7 +211,6 @@ const Categories = {
     this.render();
   },
 
-  // Liste récursive des ids descendants d'une catégorie
   _descendantIds(id) {
     const out = [];
     const walk = (pid) => {
@@ -238,7 +226,6 @@ const Categories = {
     const countEl = document.getElementById('cat-count');
     if (countEl) countEl.textContent = Data.categories.length + ' catégorie(s)';
 
-    // Colonnes Recettes / Dépenses (arborescentes)
     const treeHtml = (rootType) => {
       const racines = Data.categories
         .filter(c => this.isRoot(c) && (c.type === rootType || c.type === 'both'))
@@ -249,11 +236,10 @@ const Categories = {
     set('cat-rec', treeHtml('rec'));
     set('cat-dep', treeHtml('dep'));
 
-    // Tableau global avec indentation visuelle
     const all = this._sortedHierarchy();
     set('cat-table', all.map(({ c, depth }) => {
       const indent = depth ? `style="padding-left:${depth * 24}px"` : '';
-      const prefix = depth ? `<span style="color:var(--c-muted);margin-right:6px">${'└'.repeat(1)}</span>` : '';
+      const prefix = depth ? `<span style="color:var(--c-muted);margin-right:6px">└</span>` : '';
       return `
         <tr data-search-id="cat:${c.id}">
           <td>
@@ -268,15 +254,14 @@ const Categories = {
           <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:${c.color}"></span></td>
           <td><span class="badge b-blue">${c.dept === 'all' ? 'Tous' : c.dept}</span></td>
           <td class="nowrap">
-            <button class="btn btn-sm" onclick="Categories.openModal(${c.id})" title="Éditer">✏️</button>
-            <button class="btn btn-sm" onclick="Categories.addChild(${c.id})" title="Ajouter une sous-catégorie">➕</button>
-            <button class="btn btn-sm btn-danger" onclick="Categories.delete(${c.id})" title="Supprimer">🗑</button>
+            <button class="btn btn-sm" onclick="Categories.openModal(${c.id})" title="Modifier">✏️</button>
+            <button class="btn btn-sm" onclick="Categories.addChild(${c.id})" title="Ajouter sous-catégorie">➕</button>
+            <button class="btn btn-sm btn-danger" onclick="Categories.remove(${c.id})" title="Supprimer">🗑</button>
           </td>
         </tr>`;
     }).join(''));
   },
 
-  // Rendu d'un nœud + ses enfants dans les colonnes Rec/Dep
   _nodeHtml(c, depth) {
     const kids = this.children(c.id)
       .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
@@ -293,13 +278,12 @@ const Categories = {
           <div style="font-size:10.5px;color:var(--c-muted)">${c.dept === 'all' ? 'Tous depts' : c.dept}${c.desc ? ' · ' + this._esc(c.desc) : ''}</div>
         </div>
         <button class="btn-ghost" onclick="Categories.openModal(${c.id})" title="Modifier">✏️</button>
-        <button class="btn-ghost" onclick="Categories.addChild(${c.id})" title="Ajouter une sous-catégorie">➕</button>
-        <button class="btn-ghost" onclick="Categories.delete(${c.id})" title="Supprimer" style="color:var(--c-red)">🗑</button>
+        <button class="btn-ghost" onclick="Categories.addChild(${c.id})" title="Ajouter sous-catégorie">➕</button>
+        <button class="btn-ghost" onclick="Categories.remove(${c.id})" title="Supprimer" style="color:var(--c-red)">🗑</button>
       </div>
       ${childrenHtml}`;
   },
 
-  // Hiérarchie aplatie (racines triées + leurs enfants juste après) pour le tableau
   _sortedHierarchy() {
     const result = [];
     const racines = Data.categories
@@ -315,19 +299,16 @@ const Categories = {
     return result;
   },
 
-  // Ouverture rapide du modal "Nouvelle sous-catégorie" sur un parent donné
   addChild(parentId) {
     this.openModal(null, parentId);
   },
 
-  // Ouverture du modal de sous-catégorie sans parent pré-sélectionné
-  // (utilisé par le bouton « Nouvelle sous-catégorie » de la topbar de la page)
   openSubModal() {
     if (!Data.categories.some(c => this.isRoot(c))) {
       alert('Crée d\'abord au moins une catégorie, puis tu pourras y ajouter des sous-catégories.');
       return;
     }
-    this.openModal(null, -1); // -1 = mode sous-cat sans parent présélectionné
+    this.openModal(null, -1);
   },
 
   // ===================== PERSISTANCE =====================
@@ -340,10 +321,8 @@ const Categories = {
     if (typeof AppDB === 'undefined') return;
     const arr = await AppDB.load(this.STORAGE_KEY);
     if (Array.isArray(arr) && arr.length) {
-      // Si le cloud contient quelque chose, il prime sur les seeds
       Data.categories = arr;
     }
-    // Sinon on garde les seeds par défaut.
   },
 
   _esc(str) {
