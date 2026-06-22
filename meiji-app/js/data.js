@@ -66,22 +66,22 @@ const Data = {
 
   // ===================== CATÉGORIES =====================
   categories: [
-    {id:1,nom:'Matières premières',type:'dep',color:'#185FA5',dept:'SUSHI',desc:'Poisson, riz, légumes...'},
-    {id:2,nom:'Boissons',type:'dep',color:'#0F6E56',dept:'BAR',desc:'Alcools, softs, vins...'},
-    {id:3,nom:'Personnel',type:'dep',color:'#A32D2D',dept:'all',desc:'Salaires, avances, primes...'},
-    {id:4,nom:'Transport',type:'dep',color:'#BA7517',dept:'all',desc:'Taxi, gazoil...'},
-    {id:5,nom:'Entretien',type:'dep',color:'#534AB7',dept:'all',desc:'Nettoyage, réparations...'},
-    {id:6,nom:'Équipement',type:'dep',color:'#3B6D11',dept:'all',desc:'Clim, matériel...'},
-    {id:7,nom:'Fournitures',type:'dep',color:'#854F0B',dept:'all',desc:'Papier, emballages...'},
-    {id:8,nom:'Commercial',type:'dep',color:'#993556',dept:'all',desc:'Offerts, remises, pub...'},
-    {id:9,nom:'Salaires',type:'dep',color:'#791F1F',dept:'all',desc:'Salaires mensuels'},
-    {id:10,nom:'Loyer',type:'dep',color:'#3C3489',dept:'all',desc:'Loyer local'},
-    {id:11,nom:'Chicha',type:'dep',color:'#BA7517',dept:'CHICHA',desc:'Dépenses chicha'},
-    {id:12,nom:'Autres',type:'dep',color:'#5F5E5A',dept:'all',desc:'Divers'},
-    {id:13,nom:'Ventes SUSHI',type:'rec',color:'#185FA5',dept:'SUSHI',desc:'CA restauration japonaise'},
-    {id:14,nom:'Ventes BAR',type:'rec',color:'#0F6E56',dept:'BAR',desc:'CA boissons et cocktails'},
-    {id:15,nom:'Ventes CHICHA',type:'rec',color:'#BA7517',dept:'CHICHA',desc:'CA chicha'},
-    {id:16,nom:'Événements',type:'rec',color:'#3C3489',dept:'all',desc:'Soirées privées'},
+    {id:1001,nom:'Matières premières',type:'dep',color:'#185FA5',dept:'SUSHI',desc:'Poisson, riz, légumes...'},
+    {id:1002,nom:'Boissons',type:'dep',color:'#0F6E56',dept:'BAR',desc:'Alcools, softs, vins...'},
+    {id:1003,nom:'Personnel',type:'dep',color:'#A32D2D',dept:'all',desc:'Salaires, avances, primes...'},
+    {id:1004,nom:'Transport',type:'dep',color:'#BA7517',dept:'all',desc:'Taxi, gazoil...'},
+    {id:1005,nom:'Entretien',type:'dep',color:'#534AB7',dept:'all',desc:'Nettoyage, réparations...'},
+    {id:1006,nom:'Équipement',type:'dep',color:'#3B6D11',dept:'all',desc:'Clim, matériel...'},
+    {id:1007,nom:'Fournitures',type:'dep',color:'#854F0B',dept:'all',desc:'Papier, emballages...'},
+    {id:1008,nom:'Commercial',type:'dep',color:'#993556',dept:'all',desc:'Offerts, remises, pub...'},
+    {id:1009,nom:'Salaires',type:'dep',color:'#791F1F',dept:'all',desc:'Salaires mensuels'},
+    {id:1010,nom:'Loyer',type:'dep',color:'#3C3489',dept:'all',desc:'Loyer local'},
+    {id:1011,nom:'Chicha',type:'dep',color:'#BA7517',dept:'CHICHA',desc:'Dépenses chicha'},
+    {id:1012,nom:'Autres',type:'dep',color:'#5F5E5A',dept:'all',desc:'Divers'},
+    {id:1013,nom:'Ventes SUSHI',type:'rec',color:'#185FA5',dept:'SUSHI',desc:'CA restauration japonaise'},
+    {id:1014,nom:'Ventes BAR',type:'rec',color:'#0F6E56',dept:'BAR',desc:'CA boissons et cocktails'},
+    {id:1015,nom:'Ventes CHICHA',type:'rec',color:'#BA7517',dept:'CHICHA',desc:'CA chicha'},
+    {id:1016,nom:'Événements',type:'rec',color:'#3C3489',dept:'all',desc:'Soirées privées'},
   ],
 
   // ===================== EMPLOYÉS =====================
@@ -168,7 +168,7 @@ const Data = {
   activityLog: [],
 
   // ===================== COMPTEUR ID =====================
-  nextId: 1000,
+  nextId: 2000,
   newId() { return this.nextId++; },
 
   // Met nextId au-dessus du plus grand id existant dans toutes les collections
