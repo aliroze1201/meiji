@@ -216,13 +216,32 @@ const Categories = {
     if (!confirm(msg)) return;
     const toRemoveIds = [id, ...this._descendantIds(id)];
     const removed = Data.categories.filter(c => toRemoveIds.some(rid => this._eq(rid, c.id)));
+    const removedNames = new Set(removed.map(c => c.nom));
+
     Data.categories = Data.categories.filter(c => !toRemoveIds.some(rid => this._eq(rid, c.id)));
+
+    // Rediriger les dépenses liées vers la catégorie « Autres »
+    let redirected = 0;
+    (Data.histDep || []).forEach(d => {
+      if (d.groupe && removedNames.has(d.groupe)) { d.groupe = 'Autres'; redirected++; }
+    });
+    Data.journees.forEach(j => {
+      ['s','b','c'].forEach(k => {
+        ((j.deps && j.deps[k]) || []).forEach(d => {
+          if (d.groupe && removedNames.has(d.groupe)) { d.groupe = 'Autres'; redirected++; }
+        });
+      });
+    });
+    if (redirected > 0) {
+      if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+    }
+
     try {
       if (typeof Audit !== 'undefined') {
         const main = removed.find(c => this._eq(c.id, id)) || removed[0];
         Audit.log('delete', 'categories',
           `Catégorie ${main?.nom || ''}`,
-          removed.length > 1 ? `${removed.length} catégorie(s) supprimée(s)` : null,
+          `${removed.length} cat. supprimée(s)${redirected ? `, ${redirected} dépense(s) redirigée(s) vers Autres` : ''}`,
           { id, before: removed });
       }
     } catch (e) {}
