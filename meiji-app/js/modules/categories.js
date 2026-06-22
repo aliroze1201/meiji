@@ -39,40 +39,48 @@ const Categories = {
     const buildParentOptions = (selectedId) => {
       const opts = [];
       Data.categories
-        .filter(x => this.isRoot(x) && (!isEdit || !this._eq(x.id, c.id)))
+        .filter(x => this.isRoot(x) && (!isEdit || !this._eq(x.id, c?.id)))
         .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''))
         .forEach(p => {
           const sel = this._eq(selectedId, p.id) ? 'selected' : '';
           opts.push(`<option value="${p.id}" ${sel}>${this._esc(p.nom)} — ${p.type === 'dep' ? 'Dépense' : p.type === 'rec' ? 'Recette' : 'Mixte'}</option>`);
         });
-      return opts.join('') || '<option value="">— Aucune catégorie disponible —</option>';
+      return opts.join('');
     };
 
     const parentSelectedId = isEdit ? c.parentId : effectiveParentHint;
-    const headerTitle = isSub
-      ? (isEdit ? 'Modifier sous-catégorie' : 'Nouvelle sous-catégorie')
-      : (isEdit ? 'Modifier catégorie'     : 'Nouvelle catégorie');
+    const headerTitle = isEdit
+      ? (isSub ? 'Modifier sous-catégorie' : 'Modifier catégorie')
+      : (isSub ? 'Nouvelle sous-catégorie' : 'Nouvelle catégorie');
 
-    const parentBlock = isSub ? `
+    const noParentSelected = !parentSelectedId ? 'selected' : '';
+    const parentOpts = buildParentOptions(parentSelectedId);
+    const parentBlock = `
       <div class="fg">
-        <label class="fl">Catégorie parente *</label>
-        <select id="cat-parent" required>${buildParentOptions(parentSelectedId)}</select>
+        <label class="fl">Catégorie parente</label>
+        <select id="cat-parent" onchange="Categories._onParentChange()">
+          <option value="" ${noParentSelected}>— Aucune (catégorie principale) —</option>
+          ${parentOpts}
+        </select>
         <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
-          Cette sous-catégorie sera rattachée à la catégorie sélectionnée.
+          Laisse « Aucune » pour une catégorie principale, ou choisis un parent pour en faire une sous-catégorie.
         </div>
-      </div>
-    ` : '<input type="hidden" id="cat-parent" value="">';
+      </div>`;
 
-    const typeBlock = isSub
-      ? `<input type="hidden" id="cat-type" value="${c?.type || ''}">`
-      : `
-        <div class="fg"><label class="fl">Type</label>
-          <select id="cat-type">
-            <option value="dep"  ${c?.type === 'dep'  ? 'selected' : ''}>Dépense</option>
-            <option value="rec"  ${c?.type === 'rec'  ? 'selected' : ''}>Recette</option>
-            <option value="both" ${c?.type === 'both' ? 'selected' : ''}>Les deux</option>
-          </select>
-        </div>`;
+    const parentVal = parentSelectedId || '';
+    const parentObj = parentVal ? this.byId(parentVal) : null;
+    const inheritedType = parentObj ? parentObj.type : null;
+    const typeVal = inheritedType || c?.type || 'dep';
+
+    const typeBlock = `
+      <div class="fg" id="cat-type-block" ${inheritedType ? 'style="display:none"' : ''}>
+        <label class="fl">Type</label>
+        <select id="cat-type">
+          <option value="dep"  ${typeVal === 'dep'  ? 'selected' : ''}>Dépense</option>
+          <option value="rec"  ${typeVal === 'rec'  ? 'selected' : ''}>Recette</option>
+          <option value="both" ${typeVal === 'both' ? 'selected' : ''}>Les deux</option>
+        </select>
+      </div>`;
 
     App.showModal(`
       <div class="modal-overlay">
@@ -82,12 +90,13 @@ const Categories = {
           ${parentBlock}
 
           <div class="fg"><label class="fl">Nom *</label>
-            <input type="text" id="cat-nom" value="${this._esc(c?.nom || '')}" placeholder="${isSub ? 'Ex: Saumon, Fruits de mer...' : 'Ex: Matières premières, Boissons...'}">
+            <input type="text" id="cat-nom" value="${this._esc(c?.nom || '')}" placeholder="Ex: Matières premières, Saumon...">
           </div>
 
           <div class="fr">
             ${typeBlock}
             <div class="fg"><label class="fl">Couleur</label>
+
               <select id="cat-color">
                 <option value="#185FA5" ${c?.color === '#185FA5' ? 'selected' : ''}>🔵 Bleu</option>
                 <option value="#0F6E56" ${c?.color === '#0F6E56' ? 'selected' : ''}>🟢 Vert</option>
@@ -123,10 +132,20 @@ const Categories = {
         </div>
       </div>`);
 
-    setTimeout(() => {
-      if (isSub && !parentSelectedId) document.getElementById('cat-parent')?.focus();
-      else                            document.getElementById('cat-nom')?.focus();
-    }, 30);
+    setTimeout(() => document.getElementById('cat-nom')?.focus(), 30);
+  },
+
+  _onParentChange() {
+    const parentRaw = document.getElementById('cat-parent')?.value;
+    const typeBlock = document.getElementById('cat-type-block');
+    const typeSel = document.getElementById('cat-type');
+    if (parentRaw) {
+      const parent = this.byId(parseInt(parentRaw, 10));
+      if (parent && typeSel) typeSel.value = parent.type;
+      if (typeBlock) typeBlock.style.display = 'none';
+    } else {
+      if (typeBlock) typeBlock.style.display = '';
+    }
   },
 
   // ===================== SAVE / DELETE =====================
@@ -136,12 +155,6 @@ const Categories = {
 
     const parentRaw = document.getElementById('cat-parent')?.value;
     const parentId  = parentRaw ? parseInt(parentRaw, 10) : null;
-
-    const parentSel = document.getElementById('cat-parent');
-    if (parentSel && parentSel.tagName === 'SELECT' && !parentId) {
-      alert('Choisis une catégorie parente.');
-      return;
-    }
 
     let type = document.getElementById('cat-type')?.value;
     if (parentId) {
@@ -170,6 +183,12 @@ const Categories = {
       desc:  document.getElementById('cat-desc')?.value || '',
       parentId,
     };
+
+    // Si une catégorie racine devient sous-catégorie, ses enfants deviennent racines
+    if (this.editId && parentId) {
+      const kids = this.children(this.editId);
+      kids.forEach(k => { k.parentId = null; });
+    }
 
     const wasEdit = !!this.editId;
     if (this.editId) {
