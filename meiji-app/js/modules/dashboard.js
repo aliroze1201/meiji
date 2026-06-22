@@ -243,7 +243,10 @@ const Dashboard = {
     this._set('rj-c', Data.fmt(Data.caisse(last, 'c')));
 
     const totEsp = (last.s?.esp || 0) + (last.b?.esp || 0) + (last.c?.esp || 0);
-    const totDep = (last.ds || 0) + (last.db || 0) + (last.dc || 0);
+    const staticDep = (last.ds || 0) + (last.db || 0) + (last.dc || 0);
+    const histDepDay = (Data.histDep || []).filter(d => d.date === last.date)
+      .reduce((s, d) => s + (d.montant || 0), 0);
+    const totDep = staticDep + histDepDay;
     const solde = totEsp - totDep;
     this._set('rj-esp', Data.fmt(totEsp));
     this._set('rj-dep', Data.fmt(totDep));
