@@ -278,23 +278,32 @@ const Categories = {
     set('cat-table', all.map(({ c, depth }) => {
       const indent = depth ? `style="padding-left:${depth * 24}px"` : '';
       const prefix = depth ? `<span style="color:var(--c-muted);margin-right:6px">└</span>` : '';
+      const kids = this.children(c.id);
+      const hasKids = kids.length > 0;
+      const chevron = !depth && hasKids
+        ? `<span class="cat-tbl-chevron" style="cursor:pointer;font-size:12px;transition:transform .2s;display:inline-block;margin-right:4px;transform:rotate(90deg)">▶</span>`
+        : '';
+      const toggleAttr = !depth && hasKids
+        ? `onclick="Categories.toggleTable(this, ${c.id})" style="cursor:pointer"`
+        : '';
       return `
-        <tr data-search-id="cat:${c.id}">
+        <tr data-search-id="cat:${c.id}" data-cat-parent="${c.parentId || ''}" ${toggleAttr}>
           <td>
             <div style="display:flex;align-items:center;gap:8px" ${indent}>
-              ${prefix}
+              ${chevron}${prefix}
               <span style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-block"></span>
               <b>${this._esc(c.nom)}</b>
               ${depth ? '<span class="badge b-purple" style="font-size:10px">sous-cat.</span>' : ''}
+              ${!depth && hasKids ? `<span style="font-size:10px;color:var(--c-muted);margin-left:4px">(${kids.length})</span>` : ''}
             </div>
           </td>
           <td><span class="badge ${c.type === 'dep' ? 'b-red' : c.type === 'rec' ? 'b-green' : 'b-purple'}">${c.type === 'dep' ? 'Dépense' : c.type === 'rec' ? 'Recette' : 'Les deux'}</span></td>
           <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:${c.color}"></span></td>
           <td><span class="badge b-blue">${c.dept === 'all' ? 'Tous' : c.dept}</span></td>
           <td class="nowrap">
-            <button class="btn btn-sm" onclick="Categories.openModal(${c.id})" title="Modifier">✏️</button>
-            <button class="btn btn-sm" onclick="Categories.addChild(${c.id})" title="Ajouter sous-catégorie">➕</button>
-            <button class="btn btn-sm btn-danger" onclick="Categories.remove(${c.id})" title="Supprimer">🗑</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();Categories.openModal(${c.id})" title="Modifier">✏️</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();Categories.addChild(${c.id})" title="Ajouter sous-catégorie">➕</button>
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();Categories.remove(${c.id})" title="Supprimer">🗑</button>
           </td>
         </tr>`;
     }).join(''));
@@ -303,23 +312,56 @@ const Categories = {
   _nodeHtml(c, depth) {
     const kids = this.children(c.id)
       .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
-    const childrenHtml = kids.length
-      ? `<div style="margin-left:${(depth + 1) * 16}px;border-left:1px dashed var(--c-border);padding-left:8px;margin-top:4px">
+    const hasKids = kids.length > 0;
+    const chevron = hasKids
+      ? `<span class="cat-chevron" style="cursor:pointer;font-size:14px;transition:transform .2s;display:inline-block">▶</span>`
+      : `<span style="width:14px;display:inline-block"></span>`;
+    const childrenHtml = hasKids
+      ? `<div class="cat-children" style="display:none;margin-left:${(depth + 1) * 16}px;border-left:2px solid ${c.color}33;padding-left:8px;margin-top:4px">
           ${kids.map(ch => this._nodeHtml(ch, depth + 1)).join('')}
         </div>`
       : '';
+    const toggle = hasKids ? `onclick="Categories.toggle(this)"` : '';
     return `
-      <div class="cat-item" style="margin-bottom:4px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis">${this._esc(c.nom)}</div>
-          <div style="font-size:10.5px;color:var(--c-muted)">${c.dept === 'all' ? 'Tous depts' : c.dept}${c.desc ? ' · ' + this._esc(c.desc) : ''}</div>
+      <div class="cat-node">
+        <div class="cat-item" style="margin-bottom:4px;cursor:${hasKids ? 'pointer' : 'default'}" ${toggle}>
+          ${chevron}
+          <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis">
+              ${this._esc(c.nom)}
+              ${hasKids ? `<span style="font-size:10px;color:var(--c-muted);font-weight:400;margin-left:4px">(${kids.length})</span>` : ''}
+            </div>
+            <div style="font-size:10.5px;color:var(--c-muted)">${c.dept === 'all' ? 'Tous depts' : c.dept}${c.desc ? ' · ' + this._esc(c.desc) : ''}</div>
+          </div>
+          <button class="btn-ghost" onclick="event.stopPropagation();Categories.openModal(${c.id})" title="Modifier">✏️</button>
+          <button class="btn-ghost" onclick="event.stopPropagation();Categories.addChild(${c.id})" title="Ajouter sous-catégorie">➕</button>
+          <button class="btn-ghost" onclick="event.stopPropagation();Categories.remove(${c.id})" title="Supprimer" style="color:var(--c-red)">🗑</button>
         </div>
-        <button class="btn-ghost" onclick="Categories.openModal(${c.id})" title="Modifier">✏️</button>
-        <button class="btn-ghost" onclick="Categories.addChild(${c.id})" title="Ajouter sous-catégorie">➕</button>
-        <button class="btn-ghost" onclick="Categories.remove(${c.id})" title="Supprimer" style="color:var(--c-red)">🗑</button>
-      </div>
-      ${childrenHtml}`;
+        ${childrenHtml}
+      </div>`;
+  },
+
+  toggle(el) {
+    const node = el.closest('.cat-node');
+    if (!node) return;
+    const children = node.querySelector(':scope > .cat-children');
+    const chevron = el.querySelector('.cat-chevron');
+    if (!children) return;
+    const open = children.style.display !== 'none';
+    children.style.display = open ? 'none' : 'block';
+    if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+  },
+
+  toggleTable(tr, parentId) {
+    const tbody = tr.closest('tbody');
+    if (!tbody) return;
+    const chevron = tr.querySelector('.cat-tbl-chevron');
+    const childRows = tbody.querySelectorAll(`tr[data-cat-parent="${parentId}"]`);
+    if (!childRows.length) return;
+    const open = childRows[0].style.display !== 'none';
+    childRows.forEach(r => r.style.display = open ? 'none' : '');
+    if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
   },
 
   _sortedHierarchy() {
