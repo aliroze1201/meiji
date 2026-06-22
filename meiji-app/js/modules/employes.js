@@ -20,6 +20,19 @@ const Employes = {
     if (Array.isArray(arr)) Data.employes = arr;
     const hist = await AppDB.load(this.STORAGE_HIST);
     if (Array.isArray(hist)) Data.empHistorique = hist;
+    this._recalcNets();
+  },
+
+  _recalcNets() {
+    let changed = false;
+    (Data.employes || []).forEach(e => {
+      const expected = (Number(e.brut) || 0) + (Number(e.prime) || 0) - (Number(e.avance) || 0);
+      if (e.net !== expected) {
+        e.net = expected;
+        changed = true;
+      }
+    });
+    if (changed) this.save();
   },
 
   // ===================== CLÔTURE MENSUELLE =====================
@@ -673,10 +686,14 @@ const Employes = {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
     const totBrut = list.reduce((s, e) => s + (e.brut || 0), 0);
+    const totPrime = list.reduce((s, e) => s + (e.prime || 0), 0);
     const totAvance = list.reduce((s, e) => s + (e.avance || 0), 0);
+    const totNet = list.reduce((s, e) => s + (e.net || 0), 0);
     set('emp-effectif', list.length);
     set('emp-brut', Data.fmt(totBrut));
+    set('emp-primes', Data.fmt(totPrime));
     set('emp-avances', Data.fmt(totAvance));
+    set('emp-net', Data.fmt(totNet));
 
     const tb = document.getElementById('emp-table');
     if (!tb) return;
