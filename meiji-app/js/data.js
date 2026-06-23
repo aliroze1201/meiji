@@ -398,7 +398,21 @@ const Data = {
   // Timestamp « date du jour au format fr-FR » — utilisé pour les champs
   // soldeDate des banques / mobile money.
   nowFR() { return new Date().toLocaleDateString('fr-FR'); },
+
+  // ===================== SÉCURITÉ — ÉCHAPPEMENT HTML =====================
+  // Helper unique pour neutraliser les chaînes utilisateur avant injection
+  // dans un template `innerHTML = …`. Échappe les 5 caractères dangereux
+  // (& < > " ') pour éviter tout XSS via libellés, noms, observations, etc.
+  // Usage : `<div>${Data.h(user.nom)}</div>` ou `<input value="${Data.h(v)}">`.
+  // Les modules conservent leurs alias locaux (_esc / _escape) qui délèguent ici.
+  h(v) {
+    if (v == null) return '';
+    return String(v).replace(/[&<>"']/g, c => H_MAP[c]);
+  },
+  escape(v) { return this.h(v); },
 };
+
+const H_MAP = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
 
 // Initialiser les groupes des dépenses historiques
 Data.histDep.forEach(d => { d.groupe = Data.getGroupe(d.label); });

@@ -409,7 +409,5 @@ const Banque = {
     this.openListModal();
   },
 
-  _esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  },
+  _esc(s) { return Data.h(s); },
 };

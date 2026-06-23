@@ -75,9 +75,9 @@ const Utilisateurs = {
         ? `<span class="text-muted" style="font-size:12px">par défaut (rôle)</span>`
         : `<span class="badge b-blue">${customCount} page(s) personnalisé(es)</span>`;
       return `
-      <tr data-id="${u.id}">
-        <td><b>${Auth.toUsername(u.email)}</b></td>
-        <td><input class="u-nom" type="text" value="${(u.nom || '').replace(/"/g, '&quot;')}" placeholder="Prénom Nom"></td>
+      <tr data-id="${Data.h(u.id)}">
+        <td><b>${Data.h(Auth.toUsername(u.email))}</b></td>
+        <td><input class="u-nom" type="text" value="${Data.h(u.nom)}" placeholder="Prénom Nom"></td>
         <td>
           <select class="u-role">
             ${ROLES.map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}

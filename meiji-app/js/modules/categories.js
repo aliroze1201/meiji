@@ -405,7 +405,5 @@ const Categories = {
     }
   },
 
-  _esc(str) {
-    return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  },
+  _esc(str) { return Data.h(str); },
 };

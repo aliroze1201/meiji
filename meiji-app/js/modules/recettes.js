@@ -733,7 +733,7 @@ const Recettes = {
     reader.readAsArrayBuffer(file);
   },
 
-  _esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  _esc(v) { return Data.h(v); },
   _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
 };
 

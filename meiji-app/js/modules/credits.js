@@ -76,10 +76,10 @@ const Credits = {
           <div class="modal-title"><i class="ti ti-cash"></i> Régler le crédit</div>
           <div style="background:var(--c-bg-2);padding:14px 16px;border-radius:var(--r-md);margin-bottom:16px;border-left:3px solid ${deptColor}">
             <div style="font-size:12px;color:var(--c-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Crédit</div>
-            <div style="font-size:15px;font-weight:700;margin-top:2px">${c.client}</div>
+            <div style="font-size:15px;font-weight:700;margin-top:2px">${Data.h(c.client)}</div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12.5px;color:var(--c-muted)">
-              <span>Caisse <b style="color:${deptColor}">${c.dept}</b></span>
-              <span>Ticket #${c.ticket || '-'}</span>
+              <span>Caisse <b style="color:${deptColor}">${Data.h(c.dept)}</b></span>
+              <span>Ticket #${Data.h(c.ticket || '-')}</span>
               <span>du ${Data.fmtD(c.date)}</span>
             </div>
             <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--c-red);margin-top:8px">
@@ -259,9 +259,9 @@ const Credits = {
       return `
       <tr data-search-id="cre:${c.id}"${rowStyle}>
         <td class="nowrap">${Data.fmtDs(c.date)}</td>
-        <td>${c.ticket || '-'}</td>
-        <td class="fw-bold">${c.client}</td>
-        <td><span class="badge ${c.dept==='SUSHI'?'b-blue':c.dept==='BAR'?'b-green':'b-amber'}">${c.dept}</span></td>
+        <td>${Data.h(c.ticket || '-')}</td>
+        <td class="fw-bold">${Data.h(c.client)}</td>
+        <td><span class="badge ${c.dept==='SUSHI'?'b-blue':c.dept==='BAR'?'b-green':'b-amber'}">${Data.h(c.dept)}</span></td>
         <td class="text-right fw-bold" style="color:${c.statut==='ouvert'?'var(--c-red)':'var(--c-bar)'}">${Data.fmts(c.montant)} FCFA</td>
         <td>${statut}</td>
         <td>${action}</td>

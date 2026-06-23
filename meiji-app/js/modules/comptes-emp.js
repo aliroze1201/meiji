@@ -41,9 +41,7 @@ const CEmployes = {
     return this._allNames();
   },
 
-  _escape(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  },
+  _escape(s) { return Data.h(s); },
 
   // opts: { emp, type } — type = 'pret' | 'remb' | 'autre'
   openModal(opts = {}) {

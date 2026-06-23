@@ -259,6 +259,6 @@ const Suivi = {
       </tr>`).join('');
   },
 
-  _esc(v) { return String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); },
+  _esc(v) { return Data.h(v); },
   _set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; },
 };

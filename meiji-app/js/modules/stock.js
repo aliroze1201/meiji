@@ -152,7 +152,7 @@ const Stock = {
     }
     tb.innerHTML = list.map(m => {
       const a = arts.get(m.articleId);
-      const lbl = a ? `${a.nom} <span style="color:var(--c-muted)">(${a.unite})</span>` : `<i style="color:var(--c-muted)">article supprimé</i>`;
+      const lbl = a ? `${Data.h(a.nom)} <span style="color:var(--c-muted)">(${Data.h(a.unite)})</span>` : `<i style="color:var(--c-muted)">article supprimé</i>`;
       const typeBadge = {
         entree:     '<span class="badge b-green">+ Entrée</span>',
         sortie:     '<span class="badge b-blue">− Sortie</span>',
@@ -172,10 +172,7 @@ const Stock = {
     }).join('');
   },
 
-  _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  },
+  _esc(s) { return Data.h(s); },
 
   // ===================== CRUD ARTICLES =====================
   openArticleModal(id = null) {

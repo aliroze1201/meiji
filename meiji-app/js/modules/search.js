@@ -515,11 +515,7 @@ const Search = {
   _show() { if (this._menuEl) { this._positionMenu(); this._menuEl.style.display = 'block'; } },
   _hide() { if (this._menuEl) this._menuEl.style.display = 'none'; this._activeIdx = -1; },
 
-  _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  },
+  _esc(s) { return Data.h(s); },
 };
 
 // Auto-init dès que possible (idempotent).

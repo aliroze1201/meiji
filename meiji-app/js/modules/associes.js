@@ -584,9 +584,5 @@ const Associes = {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
   },
-  _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  },
+  _esc(s) { return Data.h(s); },
 };

@@ -266,9 +266,9 @@ const Employes = {
       <div class="modal-overlay">
         <div class="modal">
           <div class="modal-title">${editing ? 'Modifier' : 'Nouvel'} employé</div>
-          <div class="fg"><label class="fl">Nom complet</label><input type="text" id="emp-nom" value="${e.nom}" placeholder="Ex: DUPONT JEAN"></div>
+          <div class="fg"><label class="fl">Nom complet</label><input type="text" id="emp-nom" value="${Data.h(e.nom)}" placeholder="Ex: DUPONT JEAN"></div>
           <div class="fr">
-            <div class="fg"><label class="fl">Poste</label><input type="text" id="emp-poste" value="${e.poste}" placeholder="Ex: SERVEUR"></div>
+            <div class="fg"><label class="fl">Poste</label><input type="text" id="emp-poste" value="${Data.h(e.poste)}" placeholder="Ex: SERVEUR"></div>
             <div class="fg"><label class="fl">Département</label>
               <select id="emp-dept">
                 <option value="BAR" ${e.dept==='BAR'?'selected':''}>BAR</option>
@@ -513,9 +513,7 @@ const Employes = {
     App.renderAll();
   },
 
-  _escape(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  },
+  _escape(s) { return Data.h(s); },
 
   // ===================== FICHE DE DETTE =====================
 
@@ -758,10 +756,10 @@ const Employes = {
         ? `<div style="font-size:10.5px;color:var(--c-muted);margin-top:2px">${payTypeIcon[lastPay.type] || '💼'} ${payTypeLabel[lastPay.type] || 'Payé'} le ${Data.fmtDs(lastPay.date)} · ${lastPay.mode==='esp'?'💵':lastPay.mode==='banque'?'🏦':'📱'} ${Data.fmts(lastPay.montant)}</div>`
         : '';
       return `
-      <tr data-search-id="emp:${this._escape(e.nom)}">
-        <td class="fw-bold">${e.nom}${lastLabel}</td>
-        <td>${e.poste || '-'}</td>
-        <td><span class="badge ${e.dept==='BAR'?'b-green':e.dept==='CHICHA'?'b-amber':'b-blue'}">${e.dept}</span></td>
+      <tr data-search-id="emp:${Data.h(e.nom)}">
+        <td class="fw-bold">${Data.h(e.nom)}${lastLabel}</td>
+        <td>${Data.h(e.poste || '-')}</td>
+        <td><span class="badge ${e.dept==='BAR'?'b-green':e.dept==='CHICHA'?'b-amber':'b-blue'}">${Data.h(e.dept)}</span></td>
         <td class="text-right">${Data.fmts(e.brut)}</td>
         <td class="text-right text-green">${e.prime ? '+' + Data.fmts(e.prime) : '-'}</td>
         <td class="text-right text-red">${e.avance ? Data.fmts(e.avance) : '-'}</td>

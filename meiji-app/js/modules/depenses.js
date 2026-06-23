@@ -215,9 +215,7 @@ const Depenses = {
     App.renderAll();
   },
 
-  _escape(str) {
-    return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  },
+  _escape(str) { return Data.h(str); },
 
   // ===================== BROUILLONS (saisie en cours) =====================
   newDraft(dept) {

@@ -338,5 +338,5 @@ const Clotures = {
     return false;
   },
 
-  _esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  _esc(v) { return Data.h(v); },
 };
