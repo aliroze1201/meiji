@@ -49,12 +49,15 @@ const Depenses = {
       const obsRaw = d.observation || d.label || '';
       const obs = obsRaw ? this._escape(obsRaw) : '';
       const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
-      const deleteBtn = d.userId
-        ? `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`
-        : '';
-      const editBtn = d.userId
-        ? `<button class="btn-ghost" title="Modifier" onclick="Depenses.editLine(${d.userId})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`
-        : '';
+      let editBtn = '', deleteBtn = '';
+      if (d.userId) {
+        editBtn = `<button class="btn-ghost" title="Modifier" onclick="Depenses.editLine(${d.userId})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`;
+        deleteBtn = `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`;
+      } else if (d._jSrc) {
+        const s = d._jSrc;
+        editBtn = `<button class="btn-ghost" title="Modifier (dépense d'une journée)" onclick="Depenses.editJourneeDep('${s.jDate}','${s.dk}',${s.idx})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`;
+        deleteBtn = `<button class="btn-ghost" title="Supprimer (dépense d'une journée)" onclick="Depenses.removeJourneeDep('${s.jDate}','${s.dk}',${s.idx})"><i class="ti ti-trash"></i></button>`;
+      }
       const pay = d.paiement || 'esp';
       const payCell = d.userId
         ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${d.userId}, this.value)" style="font-size:12px">
@@ -107,6 +110,77 @@ const Depenses = {
       obs:      dep.observation || '',
       paiement: dep.paiement || 'esp',
       editingUserId: userId,
+    };
+    this.drafts.unshift(draft);
+    this.persistDrafts();
+    this.renderDrafts();
+    if (App.currentPage !== 'depenses') App.nav('depenses');
+    setTimeout(() => {
+      const card = document.getElementById('draft-card');
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector(`#draft-tbody tr[data-draft-id="${draft.id}"] input.fld-cat`)?.focus();
+    }, 50);
+  },
+
+  // Supprime une dépense rattachée à une journée (Data.journees[].deps).
+  removeJourneeDep(jDate, dk, idx) {
+    const j = Data.journees.find(x => x.date === jDate);
+    if (!j || !j.deps || !j.deps[dk] || !j.deps[dk][idx]) {
+      alert('Dépense introuvable.');
+      App.renderAll();
+      return;
+    }
+    if (typeof Clotures !== 'undefined' && Clotures.guard(jDate, 'La suppression de cette dépense')) return;
+    const dep = j.deps[dk][idx];
+    const deptLabel = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk] || dk;
+    if (!confirm(`Supprimer cette dépense de la journée du ${Data.fmtD(jDate)} ?`)) return;
+    j.deps[dk].splice(idx, 1);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'depenses',
+        `Dépense ${deptLabel} · ${dep.label || ''} (journée ${jDate})`,
+        `${Data.fmt(dep.montant || 0)}`,
+        { jDate, dk, before: dep });
+    } catch (e) {}
+    if (typeof Recettes !== 'undefined' && Recettes.persistUser) {
+      // marquer la journée comme modifiée pour qu'elle soit bien persistée
+      j.userRec = true;
+      Recettes.persistUser([j]);
+    }
+    App.renderAll();
+  },
+
+  // Charge une dépense d'une journée comme brouillon pour la modifier.
+  // Au moment de Valider, la dépense est retirée de la journée et créée
+  // comme dépense utilisateur (histDep) — ce qui permet de saisir qté/prix/etc.
+  editJourneeDep(jDate, dk, idx) {
+    const j = Data.journees.find(x => x.date === jDate);
+    if (!j || !j.deps || !j.deps[dk] || !j.deps[dk][idx]) {
+      alert('Dépense introuvable.');
+      App.renderAll();
+      return;
+    }
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(jDate)) {
+      alert(`🔒 Mois clôturé : la dépense du ${Data.fmtD(jDate)} ne peut pas être modifiée.`);
+      return;
+    }
+    if (this.drafts.some(d => d.editingJournee && d.editingJournee.jDate === jDate && d.editingJournee.dk === dk && d.editingJournee.idx === idx)) {
+      alert('Cette dépense est déjà en cours de modification dans la zone de saisie.');
+      document.getElementById('draft-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const dep = j.deps[dk][idx];
+    const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk] || 'SUSHI';
+    const draft = {
+      id:       this._draftSeq++,
+      date:     jDate,
+      dept,
+      cat:      dep.groupe || dep.label || '',
+      qte:      '',
+      prix:     '',
+      montant:  dep.montant != null ? String(dep.montant) : '',
+      obs:      dep.label && dep.label !== dep.groupe ? dep.label : '',
+      paiement: 'esp',
+      editingJournee: { jDate, dk, idx },
     };
     this.drafts.unshift(draft);
     this.persistDrafts();
@@ -244,7 +318,7 @@ const Depenses = {
     this.drafts.forEach(d => this._recalcDraft(d));
 
     tb.innerHTML = this.drafts.map(d => `
-      <tr data-draft-id="${d.id}" ${d.editingUserId ? 'style="background:color-mix(in srgb, var(--c-primary-soft) 60%, transparent)" title="Modification d\'une dépense existante"' : ''}>
+      <tr data-draft-id="${d.id}" ${(d.editingUserId || d.editingJournee) ? `style="background:color-mix(in srgb, var(--c-primary-soft) 60%, transparent)" title="${d.editingJournee ? 'Modification d une dépense issue d une journée' : 'Modification d une dépense existante'}"` : ''}>
         <td><input type="date"   class="fld-date"    value="${this._escape(d.date)}"
               onchange="Depenses.updateDraft(${d.id},'date',this.value)"></td>
         <td><select class="fld-dept"
@@ -306,13 +380,14 @@ const Depenses = {
       }
     }
 
-    const nbEdit = this.drafts.filter(d => d.editingUserId).length;
+    const nbEdit = this.drafts.filter(d => d.editingUserId || d.editingJournee).length;
     const nbNew  = this.drafts.length - nbEdit;
     const parts = [];
     if (nbNew)  parts.push(`${nbNew} nouvelle(s)`);
     if (nbEdit) parts.push(`${nbEdit} modifiée(s)`);
     if (!confirm(`Valider la saisie ? (${parts.join(' + ')})`)) return;
 
+    const touchedJournees = new Set();
     this.drafts.forEach(d => {
       const payload = {
         date:   d.date,
@@ -325,7 +400,25 @@ const Depenses = {
         observation: d.obs || null,
         paiement: d.paiement || 'esp',
       };
-      if (d.editingUserId) {
+      if (d.editingJournee) {
+        // Convertit une dépense de journée en dépense utilisateur :
+        // retire l'entrée d'origine de j.deps puis crée un nouveau histDep.
+        const { jDate, dk, idx } = d.editingJournee;
+        const j = Data.journees.find(x => x.date === jDate);
+        if (j && j.deps && j.deps[dk] && j.deps[dk][idx]) {
+          j.deps[dk].splice(idx, 1);
+          j.userRec = true;
+          touchedJournees.add(j);
+        }
+        const newId = Data.newId();
+        Data.histDep.push({ ...payload, userId: newId });
+        try {
+          if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
+            `Dépense ${payload.dept} · ${payload.label} (extraite journée ${jDate})`,
+            `${Data.fmt(payload.montant)} · ${payload.paiement}`,
+            { id: newId, after: payload });
+        } catch (e) {}
+      } else if (d.editingUserId) {
         // Mise à jour d'une dépense existante : on conserve son userId
         const idx = Data.histDep.findIndex(x => x.userId === d.editingUserId);
         if (idx >= 0) {
@@ -355,6 +448,9 @@ const Depenses = {
     this.drafts = [];
     this.persistDrafts();
     this.persist();
+    if (touchedJournees.size && typeof Recettes !== 'undefined' && Recettes.persistUser) {
+      Recettes.persistUser(Array.from(touchedJournees));
+    }
     App.renderAll();
   },
 
