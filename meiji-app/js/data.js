@@ -332,8 +332,9 @@ const Data = {
       if (!j.deps) return;
       ['s', 'b', 'c'].forEach(dk => {
         const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk];
-        (j.deps[dk] || []).forEach(d => all.push({
-          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant
+        (j.deps[dk] || []).forEach((d, idx) => all.push({
+          date: j.date, dept, label: d.label, groupe: d.groupe, montant: d.montant,
+          _jSrc: { jDate: j.date, dk, idx },
         }));
       });
     });
