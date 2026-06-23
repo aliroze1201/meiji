@@ -50,17 +50,18 @@ const Depenses = {
       const obs = obsRaw ? this._escape(obsRaw) : '';
       const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
       let editBtn = '', deleteBtn = '';
-      if (d.userId) {
-        editBtn = `<button class="btn-ghost" title="Modifier" onclick="Depenses.editLine(${d.userId})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`;
-        deleteBtn = `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${d.userId})"><i class="ti ti-trash"></i></button>`;
+      if (d.userId != null && d.userId !== '') {
+        const uidArg = JSON.stringify(d.userId);
+        editBtn = `<button class="btn-ghost" title="Modifier" onclick="Depenses.editLine(${uidArg})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`;
+        deleteBtn = `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${uidArg})"><i class="ti ti-trash"></i></button>`;
       } else if (d._jSrc) {
         const s = d._jSrc;
         editBtn = `<button class="btn-ghost" title="Modifier (dépense d'une journée)" onclick="Depenses.editJourneeDep('${s.jDate}','${s.dk}',${s.idx})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`;
         deleteBtn = `<button class="btn-ghost" title="Supprimer (dépense d'une journée)" onclick="Depenses.removeJourneeDep('${s.jDate}','${s.dk}',${s.idx})"><i class="ti ti-trash"></i></button>`;
       }
       const pay = d.paiement || 'esp';
-      const payCell = d.userId
-        ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${d.userId}, this.value)" style="font-size:12px">
+      const payCell = (d.userId != null && d.userId !== '')
+        ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${JSON.stringify(d.userId)}, this.value)" style="font-size:12px">
              <option value="esp"    ${pay==='esp'   ?'selected':''}>💵 Espèces</option>
              <option value="banque" ${pay==='banque'?'selected':''}>🏦 Banque</option>
              <option value="mobile" ${pay==='mobile'?'selected':''}>📱 Mobile</option>
@@ -493,8 +494,12 @@ const Depenses = {
   async restore() {
     const userDeps = await AppDB.load(this.STORAGE_KEY);
     if (Array.isArray(userDeps)) {
-      const existingIds = new Set(Data.histDep.filter(d => d.userId).map(d => d.userId));
-      userDeps.forEach(d => { if (!existingIds.has(d.userId)) Data.histDep.push(d); });
+      // La version persistée fait autorité : on remplace les dépenses ayant
+      // un userId par celles du cloud. Permet à l'utilisateur de supprimer
+      // ou modifier des dépenses seed sans qu'elles ne réapparaissent au
+      // rechargement.
+      Data.histDep = Data.histDep.filter(d => d.userId == null);
+      userDeps.forEach(d => Data.histDep.push(d));
     }
     try {
       const rawD = localStorage.getItem(this.DRAFT_KEY);
