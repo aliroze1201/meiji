@@ -133,7 +133,7 @@ const Pointage = {
     this._fillSeedForm();
     this.render();
     if (typeof App !== 'undefined') App.renderAll();
-    alert('✅ Soldes d\'ouverture mis à jour.');
+    App.toastSuccess("Soldes d'ouverture mis à jour.");
   },
 
   async saveSeed() {
@@ -155,7 +155,7 @@ const Pointage = {
     await AppDB.save(this.SEED_KEY, Data.fondInit);
     this.render();
     if (typeof Dashboard !== 'undefined') Dashboard.render();
-    alert('✅ Soldes d\'ouverture enregistrés.');
+    App.toastSuccess("Soldes d'ouverture enregistrés.");
   },
 
   // ===================== ÉTAT LOCAL (comptages par caisse / date) =====================

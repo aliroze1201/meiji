@@ -43,16 +43,21 @@ const Credits = {
   },
 
   save() {
+    const v = Validate.all([
+      Validate.required(document.getElementById('cr-client')?.value, { label: 'Client' }),
+      Validate.date(document.getElementById('cr-date')?.value, { label: 'Date' }),
+      Validate.amount(document.getElementById('cr-mnt')?.value, { label: 'Montant' }),
+    ]);
+    if (!v.ok) return App.toastError(v.error);
     const c = {
       id: Data.newId(),
-      date: document.getElementById('cr-date')?.value,
-      ticket: document.getElementById('cr-tick')?.value,
-      client: document.getElementById('cr-client')?.value,
+      date: document.getElementById('cr-date').value,
+      ticket: (document.getElementById('cr-tick')?.value || '').trim(),
+      client: document.getElementById('cr-client').value.trim(),
       dept: document.getElementById('cr-dept')?.value,
-      montant: parseFloat(document.getElementById('cr-mnt')?.value) || 0,
+      montant: parseFloat(document.getElementById('cr-mnt').value),
       statut: 'ouvert',
     };
-    if (!c.client || !c.montant) { alert('Client et montant requis'); return; }
     Data.credits.push(c);
     try {
       if (typeof Audit !== 'undefined') Audit.log('create', 'credits',

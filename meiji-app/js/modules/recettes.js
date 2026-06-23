@@ -498,7 +498,7 @@ const Recettes = {
     this.persistDrafts();
     this.persistUser(toSave);
     App.renderAll();
-    if (toSave.length) alert(`✅ ${toSave.length} journée(s) validée(s).`);
+    if (toSave.length) App.toastSuccess(`${toSave.length} journée(s) validée(s).`);
   },
 
   // ===================== PERSISTANCE =====================
@@ -725,7 +725,7 @@ const Recettes = {
         Data.journees.sort((a,b) => a.date.localeCompare(b.date));
         this.persistUser();
         App.renderAll();
-        alert(`✅ ${imported.length} journée(s) importée(s).`);
+        App.toastSuccess(`${imported.length} journée(s) importée(s).`);
       } catch (err) {
         alert('Erreur lors de la lecture du fichier : ' + err.message);
       }

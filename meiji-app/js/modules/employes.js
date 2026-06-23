@@ -306,11 +306,16 @@ const Employes = {
   },
 
   save_(idx) {
-    const nom = document.getElementById('emp-nom')?.value.trim();
-    if (!nom) { alert('Le nom est requis'); return; }
-    const brut = parseFloat(document.getElementById('emp-modal-brut')?.value) || 0;
-    const prime = parseFloat(document.getElementById('emp-modal-prime')?.value) || 0;
+    const nv = Validate.required(document.getElementById('emp-nom')?.value, { label: 'Nom' });
+    if (!nv.ok) return App.toastError(nv.error);
+    const nom = nv.value;
+    const brut   = parseFloat(document.getElementById('emp-modal-brut')?.value)   || 0;
+    const prime  = parseFloat(document.getElementById('emp-modal-prime')?.value)  || 0;
     const avance = parseFloat(document.getElementById('emp-modal-avance')?.value) || 0;
+    // Brut peut être 0 (employé pas encore défini), mais aucun montant négatif.
+    if (brut < 0 || prime < 0 || avance < 0) {
+      return App.toastError('Aucun montant ne peut être négatif.');
+    }
     const entry = {
       nom,
       poste: document.getElementById('emp-poste')?.value.trim() || '',
@@ -380,8 +385,15 @@ const Employes = {
     if (typeof CEmployes !== 'undefined') CEmployes.render();
   },
 
-  delete(idx) {
-    if (!confirm('Supprimer cet employé ?')) return;
+  async delete(idx) {
+    const target = Data.employes[idx];
+    if (!target) return;
+    const ok = await App.confirmModal({
+      title: 'Supprimer un employé',
+      message: `${target.nom || ''}${target.poste ? ' · ' + target.poste : ''}\n\nL'historique des paiements liés sera conservé mais l'employé sera retiré de la liste.`,
+      okText: 'Supprimer', danger: true,
+    });
+    if (!ok) return;
     const removed = Data.employes[idx];
     Data.employes.splice(idx, 1);
     try {

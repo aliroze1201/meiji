@@ -604,11 +604,59 @@ const App = {
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
     el.setAttribute('role', 'status');
-    el.innerHTML = `<span>${message}</span><button class="toast-x" aria-label="Fermer">&times;</button>`;
-    el.querySelector('.toast-x').addEventListener('click', () => el.remove());
+    const span = document.createElement('span');
+    span.textContent = message;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-x';
+    closeBtn.setAttribute('aria-label', 'Fermer');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', () => el.remove());
+    el.appendChild(span);
+    el.appendChild(closeBtn);
     host.appendChild(el);
     if (duration > 0) setTimeout(() => el.remove(), duration);
-  }
+  },
+  toastSuccess(m, d) { this.toast(m, 'success', d); },
+  toastError(m, d)   { this.toast(m, 'error', d != null ? d : 8000); },
+  toastInfo(m, d)    { this.toast(m, 'info', d); },
+
+  // ===================== CONFIRM MODAL (Promise<boolean>) =====================
+  // Remplace window.confirm() par une modale stylée, accessible et asynchrone.
+  // Usage : if (!(await App.confirmModal({ message: 'Supprimer ?' }))) return;
+  confirmModal({ title = 'Confirmer', message = '', okText = 'Confirmer', cancelText = 'Annuler', danger = false } = {}) {
+    return new Promise(resolve => {
+      const container = document.getElementById('modal-container');
+      const id = 'cm-' + Date.now();
+      const okClass = danger ? 'btn-danger' : 'btn-primary';
+      // message peut contenir des sauts de ligne — on les rend en <br>, après échappement.
+      const safeMsg = Data.h(message).replace(/\n/g, '<br>');
+      container.innerHTML = `
+        <div class="modal-overlay show" id="${id}">
+          <div class="modal" style="max-width:460px" role="dialog" aria-modal="true" tabindex="-1">
+            <div class="modal-title">${Data.h(title)}</div>
+            <div style="font-size:14px;line-height:1.5;padding:4px 0 12px">${safeMsg}</div>
+            <div class="modal-actions">
+              <button class="btn" data-act="cancel">${Data.h(cancelText)}</button>
+              <button class="btn ${okClass}" data-act="ok">${Data.h(okText)}</button>
+            </div>
+          </div>
+        </div>`;
+      const overlay = document.getElementById(id);
+      const done = (ans) => {
+        document.removeEventListener('keydown', onKey);
+        container.innerHTML = '';
+        resolve(ans);
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') done(false);
+        if (e.key === 'Enter')  done(true);
+      };
+      overlay.querySelector('[data-act="ok"]').addEventListener('click', () => done(true));
+      overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => done(false));
+      document.addEventListener('keydown', onKey);
+      overlay.querySelector('.btn.' + okClass).focus();
+    });
+  },
 };
 
 document.addEventListener('DOMContentLoaded', async () => {

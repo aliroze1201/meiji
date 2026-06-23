@@ -186,7 +186,7 @@ const Clotures = {
 
     App.closeModal();
     App.renderAll();
-    alert(`✅ Mois ${this.monthLabel(ym)} clôturé. Le récap Excel a été téléchargé.`);
+    App.toastSuccess(`Mois ${this.monthLabel(ym)} clôturé. Le récap Excel a été téléchargé.`);
   },
 
   async reouvrir(ym) {

@@ -124,17 +124,22 @@ const Depenses = {
   },
 
   // Supprime une dépense rattachée à une journée (Data.journees[].deps).
-  removeJourneeDep(jDate, dk, idx) {
+  async removeJourneeDep(jDate, dk, idx) {
     const j = Data.journees.find(x => x.date === jDate);
     if (!j || !j.deps || !j.deps[dk] || !j.deps[dk][idx]) {
-      alert('Dépense introuvable.');
+      App.toastError('Dépense introuvable.');
       App.renderAll();
       return;
     }
     if (typeof Clotures !== 'undefined' && Clotures.guard(jDate, 'La suppression de cette dépense')) return;
     const dep = j.deps[dk][idx];
     const deptLabel = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[dk] || dk;
-    if (!confirm(`Supprimer cette dépense de la journée du ${Data.fmtD(jDate)} ?`)) return;
+    const ok = await App.confirmModal({
+      title: 'Supprimer la dépense',
+      message: `Journée du ${Data.fmtD(jDate)} · ${deptLabel}\n${dep.label || ''} · ${Data.fmt(dep.montant || 0)}`,
+      okText: 'Supprimer', danger: true,
+    });
+    if (!ok) return;
     j.deps[dk].splice(idx, 1);
     try {
       if (typeof Audit !== 'undefined') Audit.log('delete', 'depenses',
@@ -354,27 +359,30 @@ const Depenses = {
     this._refreshDraftSummary();
   },
 
-  commitDrafts() {
-    if (!this.drafts.length) return alert('Aucune ligne à valider.');
+  async commitDrafts() {
+    if (!this.drafts.length) return App.toastError('Aucune ligne à valider.');
 
-    // Validation
+    // Validation : date, catégorie, montant > 0 et raisonnable.
     const invalid = [];
     this.drafts.forEach((d, i) => {
-      const err = [];
-      if (!d.date) err.push('date');
-      if (!d.cat)  err.push('catégorie');
-      if (!parseFloat(d.montant)) err.push('montant');
-      if (err.length) invalid.push(`Ligne ${i+1} : ${err.join(', ')} manquant`);
+      const errs = [];
+      const dv = Validate.date(d.date, { label: 'Date' });
+      if (!dv.ok) errs.push(dv.error);
+      const cv = Validate.required(d.cat, { label: 'Catégorie' });
+      if (!cv.ok) errs.push(cv.error);
+      const mv = Validate.amount(d.montant, { label: 'Montant' });
+      if (!mv.ok) errs.push(mv.error);
+      if (errs.length) invalid.push(`Ligne ${i+1} — ${errs.join(' · ')}`);
     });
     if (invalid.length) {
-      alert('Certaines lignes sont incomplètes :\n\n' + invalid.join('\n'));
+      App.toastError('Saisie incomplète : ' + invalid[0] + (invalid.length > 1 ? ` (+${invalid.length - 1} autre(s))` : ''), 10000);
       return;
     }
 
     if (typeof Clotures !== 'undefined') {
       const blocked = this.drafts.find(d => Clotures.isMonthClosed(d.date));
       if (blocked) {
-        alert(`🔒 Impossible : la dépense du ${Data.fmtD(blocked.date)} appartient au mois de ${Clotures.monthLabel(Clotures.ymOf(blocked.date))}, qui est clôturé.`);
+        App.toastError(`🔒 La dépense du ${Data.fmtD(blocked.date)} appartient au mois de ${Clotures.monthLabel(Clotures.ymOf(blocked.date))}, clôturé.`);
         return;
       }
     }
@@ -384,7 +392,12 @@ const Depenses = {
     const parts = [];
     if (nbNew)  parts.push(`${nbNew} nouvelle(s)`);
     if (nbEdit) parts.push(`${nbEdit} modifiée(s)`);
-    if (!confirm(`Valider la saisie ? (${parts.join(' + ')})`)) return;
+    const ok = await App.confirmModal({
+      title: 'Valider la saisie',
+      message: `${parts.join(' + ')}`,
+      okText: 'Valider',
+    });
+    if (!ok) return;
 
     const touchedJournees = new Set();
     this.drafts.forEach(d => {
@@ -453,12 +466,17 @@ const Depenses = {
     App.renderAll();
   },
 
-  remove(userId) {
+  async remove(userId) {
     const idx = Data.histDep.findIndex(d => d.userId === userId);
     if (idx < 0) return;
     const dep = Data.histDep[idx];
     if (typeof Clotures !== 'undefined' && Clotures.guard(dep.date, 'La suppression de cette dépense')) return;
-    if (!confirm('Supprimer cette dépense ?')) return;
+    const ok = await App.confirmModal({
+      title: 'Supprimer la dépense',
+      message: `${dep.dept} · ${dep.label}\n${Data.fmt(dep.montant || 0)} · ${Data.fmtD(dep.date)}\n\nCette action est irréversible.`,
+      okText: 'Supprimer', danger: true,
+    });
+    if (!ok) return;
     Data.histDep.splice(idx, 1);
     try {
       if (typeof Audit !== 'undefined') Audit.log('delete', 'depenses',
@@ -609,7 +627,7 @@ const Depenses = {
 
         this.persist();
         App.renderAll();
-        alert(`✅ ${imported.length} dépense(s) importée(s).`);
+        App.toastSuccess(`${imported.length} dépense(s) importée(s).`);
       } catch (err) {
         alert('Erreur lors de la lecture du fichier : ' + err.message);
       }
