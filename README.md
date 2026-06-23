@@ -90,6 +90,8 @@ Via la page **Utilisateurs** (visible aux admins seulement). Saisir email/mot de
 - Branche de travail : voir `CLAUDE.md` pour la convention.
 - GitHub Pages déploie depuis `main` à chaque push.
 - Cache-bust : bump le `?v=...` à la fin de chaque `<script>`/`<link>` dans `meiji-app/index.html` pour forcer le refresh côté navigateur.
+  - Lance `./scripts/bump-cache.sh` après tout changement JS/CSS — le jeton est un hash SHA-1 court du contenu de `meiji-app/js/**` et `meiji-app/css/**`, donc identique si rien n'a changé (idempotent).
+  - Ou installe le hook git une fois : `./scripts/install-pre-commit.sh` — le bump devient automatique à chaque commit qui touche le front.
 
 ## Sécurité (à savoir)
 
