@@ -402,3 +402,16 @@ const Data = {
 
 // Initialiser les groupes des dépenses historiques
 Data.histDep.forEach(d => { d.groupe = Data.getGroupe(d.label); });
+
+// Attribuer un userId aux dépenses seed qui n'en ont pas, afin que l'utilisateur
+// puisse les modifier ou les supprimer depuis l'écran Dépenses.
+// On utilise une plage stable [1500..1999] (en-dessous de nextId=2000) pour
+// éviter toute collision avec les IDs créés via Data.newId().
+(function assignSeedDepIds() {
+  let next = 1500;
+  Data.histDep.forEach(d => {
+    if (d.userId == null || d.userId === '') {
+      d.userId = next++;
+    }
+  });
+})();
