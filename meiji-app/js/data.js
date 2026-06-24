@@ -411,6 +411,7 @@ Data.histDep.forEach(d => { d.groupe = Data.getGroupe(d.label); });
   let next = 1500;
   Data.histDep.forEach(d => {
     if (d.userId == null || d.userId === '') {
+      d._seed = true;   // marque l'entrée comme dépense originale du seed
       d.userId = next++;
     }
   });
