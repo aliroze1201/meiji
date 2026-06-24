@@ -494,11 +494,14 @@ const Depenses = {
   async restore() {
     const userDeps = await AppDB.load(this.STORAGE_KEY);
     if (Array.isArray(userDeps)) {
-      // La version persistée fait autorité : on remplace les dépenses ayant
-      // un userId par celles du cloud. Permet à l'utilisateur de supprimer
-      // ou modifier des dépenses seed sans qu'elles ne réapparaissent au
-      // rechargement.
-      Data.histDep = Data.histDep.filter(d => d.userId == null);
+      // La version persistée fait autorité pour les dépenses utilisateur.
+      // Les seeds (_seed:true) qui ne sont PAS dans les données stockées sont
+      // conservés depuis data.js (migration depuis l'ancienne version sans
+      // assignSeedDepIds, ou première utilisation). Les seeds présents dans
+      // le stockage sont remplacés par leur version stockée (modification ou
+      // suppression intentionnelle persistée).
+      const storedIds = new Set(userDeps.map(d => String(d.userId)));
+      Data.histDep = Data.histDep.filter(d => d._seed && !storedIds.has(String(d.userId)));
       userDeps.forEach(d => Data.histDep.push(d));
     }
     try {
