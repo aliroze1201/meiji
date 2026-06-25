@@ -102,7 +102,16 @@ const Fournisseurs = {
     let savedId = this.editId;
     if (this.editId) {
       const f = Data.fournisseursListe.find(x => x.id === this.editId);
-      if (f) Object.assign(f, { nom, contact, telephone, observation, actif });
+      if (f) {
+        const oldNom = f.nom;
+        Object.assign(f, { nom, contact, telephone, observation, actif });
+        if (oldNom && oldNom !== nom) {
+          (Data.fournisseurs || []).forEach(fa => {
+            if (fa.four === oldNom) fa.four = nom;
+          });
+          this.persist();
+        }
+      }
     } else {
       savedId = Data.newId();
       Data.fournisseursListe.push({ id: savedId, nom, contact, telephone, observation, actif });
@@ -141,17 +150,19 @@ const Fournisseurs = {
   // ===================== FACTURES =====================
   openModal(id) {
     this.editFactureId = id;
-    const fa = id ? (Data.fournisseurs || []).find(x => x.id === id) : null;
-    const list = (Data.fournisseursListe || []).filter(x => x.actif !== false || (fa && x.nom === fa.four));
+    const fa = id ? (Data.fournisseurs || []).find(x => x.id == id) : null;
+    const list = (Data.fournisseursListe || []).filter(x => x.actif !== false || (fa && (x.nom === fa.four || (x.nom || '').toLowerCase() === (fa.four || '').toLowerCase())));
     if (!list.length) {
       if (confirm('Aucun fournisseur enregistré. Veux-tu en créer un maintenant ?')) {
         this.openFournForm(null);
       }
       return;
     }
-    const opts = list.map(f =>
-      `<option value="${this._esc(f.nom)}" ${fa && fa.four === f.nom ? 'selected' : ''}>${this._esc(f.nom)}</option>`
-    ).join('');
+    const placeholder = fa ? '' : '<option value="" disabled selected>-- Choisir un fournisseur --</option>';
+    const opts = placeholder + list.map(f => {
+      const sel = fa && (fa.four === f.nom || (fa.four || '').toLowerCase() === (f.nom || '').toLowerCase());
+      return `<option value="${this._esc(f.nom)}" ${sel ? 'selected' : ''}>${this._esc(f.nom)}</option>`;
+    }).join('');
     App.showModal(`
       <div class="modal-overlay">
         <div class="modal">
@@ -185,11 +196,13 @@ const Fournisseurs = {
   },
 
   save() {
+    const fourVal = (document.getElementById('fo-four')?.value || '').trim();
+    if (!fourVal) { alert('Veuillez sélectionner un fournisseur.'); return; }
     const deb  = parseFloat(document.getElementById('fo-deb')?.value)  || 0;
     const cred = parseFloat(document.getElementById('fo-cred')?.value) || 0;
     const payload = {
       date: document.getElementById('fo-date')?.value,
-      four: document.getElementById('fo-four')?.value,
+      four: fourVal,
       num:  document.getElementById('fo-num')?.value,
       ech:  document.getElementById('fo-ech')?.value,
       lib:  document.getElementById('fo-lib')?.value,
@@ -201,7 +214,7 @@ const Fournisseurs = {
     const wasEdit = !!this.editFactureId;
     let savedId = this.editFactureId;
     if (this.editFactureId) {
-      const idx = Data.fournisseurs.findIndex(f => f.id === this.editFactureId);
+      const idx = Data.fournisseurs.findIndex(f => f.id == this.editFactureId);
       if (idx >= 0) Data.fournisseurs[idx] = { ...Data.fournisseurs[idx], ...payload };
     } else {
       savedId = Data.newId();
@@ -221,10 +234,10 @@ const Fournisseurs = {
   },
 
   removeFacture(id) {
-    const f = (Data.fournisseurs || []).find(x => x.id === id);
+    const f = (Data.fournisseurs || []).find(x => x.id == id);
     if (!f) return;
     if (!confirm(`Supprimer la facture ${f.num || ''} du ${Data.fmtD(f.date)} ?`)) return;
-    Data.fournisseurs = Data.fournisseurs.filter(x => x.id !== id);
+    Data.fournisseurs = Data.fournisseurs.filter(x => x.id != id);
     try {
       if (typeof Audit !== 'undefined') Audit.log('delete', 'fournisseurs',
         `Facture ${f.four || ''} · ${f.num || ''}`,
@@ -238,7 +251,7 @@ const Fournisseurs = {
 
   // ===================== RÈGLEMENT FOURNISSEUR =====================
   openReglement(factureId) {
-    const fa = (Data.fournisseurs || []).find(x => x.id === factureId);
+    const fa = (Data.fournisseurs || []).find(x => x.id == factureId);
     if (!fa) return;
     const restant = Math.max(0, (Number(fa.deb)||0) - (Number(fa.cred)||0));
     if (restant <= 0) {
@@ -346,7 +359,7 @@ const Fournisseurs = {
 
   saveReglement() {
     const factureId = this._reglementFactureId;
-    const fa = (Data.fournisseurs || []).find(x => x.id === factureId);
+    const fa = (Data.fournisseurs || []).find(x => x.id == factureId);
     if (!fa) { App.closeModal(); return; }
 
     const date    = document.getElementById('reg-date')?.value || Data.today();
