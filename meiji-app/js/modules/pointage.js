@@ -264,9 +264,21 @@ const Pointage = {
           </span>
         </div>
         <div style="display:grid;grid-template-columns:1fr auto;row-gap:6px;column-gap:12px;font-size:13px;padding:4px 2px 12px">
-          <div class="text-muted">Report (veille)</div>           <div style="text-align:right;font-weight:600"      id="pt-rep-${c.k}">0 FCFA</div>
-          <div class="text-muted">+ Espèces du jour</div>          <div style="text-align:right;font-weight:600;color:var(--c-bar)" id="pt-in-${c.k}">0 FCFA</div>
-          <div class="text-muted">− Dépenses espèces</div>         <div style="text-align:right;font-weight:600;color:var(--c-red)" id="pt-out-${c.k}">0 FCFA</div>
+          <div class="text-muted">Report (veille)</div>
+          <div style="text-align:right;font-weight:600" id="pt-rep-${c.k}">0 FCFA</div>
+
+          <div class="text-muted">+ Recettes espèces</div>
+          <div style="text-align:right;font-weight:600;color:var(--c-bar)" id="pt-in-${c.k}">0 FCFA</div>
+
+          <div class="text-muted" id="pt-bkin-lbl-${c.k}" style="font-size:11px;padding-left:10px;color:var(--c-bar);display:none">↙ Retraits banque → caisse</div>
+          <div style="text-align:right;font-size:11px;color:var(--c-bar);display:none" id="pt-bkin-${c.k}">0 FCFA</div>
+
+          <div class="text-muted">− Dépenses espèces</div>
+          <div style="text-align:right;font-weight:600;color:var(--c-red)" id="pt-out-${c.k}">0 FCFA</div>
+
+          <div class="text-muted" id="pt-bkout-lbl-${c.k}" style="font-size:11px;padding-left:10px;color:var(--c-red);display:none">↗ Versements caisse → banque</div>
+          <div style="text-align:right;font-size:11px;color:var(--c-red);display:none" id="pt-bkout-${c.k}">0 FCFA</div>
+
           <div style="font-weight:700;border-top:1px dashed var(--c-border);padding-top:6px">Théorique fin de journée</div>
           <div style="text-align:right;font-weight:800;font-size:16px;color:${c.color};border-top:1px dashed var(--c-border);padding-top:6px" id="pt-th-${c.k}">0 FCFA</div>
         </div>
@@ -287,12 +299,39 @@ const Pointage = {
     const espOut  = Data.cashOutOnDate(date, k);
     const theo    = report + espIn - espOut;
 
+    // Mouvements banque pour cette caisse sur cette date
+    const mvts = Array.isArray(Data.mvtsBanque) ? Data.mvtsBanque : [];
+    const bkOut = mvts
+      .filter(m => m.date === date && m.type === 'in'  && m.caisse === k)
+      .reduce((s, m) => s + (Number(m.mnt) || 0), 0); // versement caisse → banque (cash sort)
+    const bkIn  = mvts
+      .filter(m => m.date === date && m.type === 'out' && m.caisse === k)
+      .reduce((s, m) => s + (Number(m.mnt) || 0), 0); // retrait banque → caisse (cash entre)
+
     this._set(`pt-rep-${k}`,  Data.fmt(report));
     this._set(`pt-in-${k}`,   Data.fmt(espIn));
     this._set(`pt-out-${k}`,  Data.fmt(espOut));
     this._set(`pt-th-${k}`,   Data.fmt(theo));
     this._set(`pt-end-${k}`,  Data.fmt(theo));
     this._set(`pt-sub-${k}`,  `Report : ${Data.fmt(report)}`);
+
+    // Afficher les sous-lignes transfert banque si non nuls
+    const bkInLbl  = document.getElementById(`pt-bkin-lbl-${k}`);
+    const bkInVal  = document.getElementById(`pt-bkin-${k}`);
+    const bkOutLbl = document.getElementById(`pt-bkout-lbl-${k}`);
+    const bkOutVal = document.getElementById(`pt-bkout-${k}`);
+    if (bkInLbl && bkInVal) {
+      const show = bkIn > 0;
+      bkInLbl.style.display = show ? '' : 'none';
+      bkInVal.style.display = show ? '' : 'none';
+      if (show) bkInVal.textContent = Data.fmt(bkIn);
+    }
+    if (bkOutLbl && bkOutVal) {
+      const show = bkOut > 0;
+      bkOutLbl.style.display = show ? '' : 'none';
+      bkOutVal.style.display = show ? '' : 'none';
+      if (show) bkOutVal.textContent = Data.fmt(bkOut);
+    }
 
     // Restaurer la valeur comptée si déjà saisie
     const cntEl = document.getElementById(`pt-cnt-${k}`);
