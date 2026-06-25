@@ -429,6 +429,7 @@ const App = {
     });
     document.getElementById('btn-export-dep')?.addEventListener('click', () => Depenses.exportExcel());
     document.getElementById('btn-import-dep')?.addEventListener('click', () => document.getElementById('dep-file-input')?.click());
+    document.getElementById('btn-recover-dep')?.addEventListener('click', () => Depenses.recoverFromAudit());
     document.getElementById('dep-file-input')?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if (f) Depenses.importExcel(f);

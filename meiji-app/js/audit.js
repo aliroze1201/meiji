@@ -464,9 +464,10 @@ const Audit = {
     const deps = (Data.histDep || []).filter(d => d.userId);
 
     const sections = dates.map(date => {
-      const auditCreate = log.filter(e => e.action === 'create' && (e.meta?.date === date));
-      const auditDelete = log.filter(e => e.action === 'delete' && (e.meta?.date === date));
-      const auditUpdate = log.filter(e => e.action === 'update' && (e.meta?.date === date));
+      const _matchDate = e => (e.meta?.after?.date || e.meta?.date || (e.ts || '').slice(0, 10)) === date;
+      const auditCreate = log.filter(e => e.action === 'create' && _matchDate(e));
+      const auditDelete = log.filter(e => e.action === 'delete' && _matchDate(e));
+      const auditUpdate = log.filter(e => e.action === 'update' && _matchDate(e));
       const current     = deps.filter(d => d.date === date);
 
       const auditCreateIds = new Set(auditCreate.map(e => e.meta?.id).filter(Boolean));

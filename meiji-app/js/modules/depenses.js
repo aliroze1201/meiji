@@ -537,6 +537,56 @@ const Depenses = {
     if (changed > 0) this.persist();
   },
 
+  // ===================== RÉCUPÉRATION DEPUIS L'AUDIT =====================
+  // Reconstruit les dépenses manquantes à partir du journal d'activité.
+  // Utile quand le stockage local/cloud a été perdu mais que l'audit a survécu.
+  recoverFromAudit() {
+    const log = (Data.activityLog || []).filter(e =>
+      e.module === 'depenses' && e.action === 'create'
+      && e.meta?.id != null && e.meta?.after
+    );
+
+    if (!log.length) {
+      alert('Aucune entrée de création de dépense trouvée dans l\'historique des activités.\n\nVérifiez que l\'historique contient bien des entrées (page Historique).');
+      return;
+    }
+
+    const existingIds = new Set(Data.histDep.map(d => String(d.userId)));
+    const toRestore   = log.filter(e => !existingIds.has(String(e.meta.id)));
+
+    if (!toRestore.length) {
+      alert('✅ Toutes les dépenses présentes dans l\'historique sont déjà en base.\nAucune récupération nécessaire.');
+      return;
+    }
+
+    const total = toRestore.reduce((s, e) => s + (Number(e.meta.after.montant) || 0), 0);
+    const lines = toRestore.slice(0, 10).map(e =>
+      `· ${e.meta.after.date || '?'} · ${e.meta.after.dept || '?'} · ${e.meta.after.label || e.meta.after.groupe || '?'} · ${Data.fmt(e.meta.after.montant)}`
+    ).join('\n');
+    const more = toRestore.length > 10 ? `\n… et ${toRestore.length - 10} autre(s)` : '';
+
+    if (!confirm(
+      `Récupérer ${toRestore.length} dépense(s) manquante(s) depuis l'historique ?\n` +
+      `Montant total : ${Data.fmt(total)}\n\n${lines}${more}`
+    )) return;
+
+    const maxId = Math.max(Data.nextId - 1, ...Data.histDep.map(d => (typeof d.userId === 'number' ? d.userId : 0)));
+    let counter = maxId + 1;
+
+    toRestore.forEach(e => {
+      const payload = { ...e.meta.after };
+      // Conserver l'ID d'origine s'il est numérique, sinon assigner un nouvel ID
+      payload.userId = (typeof e.meta.id === 'number') ? e.meta.id : counter++;
+      if (!payload.groupe && payload.label) payload.groupe = Data.getGroupe(payload.label);
+      Data.histDep.push(payload);
+    });
+
+    Data.nextId = Math.max(Data.nextId, counter);
+    this.persist();
+    App.renderAll();
+    alert(`✅ ${toRestore.length} dépense(s) récupérée(s) et sauvegardée(s).`);
+  },
+
   // ===================== EXPORT / IMPORT EXCEL =====================
   exportExcel() {
     if (typeof XLSX === 'undefined') return alert('Bibliothèque Excel non chargée');
