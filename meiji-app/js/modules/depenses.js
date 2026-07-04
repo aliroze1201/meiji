@@ -51,7 +51,9 @@ const Depenses = {
       const obsCell = obs ? `<span title="${obs}" style="display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash;
       let editBtn = '', deleteBtn = '';
       if (d.userId != null && d.userId !== '') {
-        const uidArg = JSON.stringify(d.userId);
+        // _escape car pour un userId chaîne (ex. 'pay-1'), JSON.stringify produit
+        // des guillemets doubles qui casseraient l'attribut onclick="…".
+        const uidArg = this._escape(JSON.stringify(d.userId));
         editBtn = `<button class="btn-ghost" title="Modifier" onclick="Depenses.editLine(${uidArg})" style="margin-right:4px"><i class="ti ti-pencil"></i></button>`;
         deleteBtn = `<button class="btn-ghost" title="Supprimer" onclick="Depenses.remove(${uidArg})"><i class="ti ti-trash"></i></button>`;
       } else if (d._jSrc) {
@@ -61,7 +63,7 @@ const Depenses = {
       }
       const pay = d.paiement || 'esp';
       const payCell = (d.userId != null && d.userId !== '')
-        ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${JSON.stringify(d.userId)}, this.value)" style="font-size:12px">
+        ? `<select class="fld-pay" onchange="Depenses.updatePaiement(${this._escape(JSON.stringify(d.userId))}, this.value)" style="font-size:12px">
              <option value="esp"    ${pay==='esp'   ?'selected':''}>💵 Espèces</option>
              <option value="banque" ${pay==='banque'?'selected':''}>🏦 Banque</option>
              <option value="mobile" ${pay==='mobile'?'selected':''}>📱 Mobile</option>
@@ -71,7 +73,7 @@ const Depenses = {
       return `
       <tr data-search-id="${this._escape(searchId)}">
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
-        <td><span style="font-size:11px;padding:3px 9px;border-radius:999px;background:${col}22;color:${col};font-weight:700">${d.groupe || 'Autres'}</span></td>
+        <td><span style="font-size:11px;padding:3px 9px;border-radius:999px;background:${col}22;color:${col};font-weight:700">${this._escape(d.groupe || 'Autres')}</span></td>
         <td class="text-right">${d.qte != null ? d.qte : dash}</td>
         <td class="text-right">${d.prix != null ? Data.fmts(d.prix) : dash}</td>
         <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>

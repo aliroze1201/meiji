@@ -26,6 +26,12 @@ les **tables de données** dans Supabase.
 puis clique **Run**. La requête de vérification en bas doit lister 3 tables :
 `app_state`, `journee_deps`, `journees`.
 
+**Puis exécute aussi [`supabase-securite.sql`](supabase-securite.sql)** (une fois) :
+il verrouille l'accès aux données — seuls les comptes ayant un profil créé
+par un admin peuvent lire/écrire, et un compte auto-inscrit sans invitation
+n'obtient plus aucun accès. Sans ce script, n'importe qui connaissant l'URL
+du site peut créer un compte et accéder à tes données.
+
 Au prochain chargement de l'app, l'icône de synchro (☁️ en haut à droite)
 devient **verte** = cloud OK. Si elle est **rouge**, un message t'indique
 précisément ce qui manque.
@@ -167,12 +173,14 @@ ajuste **Authentication → Providers → Email** :
 | **Confirm email** | ❌ **désactivé** | Sinon Supabase tente d'envoyer un email de confirmation à `marie@meiji.local` — adresse inexistante → ta collègue ne peut jamais se connecter. |
 | **Secure email change** | ❌ désactivé | Idem — pas d'email réel pour confirmer. |
 
-> 🔒 **Sécurité** : avec "Email Signups" activé, n'importe qui qui connaît
-> l'URL Supabase peut techniquement créer un compte avec rôle `serveur`
-> (rôle par défaut du trigger). Il faudra ensuite que l'admin lui donne
-> un meilleur rôle pour qu'il puisse faire quoi que ce soit. Tu peux aussi
-> garder l'option désactivée et créer chaque compte manuellement dans le
-> dashboard Supabase (voir §7 ci-dessous, méthode A).
+> 🔒 **Sécurité** : avec "Email Signups" activé, n'importe qui peut techniquement
+> créer un compte auth. **Après exécution de `supabase-securite.sql`**, un tel
+> compte n'obtient AUCUN profil (il faut avoir été invité au préalable depuis
+> la page Utilisateurs) : l'app le déconnecte avec « Profil introuvable » et
+> les policies `has_profile()` lui interdisent toute lecture/écriture des
+> données. Ces comptes inertes peuvent être supprimés dans Authentication →
+> Users. Sans ce script, l'ancien trigger donnait un profil `serveur` à tout
+> inscrit et les données étaient accessibles à tout compte authentifié.
 
 ## 7. Ajouter des utilisateurs (vos collègues)
 
@@ -197,12 +205,13 @@ Si tu préfères garder "Email Signups" désactivé pour la sécurité :
 1. **Authentication** → **Users** → "Add user" → "Create new user"
 2. **Email** : `identifiant@meiji.local` (ex: `marie@meiji.local`)
 3. **Mot de passe** + ✅ **"Auto Confirm User"** (obligatoire)
-4. Dans **SQL Editor** :
+4. Dans **SQL Editor** — après `supabase-securite.sql`, le profil n'est plus
+   créé automatiquement pour un compte non invité, il faut l'insérer :
 ```sql
-UPDATE profiles
-   SET role = 'caissier',           -- ou 'admin' / 'responsable' / 'serveur'
-       nom  = 'Prénom Nom'
- WHERE email = 'marie@meiji.local';
+INSERT INTO profiles (id, email, nom, role)
+SELECT id, email, 'Prénom Nom', 'caissier'   -- ou 'admin' / 'responsable' / 'serveur'
+  FROM auth.users WHERE email = 'marie@meiji.local'
+ON CONFLICT (id) DO UPDATE SET nom = EXCLUDED.nom, role = EXCLUDED.role;
 ```
 
 Ton collègue se connecte ensuite avec juste `marie` (pas le `@meiji.local`) + son mot de passe.

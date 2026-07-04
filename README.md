@@ -38,8 +38,9 @@ meiji-app/                       ← APP servie par GitHub Pages
         ├── credits.js, fournisseurs.js, bilan.js
         └── utilisateurs.js      ← admin users (visible seul aux admins)
 
-supabase-journees.sql            ← schéma + RLS + seed des journées
-supabase-app-state.sql           ← schéma + RLS de la table générique app_state
+supabase-tables.sql              ← schéma + RLS des tables de données (source de vérité)
+supabase-securite.sql            ← durcissement : invitations + policies has_profile()
+supabase-journees.sql            ← import initial des journées (données seed)
 SUPABASE_SETUP.md                ← guide complet : créer projet, users, RLS
 ```
 
@@ -73,8 +74,9 @@ Voir [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) pour les étapes complètes :
 1. Créer un projet Supabase gratuit.
 2. Exécuter dans l'ordre dans le SQL Editor :
    - le bloc « 2. Exécuter le script SQL » de SUPABASE_SETUP.md (profiles + auth);
-   - `supabase-journees.sql` (tables journees + journee_deps + données seed);
-   - `supabase-app-state.sql` (table générique).
+   - `supabase-tables.sql` (tables app_state + journees + journee_deps);
+   - `supabase-securite.sql` (invitations + verrouillage des policies);
+   - `supabase-journees.sql` (optionnel : import des journées historiques).
 3. Renseigner `meiji-app/js/config.js` avec l'URL projet + clé anon.
 4. Créer le 1er compte admin dans **Authentication → Users**, puis :
    ```sql
@@ -83,7 +85,7 @@ Voir [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md) pour les étapes complètes :
 
 ## Ajouter un utilisateur
 
-Via la page **Utilisateurs** (visible aux admins seulement). Saisir email/mot de passe + rôle. Le profil est créé automatiquement par trigger Supabase.
+Via la page **Utilisateurs** (visible aux admins seulement). Saisir identifiant/mot de passe + rôle. L'app enregistre une **invitation**, puis le trigger Supabase crée le profil avec le bon rôle à l'inscription. Un compte auto-inscrit sans invitation n'obtient aucun profil, donc aucun accès aux données (voir `supabase-securite.sql`).
 
 ## Workflow de développement
 
@@ -95,7 +97,7 @@ Via la page **Utilisateurs** (visible aux admins seulement). Saisir email/mot de
 
 ## Sécurité (à savoir)
 
-L'app est 100% client-side. La clé `anon` Supabase est visible dans le navigateur — c'est normal, la sécurité est assurée par les policies RLS. Les rôles applicatifs (caissier, serveur…) gatent l'UI, pas la base : un utilisateur malveillant authentifié pourrait écrire ce que les RLS lui autorisent. Pour durcir, il faudrait passer par des fonctions Postgres `SECURITY DEFINER` ou un backend.
+L'app est 100% client-side. La clé `anon` Supabase est visible dans le navigateur — c'est normal, la sécurité est assurée par les policies RLS. Après `supabase-securite.sql`, seuls les comptes ayant un **profil** (créé sur invitation d'un admin) peuvent lire/écrire les données. Les rôles applicatifs fins (caissier, serveur…) gatent l'UI, pas la base : tout utilisateur avec profil peut écrire ce que les RLS lui autorisent. Pour un contrôle par rôle côté base, il faudrait des policies par rôle ou un backend.
 
 ## Réveiller un projet Supabase en pause
 

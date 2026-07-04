@@ -152,7 +152,7 @@ const Stock = {
     }
     tb.innerHTML = list.map(m => {
       const a = arts.get(m.articleId);
-      const lbl = a ? `${a.nom} <span style="color:var(--c-muted)">(${a.unite})</span>` : `<i style="color:var(--c-muted)">article supprimé</i>`;
+      const lbl = a ? `${Data.esc(a.nom)} <span style="color:var(--c-muted)">(${Data.esc(a.unite)})</span>` : `<i style="color:var(--c-muted)">article supprimé</i>`;
       const typeBadge = {
         entree:     '<span class="badge b-green">+ Entrée</span>',
         sortie:     '<span class="badge b-blue">− Sortie</span>',

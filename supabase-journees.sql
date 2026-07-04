@@ -26,17 +26,11 @@ CREATE TABLE IF NOT EXISTS public.journee_deps (
 );
 CREATE INDEX IF NOT EXISTS journee_deps_date_idx ON public.journee_deps(date);
 
--- 2) RLS — tout user authentifié peut lire et écrire (la UI gate par rôle).
+-- 2) RLS — définie dans supabase-tables.sql (+ durcissement dans
+--    supabase-securite.sql). Plus de policies ici : ce fichier ne doit
+--    pas pouvoir rouvrir un accès large en étant relancé.
 ALTER TABLE public.journees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journee_deps ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "auth read journees" ON public.journees;
-DROP POLICY IF EXISTS "auth write journees" ON public.journees;
-DROP POLICY IF EXISTS "auth read deps" ON public.journee_deps;
-DROP POLICY IF EXISTS "auth write deps" ON public.journee_deps;
-CREATE POLICY "auth read journees"  ON public.journees     FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write journees" ON public.journees     FOR ALL    TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth read deps"      ON public.journee_deps FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write deps"     ON public.journee_deps FOR ALL    TO authenticated USING (true) WITH CHECK (true);
 
 -- 3) IMPORT INITIAL — journées avril+mai 2026
 BEGIN;

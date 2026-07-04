@@ -348,11 +348,18 @@ const App = {
 
   // ===================== INIT =====================
   init() {
-    // Navigation
+    // Navigation — les .nav-item sont des <div> : on les rend accessibles
+    // au clavier (tabulation + Entrée/Espace) comme de vrais boutons.
     document.querySelectorAll('.nav-item').forEach(el => {
-      el.addEventListener('click', () => {
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      const activate = () => {
         this.navFromEl(el.dataset.page, el);
         document.querySelectorAll('.tn-group.open').forEach(g => g.classList.remove('open'));
+      };
+      el.addEventListener('click', activate);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
       });
     });
 

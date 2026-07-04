@@ -191,7 +191,7 @@ const Data = {
     scan(this.employes, 'userId');
     scan(this.categories, 'id');
     scan(this.stockArticles, 'id');
-    scan(this.stockMvts, 'id');
+    scan(this.stockMouvements, 'id');
     scan(this.fournisseurs, 'id');
     scan(this.associes, 'id');
     scan(this.prelevements, 'id');
@@ -199,6 +199,13 @@ const Data = {
   },
 
   // ===================== HELPERS =====================
+  // Échappement HTML central — à utiliser pour TOUTE valeur saisie par
+  // l'utilisateur injectée dans du innerHTML (texte comme attributs).
+  esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  },
+
   caisse(j, k) {
     const d = j[k];
     return (d.esp || 0) + (d.chq || 0) + (d.mob || 0) + (d.cred || 0);

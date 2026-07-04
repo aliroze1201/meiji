@@ -20,10 +20,18 @@ CREATE TABLE IF NOT EXISTS public.app_state (
 );
 
 ALTER TABLE public.app_state ENABLE ROW LEVEL SECURITY;
+-- ⚠️ Accès réservé aux comptes ayant un PROFIL (créé par un admin), pas à
+-- n'importe quel jeton authentifié : la clé anon est publique et les
+-- inscriptions email ouvertes. has_profile() est définie dans
+-- supabase-securite.sql — exécuter ce fichier AVANT ou APRÈS celui-ci.
+CREATE OR REPLACE FUNCTION public.has_profile()
+RETURNS BOOLEAN LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public
+AS $$ SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid()); $$;
+
 DROP POLICY IF EXISTS "auth read app_state"  ON public.app_state;
 DROP POLICY IF EXISTS "auth write app_state" ON public.app_state;
-CREATE POLICY "auth read app_state"  ON public.app_state FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write app_state" ON public.app_state FOR ALL    TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth read app_state"  ON public.app_state FOR SELECT TO authenticated USING (public.has_profile());
+CREATE POLICY "auth write app_state" ON public.app_state FOR ALL    TO authenticated USING (public.has_profile()) WITH CHECK (public.has_profile());
 
 -- ---------- 2) Journées (recettes + dépenses détaillées) ----------
 CREATE TABLE IF NOT EXISTS public.journees (
@@ -54,10 +62,10 @@ DROP POLICY IF EXISTS "auth read journees"  ON public.journees;
 DROP POLICY IF EXISTS "auth write journees" ON public.journees;
 DROP POLICY IF EXISTS "auth read deps"      ON public.journee_deps;
 DROP POLICY IF EXISTS "auth write deps"     ON public.journee_deps;
-CREATE POLICY "auth read journees"  ON public.journees     FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write journees" ON public.journees     FOR ALL    TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "auth read deps"      ON public.journee_deps FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write deps"     ON public.journee_deps FOR ALL    TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth read journees"  ON public.journees     FOR SELECT TO authenticated USING (public.has_profile());
+CREATE POLICY "auth write journees" ON public.journees     FOR ALL    TO authenticated USING (public.has_profile()) WITH CHECK (public.has_profile());
+CREATE POLICY "auth read deps"      ON public.journee_deps FOR SELECT TO authenticated USING (public.has_profile());
+CREATE POLICY "auth write deps"     ON public.journee_deps FOR ALL    TO authenticated USING (public.has_profile()) WITH CHECK (public.has_profile());
 
 -- ---------- 3) Vérification ----------
 -- Doit lister 3 lignes : app_state, journee_deps, journees
