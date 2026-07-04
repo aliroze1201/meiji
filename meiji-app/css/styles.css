@@ -278,6 +278,16 @@ a { color: inherit; text-decoration: none; }
   position: relative;
   z-index: 50;
 }
+/* Liseré signature : les 3 caisses (SUSHI → BAR → CHICHA) */
+.topnav::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--c-sushi), var(--c-bar) 50%, var(--c-chicha));
+  opacity: .85;
+  pointer-events: none;
+}
 .tn-logo {
   display: flex;
   align-items: center;
@@ -497,6 +507,12 @@ a { color: inherit; text-decoration: none; }
   color: #FFFFFF;
 }
 .nav-item:hover .ti { color: #FFFFFF; }
+/* Navigation clavier (les .nav-item sont focusables) */
+.nav-item:focus-visible,
+.tn-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
 .nav-item.active {
   background: var(--c-sb-active-bg);
   color: var(--c-sb-active-fg);
@@ -526,16 +542,12 @@ a { color: inherit; text-decoration: none; }
   padding: 0 var(--s-6);
   flex-shrink: 0;
 }
-.tb-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--c-text);
-  letter-spacing: -0.01em;
-}
+/* Masqué : chaque page affiche déjà son titre dans sa .period-bar —
+   le doublon dans la topbar donnait un rendu peu soigné. */
+.tb-title { display: none; }
 .tb-search {
   flex: 1;
   max-width: 420px;
-  margin-left: auto;
   position: relative;
   display: flex;
   align-items: center;
@@ -660,6 +672,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
 }
 .icon-btn {
   width: 32px; height: 32px;
@@ -807,6 +820,7 @@ a { color: inherit; text-decoration: none; }
   padding: var(--s-5);
   margin-bottom: var(--s-4);
   position: relative;
+  box-shadow: var(--sh-xs);
 }
 .card-header {
   display: flex;
@@ -847,7 +861,10 @@ a { color: inherit; text-decoration: none; }
   .g3 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 700px) {
-  .g5, .g4, .g3, .g2 { grid-template-columns: 1fr; }
+  /* 2 colonnes sur mobile : le tableau de bord se lit d'un coup d'œil
+     au lieu d'un long défilement de cartes pleine largeur. */
+  .g5, .g4, .g3 { grid-template-columns: repeat(2, 1fr); gap: var(--s-3); }
+  .g2 { grid-template-columns: 1fr; }
 }
 
 .mc {
@@ -861,6 +878,7 @@ a { color: inherit; text-decoration: none; }
   gap: 6px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--sh-xs);
   transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .mc::before {
@@ -937,12 +955,14 @@ a { color: inherit; text-decoration: none; }
 .mc-label.amber { color: var(--c-text-2); }
 .mc-label.purple { color: var(--c-text-2); }
 
-/* Le chiffre reste majoritairement en text-primary, mais peut prendre la couleur d'accent si demandé */
-.mc-val.blue   { color: var(--c-primary); }
-.mc-val.green  { color: var(--c-success); }
-.mc-val.red    { color: var(--c-danger); }
-.mc-val.amber  { color: var(--c-warning); }
-.mc-val.purple { color: var(--c-purple); }
+/* Chiffres accentués mais ADOUCIS (mix avec la couleur de texte) :
+   les valeurs restent codées par couleur sans effet « néon » — rendu
+   plus premium, façon Stripe/Mercury. */
+.mc-val.blue   { color: color-mix(in srgb, var(--c-primary) 72%, var(--c-text)); }
+.mc-val.green  { color: color-mix(in srgb, var(--c-success) 75%, var(--c-text)); }
+.mc-val.red    { color: color-mix(in srgb, var(--c-danger)  80%, var(--c-text)); }
+.mc-val.amber  { color: color-mix(in srgb, var(--c-warning) 68%, var(--c-text)); }
+.mc-val.purple { color: color-mix(in srgb, var(--c-purple)  72%, var(--c-text)); }
 
 /* =====================  CAISSES CARDS (.cc-card)  ===================== */
 .g-caisse {
@@ -964,6 +984,7 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   gap: 12px;
   position: relative;
+  box-shadow: var(--sh-xs);
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .cc-card:hover {
@@ -995,9 +1016,9 @@ a { color: inherit; text-decoration: none; }
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
-.cc-amount.sushi  { color: var(--c-sushi); }
-.cc-amount.bar    { color: var(--c-bar); }
-.cc-amount.chicha { color: var(--c-chicha); }
+.cc-amount.sushi  { color: color-mix(in srgb, var(--c-sushi)  78%, var(--c-text)); }
+.cc-amount.bar    { color: color-mix(in srgb, var(--c-bar)    78%, var(--c-text)); }
+.cc-amount.chicha { color: color-mix(in srgb, var(--c-chicha) 78%, var(--c-text)); }
 
 .cc-rows {
   display: flex;
@@ -1124,11 +1145,11 @@ tbody tr.row-total td {
   background: var(--grad-primary);
   border-color: var(--c-primary-2);
   color: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(79,70,229,.30), inset 0 1px 0 rgba(255,255,255,.10);
+  box-shadow: 0 1px 2px rgba(249,115,22,.30), inset 0 1px 0 rgba(255,255,255,.10);
 }
 .btn-primary:hover {
   filter: brightness(1.06);
-  box-shadow: 0 4px 12px rgba(79,70,229,.35), inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow: 0 4px 12px rgba(249,115,22,.35), inset 0 1px 0 rgba(255,255,255,.12);
   transform: translateY(-1px);
 }
 
@@ -1148,11 +1169,11 @@ tbody tr.row-total td {
   background: var(--grad-danger);
   border-color: var(--c-danger-2);
   color: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(244,63,94,.28), inset 0 1px 0 rgba(255,255,255,.10);
+  box-shadow: 0 1px 2px rgba(220,38,38,.28), inset 0 1px 0 rgba(255,255,255,.10);
 }
 .btn-danger:hover {
   filter: brightness(1.06);
-  box-shadow: 0 4px 12px rgba(244,63,94,.32), inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow: 0 4px 12px rgba(220,38,38,.32), inset 0 1px 0 rgba(255,255,255,.12);
   transform: translateY(-1px);
 }
 
@@ -1256,7 +1277,7 @@ label {
   padding: 2px 8px;
   border-radius: var(--r-pill);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
   line-height: 1.5;
@@ -1836,6 +1857,8 @@ label {
   border: 1px solid rgba(239,68,68,0.2);
   border-radius: var(--r-sm);
 }
+/* Pas d'erreur → pas de bandeau rose vide */
+.login-error:empty { display: none; }
 :root[data-theme="dark"] .login-error { border-color: rgba(248,113,113,.25); }
 
 /* =====================  P-VIEW / P-EDIT (catégories inline)  ===================== */
@@ -1967,8 +1990,10 @@ label {
   .content { padding: var(--s-2); }
   .tn-logo-text { display: none; }
   .topnav { padding: 6px var(--s-2); }
-  .mc-val { font-size: 18px; }
+  .mc { padding: 12px 12px 12px 15px; gap: 4px; }
+  .mc-val { font-size: 17px; }
   .mc-label { font-size: 10px; }
+  .mc-sub { font-size: 11px; }
   thead th, tbody td { padding: 6px 8px; font-size: 12px; }
   .period-bar-title { font-size: 14px; }
 }
@@ -1990,7 +2015,12 @@ body.auth-locked > *:not(#login-overlay) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 18, 24, 0.72);
+  /* Fond premium : halos discrets aux couleurs des 3 caisses sur voile sombre */
+  background:
+    radial-gradient(640px 420px at 15% 12%, rgba(249,115,22,.20), transparent 70%),
+    radial-gradient(520px 380px at 85% 88%, rgba(37,99,235,.16), transparent 70%),
+    radial-gradient(420px 300px at 80% 15%, rgba(16,185,129,.10), transparent 70%),
+    rgba(13, 16, 22, 0.82);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   padding: var(--s-3, 16px);
@@ -2001,31 +2031,52 @@ body.auth-locked > *:not(#login-overlay) {
   color: var(--c-text, #111);
   width: 100%;
   max-width: 380px;
-  padding: 28px 24px;
-  border-radius: var(--r-lg, 16px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  padding: 32px 28px 28px;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0,0,0,.2);
   border: 1px solid var(--c-border, rgba(0,0,0,0.08));
+  position: relative;
+  overflow: hidden;
+}
+/* Liseré signature en haut de la carte (SUSHI → BAR → CHICHA) */
+#login-overlay .login-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--c-sushi, #2563EB), var(--c-bar, #10B981) 50%, var(--c-chicha, #F97316));
 }
 
 #login-overlay .login-logo {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
   text-align: center;
   margin-bottom: 4px;
-  color: var(--c-primary, #d62828);
+  color: var(--c-text, #111);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 12px;
+  text-transform: uppercase;
 }
-#login-overlay .login-logo i { font-size: 24px; }
+#login-overlay .login-logo i {
+  width: 52px; height: 52px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  color: #FFFFFF;
+  border-radius: 13px;
+  background: var(--grad-primary, linear-gradient(135deg, #FB923C, #EA580C));
+  box-shadow: 0 8px 22px rgba(249,115,22,.42), inset 0 1px 0 rgba(255,255,255,.25);
+}
 
 #login-overlay .login-sub {
   text-align: center;
   color: var(--c-muted, #666);
   font-size: 13px;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 
 #login-overlay form label {

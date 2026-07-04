@@ -463,24 +463,26 @@ const Audit = {
     const log = (Data.activityLog || []).filter(e => e.module === 'depenses');
     const deps = (Data.histDep || []).filter(d => d.userId);
 
+    // Date métier d'une entrée d'audit : les créations/modifs portent la
+    // dépense complète dans meta.after, les suppressions dans meta.before.
+    // (l'ancien filtre sur meta.date seul ne trouvait jamais rien)
+    const depDateOf = e => e.meta?.date || e.meta?.after?.date || e.meta?.before?.date;
+
     const sections = dates.map(date => {
-      const auditCreate = log.filter(e => e.action === 'create' && (e.meta?.date === date));
-      const auditDelete = log.filter(e => e.action === 'delete' && (e.meta?.date === date));
-      const auditUpdate = log.filter(e => e.action === 'update' && (e.meta?.date === date));
+      const auditCreate = log.filter(e => e.action === 'create' && depDateOf(e) === date);
+      const auditDelete = log.filter(e => e.action === 'delete' && depDateOf(e) === date);
+      const auditUpdate = log.filter(e => e.action === 'update' && depDateOf(e) === date);
       const current     = deps.filter(d => d.date === date);
 
-      const auditCreateIds = new Set(auditCreate.map(e => e.meta?.id).filter(Boolean));
-      const currentIds = new Set(current.map(d => d.userId));
-      const inAuditNotCurrent = [...auditCreateIds].filter(id => !currentIds.has(id));
+      const auditCreateIds = new Set(auditCreate.map(e => e.meta?.id).filter(v => v != null).map(String));
+      const deletedIds     = new Set(auditDelete.map(e => e.meta?.id).filter(v => v != null).map(String));
+      const currentIds     = new Set(current.map(d => String(d.userId)));
+      // Manquantes = créées d'après l'audit, absentes de la base, SANS trace
+      // de suppression volontaire → dépenses perdues, restaurables.
+      const inAuditNotCurrent = [...auditCreateIds].filter(id => !currentIds.has(id) && !deletedIds.has(id));
       const inCurrentNotAudit = [...currentIds].filter(id => !auditCreateIds.has(id));
 
       const totalCurrent = current.reduce((s,d) => s + (d.montant || 0), 0);
-      const totalAudit   = auditCreate.reduce((s,e) => {
-        // tente d'extraire le montant depuis details ("Dépense X · 50 000")
-        // si meta.before / meta.after non dispo on prend l'entrée current
-        const dep = deps.find(d => d.userId === e.meta?.id);
-        return s + (dep?.montant || 0);
-      }, 0);
 
       const rowsCurrent = current.length
         ? current.map(d => `<tr><td>${this._esc(d.dept || '')}</td><td>${this._esc(d.label || d.groupe || '')}</td><td class="text-right fw-bold">${Data.fmt(d.montant)}</td><td>${this._esc(d.paiement || 'esp')}</td><td style="font-size:11px;color:var(--c-muted)">#${d.userId}</td></tr>`).join('')
@@ -495,25 +497,33 @@ const Audit = {
         : '<tr><td colspan="4" class="empty">Aucune modification historisée</td></tr>';
 
       // Montants des divergences (depuis meta.after/before pour l'audit, depuis la base pour l'extra)
-      const missingAmounts = inAuditNotCurrent.map(id => {
-        const e = auditCreate.find(x => x.meta?.id === id);
-        return Number(e?.meta?.after?.montant ?? e?.meta?.before?.montant ?? 0) || 0;
-      });
+      const missingEntries = inAuditNotCurrent.map(id => auditCreate.find(x => String(x.meta?.id) === id));
+      const missingAmounts = missingEntries.map(e =>
+        Number(e?.meta?.after?.montant ?? e?.meta?.before?.montant ?? 0) || 0);
       const extraAmounts = inCurrentNotAudit.map(id => {
-        const d = current.find(x => x.userId === id);
+        const d = current.find(x => String(x.userId) === id);
         return Number(d?.montant ?? 0) || 0;
       });
       const totalMissing = missingAmounts.reduce((s, m) => s + m, 0);
       const totalExtra   = extraAmounts.reduce((s, m) => s + m, 0);
       const totalDivergence = totalMissing + totalExtra;
 
+      // Entrées restaurables : l'audit porte la dépense complète (meta.after)
+      const restorableIds = missingEntries
+        .filter(e => e && (e.meta?.after || e.meta?.before))
+        .map(e => e.id);
+
       const rowsDiffMissing = inAuditNotCurrent.length
         ? inAuditNotCurrent.map((id, i) => {
-            const e = auditCreate.find(x => x.meta?.id === id);
+            const e = missingEntries[i];
             const m = missingAmounts[i];
-            return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(e?.entity || '?')}</td><td>${this._esc(e?.details || '')}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${m ? Data.fmt(m) : '—'}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
+            const canRestore = !!(e && (e.meta?.after || e.meta?.before));
+            const restoreBtn = canRestore
+              ? `<button class="btn btn-sm btn-primary" onclick="Audit.restoreDeps('${e.id}')" title="Recréer cette dépense à partir de sa copie dans l'historique"><i class="ti ti-restore"></i> Restaurer</button>`
+              : '<span class="text-muted" style="font-size:11px">copie indisponible</span>';
+            return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(e?.entity || '?')}</td><td>${this._esc(e?.details || '')}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${m ? Data.fmt(m) : '—'}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td><td>${restoreBtn}</td></tr>`;
           }).join('')
-        : '<tr><td colspan="4" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les créations de l\'audit sont présentes en base ✓</td></tr>';
+        : '<tr><td colspan="5" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les créations de l\'audit sont présentes en base ✓</td></tr>';
 
       const rowsDiffExtra = inCurrentNotAudit.length
         ? inCurrentNotAudit.map(id => {
@@ -543,6 +553,10 @@ const Audit = {
                 ${totalMissing > 0 ? ` · <span style="color:var(--c-muted)">audit sans base : <b>${Data.fmt(totalMissing)}</b></span>` : ''}
                 ${totalExtra   > 0 ? ` · <span style="color:var(--c-muted)">base sans audit : <b>${Data.fmt(totalExtra)}</b></span>` : ''}
               </div>
+              ${restorableIds.length ? `
+              <button class="btn btn-primary" style="margin-top:8px" onclick="Audit.restoreDeps('${restorableIds.join(',')}')">
+                <i class="ti ti-restore"></i> Restaurer les ${restorableIds.length} dépense(s) perdue(s) du ${Data.fmtDs(date)}
+              </button>` : ''}
             </div>` : ''}
           <div class="g4" style="margin-bottom:12px">
             <div class="mc"><div class="mc-label">Dépenses en base</div><div class="mc-val">${current.length}</div><div class="mc-sub">${Data.fmt(totalCurrent)}</div></div>
@@ -571,7 +585,7 @@ const Audit = {
               <details open>
                 <summary style="cursor:pointer;font-weight:700;color:var(--c-danger);font-size:14px">⚠ Détail des divergences (${inAuditNotCurrent.length + inCurrentNotAudit.length}) · Montant total : ${Data.fmt(totalDivergence)}</summary>
                 <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Audit sans base</b> — lignes audit dont la dépense a disparu (sans trace de suppression) · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalMissing)}</span> :</div>
-                <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
+                <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th class="text-right">Montant</th><th>ID</th><th></th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
                 <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Base sans audit</b> — dépenses présentes sans trace de création dans l'audit · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalExtra)}</span> :</div>
                 <table><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffExtra}</tbody></table>
               </details>
@@ -613,6 +627,44 @@ const Audit = {
           </div>
         </div>
       </div>`);
+  },
+
+  // ---------- Restauration de dépenses perdues depuis l'audit ----------
+  // Chaque création de dépense est historisée avec sa copie complète
+  // (meta.after) : on peut donc recréer à l'identique une dépense disparue.
+  // `csv` = ids d'entrées d'audit séparés par des virgules.
+  restoreDeps(csv) {
+    const ids = String(csv).split(',').filter(Boolean);
+    if (!ids.length) return;
+    if (ids.length > 1 && !confirm(`Restaurer ${ids.length} dépense(s) à partir de leur copie dans l'historique ?`)) return;
+
+    let done = 0, skipped = [];
+    ids.forEach(eid => {
+      const e = (Data.activityLog || []).find(x => String(x.id) === String(eid));
+      const payload = e?.meta?.after || e?.meta?.before;
+      const uid = e?.meta?.id;
+      if (!e || !payload || uid == null || !payload.date) { skipped.push('copie introuvable'); return; }
+      if ((Data.histDep || []).some(d => String(d.userId) === String(uid))) { skipped.push(`${payload.label || '?'} : déjà présente`); return; }
+      if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(payload.date)) {
+        skipped.push(`${payload.label || '?'} : mois clôturé`); return;
+      }
+      Data.histDep.push({ ...payload, userId: uid });
+      done++;
+      this.log('create', 'depenses',
+        `Dépense ${payload.dept || ''} · ${payload.label || ''} (restaurée depuis l'historique)`,
+        `${Data.fmt(payload.montant || 0)} · ${payload.paiement || 'esp'}`,
+        { id: uid, after: payload, restored: true });
+    });
+
+    if (done) {
+      Data.bumpNextIdFromAllData();
+      if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+      App.renderAll();
+    }
+    let msg = done ? `✅ ${done} dépense(s) restaurée(s) et sauvegardée(s).` : 'Aucune dépense restaurée.';
+    if (skipped.length) msg += '\n\nIgnorée(s) :\n· ' + skipped.join('\n· ');
+    alert(msg);
+    App.closeModal();
   },
 
   // Helpers de la modale de rapprochement
