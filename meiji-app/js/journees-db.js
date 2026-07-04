@@ -11,6 +11,12 @@ const JourneesDB = {
   DEPS_TABLE: 'journee_deps',
   LS_KEY: 'meiji-user-recs',
 
+  // Upserts/deletes en cours vers Supabase. Comme AppDB._pendingWrites :
+  // tant qu'une écriture est en vol, un rechargement depuis le cloud lirait
+  // l'ancienne version et écraserait la saisie tout juste validée.
+  _pendingWrites: 0,
+  hasPendingWrites() { return this._pendingWrites > 0; },
+
   enabled() {
     return typeof Auth !== 'undefined'
         && Auth.client
@@ -64,6 +70,15 @@ const JourneesDB = {
   // ===== UPSERT (1 journée) =====
   async upsertOne(j) {
     if (!this.enabled()) return false;
+    this._pendingWrites++;
+    try {
+      return await this._upsertOne(j);
+    } finally {
+      this._pendingWrites--;
+    }
+  },
+
+  async _upsertOne(j) {
     const row = this._journeeToRow(j);
     const { error: e1 } = await Auth.client.from(this.TABLE).upsert(row, { onConflict: 'date' });
     if (e1) { console.error('[JourneesDB] upsert journee:', e1); return false; }
@@ -93,8 +108,13 @@ const JourneesDB = {
   // ===== DELETE 1 journée =====
   async deleteByDate(date) {
     if (!this.enabled()) return false;
-    const { error } = await Auth.client.from(this.TABLE).delete().eq('date', date);
-    if (error) { console.error('[JourneesDB] delete:', error); return false; }
-    return true;
+    this._pendingWrites++;
+    try {
+      const { error } = await Auth.client.from(this.TABLE).delete().eq('date', date);
+      if (error) { console.error('[JourneesDB] delete:', error); return false; }
+      return true;
+    } finally {
+      this._pendingWrites--;
+    }
   },
 };

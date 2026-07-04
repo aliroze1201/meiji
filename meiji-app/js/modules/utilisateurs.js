@@ -31,7 +31,8 @@ const Utilisateurs = {
     btn.dataset.bound = '1';
     btn.addEventListener('click', () => {
       const ok = confirm(
-        '⚠️ Cette action va effacer DÉFINITIVEMENT toutes les données saisies (recettes, dépenses, employés, crédits, banque, mobile money, pointage, chèques, catégories).\n\n' +
+        '⚠️ Cette action efface les données de CE NAVIGATEUR uniquement (recettes, dépenses, employés, crédits, banque, mobile money, pointage, chèques, catégories).\n\n' +
+        'En mode cloud, les données seront rechargées depuis Supabase au prochain démarrage : pour un effacement définitif, vide aussi les tables côté Supabase.\n\n' +
         'Les comptes utilisateurs et le thème seront conservés.\n\n' +
         'Continuer ?'
       );
@@ -262,6 +263,23 @@ const Utilisateurs = {
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="ti ti-loader"></i> Création...';
+
+      // Pré-approbation : on enregistre l'invitation AVANT le signUp pour que
+      // le trigger handle_new_user crée le profil avec le bon nom/rôle
+      // (voir supabase-securite.sql). Sans invitation, un inscrit n'obtient
+      // aucun profil et donc aucun accès aux données.
+      // Si la table invitations n'existe pas encore (script non exécuté),
+      // on continue avec l'ancien flux pour ne rien casser.
+      const { error: invErr } = await Auth.client.from('invitations').upsert(
+        { email, nom, role, created_by: Auth.user?.id || null },
+        { onConflict: 'email' });
+      if (invErr && invErr.code !== 'PGRST205' && invErr.code !== '42P01'
+          && !/does not exist|not find the table/i.test(invErr.message || '')) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="ti ti-user-plus"></i> Créer le compte';
+        errEl.textContent = 'Invitation impossible : ' + invErr.message;
+        return;
+      }
 
       // Client Supabase isolé : ne touche pas la session admin courante
       const tmp = supabase.createClient(Config.supabase.url, Config.supabase.anonKey, {

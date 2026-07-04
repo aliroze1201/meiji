@@ -266,9 +266,9 @@ const Employes = {
       <div class="modal-overlay">
         <div class="modal">
           <div class="modal-title">${editing ? 'Modifier' : 'Nouvel'} employé</div>
-          <div class="fg"><label class="fl">Nom complet</label><input type="text" id="emp-nom" value="${e.nom}" placeholder="Ex: DUPONT JEAN"></div>
+          <div class="fg"><label class="fl">Nom complet</label><input type="text" id="emp-nom" value="${Data.esc(e.nom)}" placeholder="Ex: DUPONT JEAN"></div>
           <div class="fr">
-            <div class="fg"><label class="fl">Poste</label><input type="text" id="emp-poste" value="${e.poste}" placeholder="Ex: SERVEUR"></div>
+            <div class="fg"><label class="fl">Poste</label><input type="text" id="emp-poste" value="${Data.esc(e.poste)}" placeholder="Ex: SERVEUR"></div>
             <div class="fg"><label class="fl">Département</label>
               <select id="emp-dept">
                 <option value="BAR" ${e.dept==='BAR'?'selected':''}>BAR</option>
@@ -759,8 +759,8 @@ const Employes = {
         : '';
       return `
       <tr data-search-id="emp:${this._escape(e.nom)}">
-        <td class="fw-bold">${e.nom}${lastLabel}</td>
-        <td>${e.poste || '-'}</td>
+        <td class="fw-bold">${Data.esc(e.nom)}${lastLabel}</td>
+        <td>${Data.esc(e.poste || '-')}</td>
         <td><span class="badge ${e.dept==='BAR'?'b-green':e.dept==='CHICHA'?'b-amber':'b-blue'}">${e.dept}</span></td>
         <td class="text-right">${Data.fmts(e.brut)}</td>
         <td class="text-right text-green">${e.prime ? '+' + Data.fmts(e.prime) : '-'}</td>

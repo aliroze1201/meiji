@@ -275,7 +275,7 @@ const Dashboard = {
         tbody.innerHTML = '<tr><td colspan="3" class="text-muted" style="text-align:center;padding:16px">Aucune dépense saisie ce jour</td></tr>';
       } else {
         tbody.innerHTML = all.map(d =>
-          `<tr><td>${d.dept}</td><td>${d.label}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`
+          `<tr><td>${d.dept}</td><td>${Data.esc(d.label)}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`
         ).join('');
       }
     }

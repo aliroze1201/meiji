@@ -76,10 +76,10 @@ const Credits = {
           <div class="modal-title"><i class="ti ti-cash"></i> Régler le crédit</div>
           <div style="background:var(--c-bg-2);padding:14px 16px;border-radius:var(--r-md);margin-bottom:16px;border-left:3px solid ${deptColor}">
             <div style="font-size:12px;color:var(--c-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Crédit</div>
-            <div style="font-size:15px;font-weight:700;margin-top:2px">${c.client}</div>
+            <div style="font-size:15px;font-weight:700;margin-top:2px">${Data.esc(c.client)}</div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12.5px;color:var(--c-muted)">
               <span>Caisse <b style="color:${deptColor}">${c.dept}</b></span>
-              <span>Ticket #${c.ticket || '-'}</span>
+              <span>Ticket #${Data.esc(c.ticket || '-')}</span>
               <span>du ${Data.fmtD(c.date)}</span>
             </div>
             <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--c-red);margin-top:8px">
@@ -206,7 +206,7 @@ const Credits = {
     if (alert) {
       if (overdue.length) {
         const topClients = overdue.slice().sort((a,b) => b.montant - a.montant).slice(0,3)
-          .map(c => `${c.client} (${Data.fmts(c.montant)})`).join(', ');
+          .map(c => `${Data.esc(c.client)} (${Data.fmts(c.montant)})`).join(', ');
         alert.style.display = 'block';
         alert.innerHTML = `
           <div style="background:color-mix(in srgb, var(--c-amber) 15%, transparent);border:1px solid var(--c-amber);border-radius:var(--r-md);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
@@ -259,8 +259,8 @@ const Credits = {
       return `
       <tr data-search-id="cre:${c.id}"${rowStyle}>
         <td class="nowrap">${Data.fmtDs(c.date)}</td>
-        <td>${c.ticket || '-'}</td>
-        <td class="fw-bold">${c.client}</td>
+        <td>${Data.esc(c.ticket || '-')}</td>
+        <td class="fw-bold">${Data.esc(c.client)}</td>
         <td><span class="badge ${c.dept==='SUSHI'?'b-blue':c.dept==='BAR'?'b-green':'b-amber'}">${c.dept}</span></td>
         <td class="text-right fw-bold" style="color:${c.statut==='ouvert'?'var(--c-red)':'var(--c-bar)'}">${Data.fmts(c.montant)} FCFA</td>
         <td>${statut}</td>
