@@ -446,6 +446,7 @@ const Depenses = {
       }
     });
 
+    const committedDates = this.drafts.map(d => d.date);
     this.drafts = [];
     this.persistDrafts();
     this.persist();
@@ -453,6 +454,14 @@ const Depenses = {
       Recettes.persistUser(Array.from(touchedJournees));
     }
     App.renderAll();
+
+    // Si le filtre de période actif masque des lignes tout juste validées,
+    // le signaler : sinon elles semblent avoir « disparu » alors qu'elles
+    // sont bien enregistrées.
+    const hidden = committedDates.filter(dt => !App.inPeriod(dt)).length;
+    if (hidden && App.toast) {
+      App.toast(`✅ Dépense(s) enregistrée(s) — ${hidden} ligne(s) hors de la période affichée. Passe le filtre sur « Tout » pour les voir.`, 'info', 9000);
+    }
   },
 
   remove(userId) {

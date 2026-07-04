@@ -15,6 +15,35 @@ const AppDB = {
   // Hook optionnel branché par main.js pour remonter les erreurs à l'écran.
   onError: null,
 
+  // Écritures cloud en cours (save() lancé, upsert pas encore terminé).
+  // refreshFromCloud() s'en sert pour ne PAS relire le cloud pendant qu'une
+  // écriture est en vol : la lecture reviendrait avec l'ancienne version et
+  // écraserait en mémoire les données tout juste validées.
+  _pendingWrites: 0,
+  // Clés dont l'envoi cloud a échoué (offline, RLS…) : le localStorage est
+  // alors plus récent que le cloud → interdire le refresh tant que ce retard
+  // n'est pas rattrapé, sinon les saisies locales disparaîtraient.
+  _dirtyKeys: {},
+  // Timestamp de la dernière écriture locale (localStorage).
+  lastWriteAt: 0,
+
+  hasPendingWrites() {
+    return this._pendingWrites > 0 || Object.keys(this._dirtyKeys).length > 0;
+  },
+
+  // Rejoue vers le cloud les écritures locales qui avaient échoué.
+  // Retourne true si tout est rattrapé (plus aucune clé en retard).
+  async flushDirty() {
+    if (!this.enabled()) return Object.keys(this._dirtyKeys).length === 0;
+    for (const key of Object.keys(this._dirtyKeys)) {
+      const local = this._localGet(key);
+      if (local === undefined || await this._cloudSet(key, local)) {
+        delete this._dirtyKeys[key];
+      }
+    }
+    return Object.keys(this._dirtyKeys).length === 0;
+  },
+
   enabled() {
     return typeof Auth !== 'undefined'
         && Auth.client
@@ -85,8 +114,17 @@ const AppDB = {
   // Écrit local (toujours, comme backup) puis cloud (si dispo). Fire-and-forget côté cloud.
   async save(key, data) {
     this._localSet(key, data);
+    this.lastWriteAt = Date.now();
     if (this.enabled()) {
-      await this._cloudSet(key, data);
+      this._pendingWrites++;
+      try {
+        const ok = await this._cloudSet(key, data);
+        if (ok) delete this._dirtyKeys[key];
+        else this._dirtyKeys[key] = true;
+      } finally {
+        this._pendingWrites--;
+        this.lastWriteAt = Date.now();
+      }
     }
   },
 

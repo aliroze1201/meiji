@@ -567,6 +567,22 @@ const App = {
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+    // ⚠️ Jamais de rechargement pendant ou juste après une écriture locale.
+    // Scénario du bug « les dépenses disparaissent au Valider » : commitDrafts()
+    // pousse les lignes en mémoire et lance persist() (upsert cloud asynchrone) ;
+    // la fermeture du confirm() redonne le focus à la fenêtre → refreshFromCloud()
+    // relisait le cloud AVANT la fin de l'upsert → restore() remplaçait
+    // Data.histDep par l'ancienne liste, effaçant les dépenses tout juste validées.
+    if (AppDB.hasPendingWrites && AppDB.hasPendingWrites()) {
+      // Si des écritures ont échoué (offline…), tenter de les rattraper d'abord ;
+      // tant que le cloud est en retard sur le local, on ne recharge pas.
+      if (!AppDB.flushDirty || !(await AppDB.flushDirty())) return;
+    }
+    if (typeof JourneesDB !== 'undefined' && JourneesDB.hasPendingWrites && JourneesDB.hasPendingWrites()) return;
+    // Petit délai de grâce après toute écriture locale : laisse l'upsert se
+    // propager avant d'accepter une relecture (protection ceinture-bretelles).
+    if (AppDB.lastWriteAt && Date.now() - AppDB.lastWriteAt < 10000) return;
+
     this._refreshing = true;
     this.setSyncStatus('sync', 'Rafraîchissement…');
     try {
