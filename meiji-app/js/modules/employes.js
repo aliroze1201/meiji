@@ -78,6 +78,13 @@ const Employes = {
             </ul>
           </div>
 
+          <label style="display:flex;gap:8px;align-items:flex-start;background:var(--c-primary-soft);padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:12.5px;cursor:pointer">
+            <input type="checkbox" id="clot-gen-sal" checked style="width:auto;height:auto;margin-top:2px">
+            <span>Enregistrer les <b>salaires restants</b> comme dépenses du mois, au montant <b>NET</b>
+            (brut + primes − <b>avances déjà versées</b>). Les employés ayant déjà un paiement
+            « Salaire » ce mois-ci sont ignorés — aucun doublon possible.</span>
+          </label>
+
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px;font-size:12px">
             <div style="background:var(--c-surface);padding:8px;border-radius:6px;display:flex;justify-content:space-between"><span>Masse brute</span><b>${Data.fmt(totBrut)}</b></div>
             <div style="background:var(--c-surface);padding:8px;border-radius:6px;display:flex;justify-content:space-between"><span>Total primes</span><b style="color:var(--c-green)">${Data.fmt(totPrime)}</b></div>
@@ -93,9 +100,93 @@ const Employes = {
       </div>`);
   },
 
+  // Crée les dépenses « Salaire » NETTES (brut + primes − avances déjà
+  // versées) pour les employés qui n'ont pas encore de salaire enregistré
+  // sur le mois. Les avances/primes versées en cours de mois sont déjà des
+  // dépenses : payer le NET évite tout double comptage et fait que les
+  // avances sont bien « prises en compte » dans le coût du mois.
+  // `employes` : objets vivants (Data.employes) OU archivés (empHistorique).
+  _genSalaryDeps(employes, ym) {
+    const [y, m] = ym.split('-').map(Number);
+    const date = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`; // dernier jour du mois
+    if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(date)) {
+      alert(`🔒 Le mois ${this._moisFr(ym)} est clôturé comptablement (page Clôtures) : impossible d'y créer des dépenses. Rouvre-le d'abord.`);
+      return { created: 0, total: 0, skipped: [] };
+    }
+    let created = 0, total = 0;
+    const skipped = [];
+    (employes || []).forEach(e => {
+      const net = Number(e.net) || 0;
+      if (net <= 0) { skipped.push(`${e.nom} : net nul`); return; }
+      const dejaPaye = (e.paiements || []).some(p => p.type === 'salaire');
+      const dejaDep  = (Data.histDep || []).some(d =>
+        d.payType === 'salaire' && d.empNom === e.nom && (d.date || '').slice(0, 7) === ym);
+      if (dejaPaye || dejaDep) { skipped.push(`${e.nom} : salaire déjà enregistré ce mois`); return; }
+      const dept = e.dept === 'RESTAURANT' ? 'SUSHI' : (e.dept || 'BAR');
+      const userId = Data.newId();
+      const depense = {
+        userId, date, dept,
+        label: `Salaire ${e.nom}`, groupe: 'Salaires',
+        qte: null, prix: null, montant: net,
+        observation: `Salaire ${this._moisFr(ym)} · net après avances (${e.nom})`,
+        paiement: 'esp', empNom: e.nom, payType: 'salaire',
+      };
+      Data.histDep.push(depense);
+      e.paiements = Array.isArray(e.paiements) ? e.paiements : [];
+      e.paiements.push({ id: userId, date, montant: net, mode: 'esp', dept, type: 'salaire' });
+      created++; total += net;
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
+          `Salaire ${e.nom}`,
+          `${Data.fmt(net)} · esp · ${dept} (net ${this._moisFr(ym)}, avances déduites)`,
+          { id: userId, after: depense });
+      } catch (err) {}
+    });
+    if (created && typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+    return { created, total, skipped };
+  },
+
+  // Rattrapage sur un mois DÉJÀ clôturé : génère les dépenses de salaires
+  // nets depuis l'archive (les avances archivées sont déduites).
+  genSalairesFromArchive(ym) {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('employes')) { alert('Accès refusé.'); return; }
+    const h = (Data.empHistorique || []).find(x => x.ym === ym);
+    if (!h) return;
+    const candidates = (h.employes || []).filter(e =>
+      (Number(e.net) || 0) > 0
+      && !(e.paiements || []).some(p => p.type === 'salaire')
+      && !(Data.histDep || []).some(d => d.payType === 'salaire' && d.empNom === e.nom && (d.date || '').slice(0, 7) === ym));
+    if (!candidates.length) {
+      alert('Rien à générer : tous les salaires de ce mois sont déjà enregistrés en dépenses (ou net nul).');
+      return;
+    }
+    const tot = candidates.reduce((s, e) => s + (Number(e.net) || 0), 0);
+    if (!confirm(
+      `Créer ${candidates.length} dépense(s) « Salaire » pour ${this._moisFr(ym)} ?\n\n` +
+      `Montant par employé = NET archivé (brut + primes − avances déjà versées).\n` +
+      `Total : ${Data.fmt(tot)}\n` +
+      `Date : dernier jour du mois · mode Espèces (modifiable ensuite page Dépenses).`)) return;
+    const res = this._genSalaryDeps(candidates, ym);
+    this.persistHist(); // les paiements générés sont tracés dans l'archive
+    let msg = res.created
+      ? `✅ ${res.created} dépense(s) de salaire créée(s) · total ${Data.fmt(res.total)}.`
+      : 'Aucune dépense créée.';
+    if (res.skipped.length) msg += '\n\nIgnoré(s) :\n· ' + res.skipped.join('\n· ');
+    alert(msg);
+    App.closeModal();
+    App.renderAll();
+  },
+
   confirmCloture(ym) {
     const list = Data.employes || [];
     if (!Array.isArray(Data.empHistorique)) Data.empHistorique = [];
+
+    // Option cochée : enregistrer les salaires nets restants comme dépenses
+    // AVANT le reset (on a encore les vraies avances/primes du mois).
+    let genRes = null;
+    if (document.getElementById('clot-gen-sal')?.checked) {
+      genRes = this._genSalaryDeps(list, ym);
+    }
 
     const snapshot = {
       ym,
@@ -145,6 +236,13 @@ const Employes = {
 
     App.closeModal();
     App.renderAll();
+    if (genRes) {
+      let msg = genRes.created
+        ? `✅ Clôture faite. ${genRes.created} dépense(s) « Salaire » créée(s) au net (avances déduites) · total ${Data.fmt(genRes.total)}.`
+        : '✅ Clôture faite. Aucune dépense de salaire à créer (déjà enregistrées ou net nul).';
+      if (genRes.skipped.length) msg += '\n\nIgnoré(s) :\n· ' + genRes.skipped.join('\n· ');
+      alert(msg);
+    }
   },
 
   renderHistorique() {
@@ -245,6 +343,9 @@ const Employes = {
             ${(typeof Auth === 'undefined' || (Auth.profile && Auth.profile.role === 'admin'))
               ? `<button class="btn" style="color:var(--c-red)" onclick="Employes.deleteHistorique('${h.ym}')"><i class="ti ti-trash"></i> Supprimer cette archive</button>`
               : ''}
+            <button class="btn" onclick="Employes.genSalairesFromArchive('${h.ym}')" title="Crée les dépenses « Salaire » manquantes de ce mois au montant NET archivé (avances déduites)">
+              <i class="ti ti-cash"></i> Enregistrer les salaires nets en dépenses
+            </button>
             <button class="btn btn-primary" onclick="App.closeModal()">Fermer</button>
           </div>
         </div>

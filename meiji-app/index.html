@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex">
   <title>MEIJI — Gestion Restaurant</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍣</text></svg>">
-  <link rel="stylesheet" href="css/styles.css?v=20260704-20e3f6e9">
+  <link rel="stylesheet" href="css/styles.css?v=20260707-39329856">
   <!-- Version bornée à la majeure @3 (pas @latest : évite un changement de rendu surprise) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/tabler-icons.min.css">
   <!-- defer : ces bibliothèques s'exécutent avant DOMContentLoaded (App.init)
@@ -407,8 +407,19 @@
         <div class="card" style="margin-top:16px">
           <div class="card-header"><span class="card-title"><i class="ti ti-receipt"></i> Détail des dépenses du jour</span></div>
           <table>
-            <thead><tr><th>Département</th><th>Libellé</th><th style="text-align:right">Montant</th></tr></thead>
+            <thead><tr><th>Département</th><th>Libellé</th><th>Mode</th><th style="text-align:right">Montant</th></tr></thead>
             <tbody id="pt-deps"></tbody>
+          </table>
+        </div>
+
+        <!-- MOUVEMENTS BANQUE / MOBILE DU JOUR (impact caisse) -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-header">
+            <span class="card-title"><i class="ti ti-building-bank"></i> Mouvements banque &amp; mobile du jour</span>
+          </div>
+          <table>
+            <thead><tr><th>Source</th><th>Libellé</th><th style="text-align:right">Montant</th><th style="text-align:right">Impact caisse (espèces)</th></tr></thead>
+            <tbody id="pt-bm-mvts"></tbody>
           </table>
         </div>
 
@@ -575,10 +586,12 @@
           <button class="tab" data-filter="SUSHI">SUSHI</button>
           <button class="tab" data-filter="BAR">BAR</button>
           <button class="tab" data-filter="CHICHA">CHICHA</button>
+          <button class="tab" data-filter="moustapha">👤 Moustapha</button>
         </div>
       </div>
       <div class="content">
-        <div class="g3" id="an-metrics"></div>
+        <div class="g4" id="an-metrics"></div>
+        <div id="an-previsions"></div>
         <div id="an-groups"></div>
       </div>
     </div>
@@ -1117,33 +1130,33 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container" role="region" aria-label="Boîtes de dialogue"></div>
 
-<script src="js/config.js?v=20260704-20e3f6e9"></script>
-<script src="js/auth.js?v=20260704-20e3f6e9"></script>
-<script src="js/data.js?v=20260704-20e3f6e9"></script>
-<script src="js/journees-db.js?v=20260704-20e3f6e9"></script>
-<script src="js/app-db.js?v=20260704-20e3f6e9"></script>
-<script src="js/audit.js?v=20260704-20e3f6e9"></script>
-<script src="js/charts.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/dashboard.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/pointage.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/recettes.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/depenses.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/analyse.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/banque.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/mobile.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/categories.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/employes.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/comptes-emp.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/credits.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/suivi.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/fournisseurs.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/stock.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/associes.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/bilan.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/clotures.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/utilisateurs.js?v=20260704-20e3f6e9"></script>
-<script src="js/modules/search.js?v=20260704-20e3f6e9"></script>
-<script src="js/main.js?v=20260704-20e3f6e9"></script>
+<script src="js/config.js?v=20260707-39329856"></script>
+<script src="js/auth.js?v=20260707-39329856"></script>
+<script src="js/data.js?v=20260707-39329856"></script>
+<script src="js/journees-db.js?v=20260707-39329856"></script>
+<script src="js/app-db.js?v=20260707-39329856"></script>
+<script src="js/audit.js?v=20260707-39329856"></script>
+<script src="js/charts.js?v=20260707-39329856"></script>
+<script src="js/modules/dashboard.js?v=20260707-39329856"></script>
+<script src="js/modules/pointage.js?v=20260707-39329856"></script>
+<script src="js/modules/recettes.js?v=20260707-39329856"></script>
+<script src="js/modules/depenses.js?v=20260707-39329856"></script>
+<script src="js/modules/analyse.js?v=20260707-39329856"></script>
+<script src="js/modules/banque.js?v=20260707-39329856"></script>
+<script src="js/modules/mobile.js?v=20260707-39329856"></script>
+<script src="js/modules/categories.js?v=20260707-39329856"></script>
+<script src="js/modules/employes.js?v=20260707-39329856"></script>
+<script src="js/modules/comptes-emp.js?v=20260707-39329856"></script>
+<script src="js/modules/credits.js?v=20260707-39329856"></script>
+<script src="js/modules/suivi.js?v=20260707-39329856"></script>
+<script src="js/modules/fournisseurs.js?v=20260707-39329856"></script>
+<script src="js/modules/stock.js?v=20260707-39329856"></script>
+<script src="js/modules/associes.js?v=20260707-39329856"></script>
+<script src="js/modules/bilan.js?v=20260707-39329856"></script>
+<script src="js/modules/clotures.js?v=20260707-39329856"></script>
+<script src="js/modules/utilisateurs.js?v=20260707-39329856"></script>
+<script src="js/modules/search.js?v=20260707-39329856"></script>
+<script src="js/main.js?v=20260707-39329856"></script>
 
 <!--
   Filet de sécurité : recalcul du P.U. dans la saisie des dépenses, attaché

@@ -165,6 +165,17 @@ const Banque = {
       caisse: ['s','b','c'].includes(caisseRaw) ? caisseRaw : null,
     };
     if (!mvt.lib || !mvt.mnt) { alert('Libellé et montant requis'); return; }
+    // Sans caisse, le mouvement ne touche QUE le solde bancaire : le cumul
+    // espèces de la journée ne bouge pas. C'est la cause classique d'un
+    // « dépôt banque non pris en compte dans le solde du jour ».
+    if (!mvt.caisse) {
+      const ok = confirm(
+        '⚠️ Aucune caisse sélectionnée.\n\n' +
+        'Ce mouvement modifiera uniquement le solde bancaire, PAS le solde espèces de la journée.\n\n' +
+        'S\'il s\'agit d\'un dépôt d\'espèces de la caisse vers la banque (ou d\'un retrait vers la caisse), ' +
+        'clique Annuler et choisis la caisse concernée.\n\nContinuer sans caisse ?');
+      if (!ok) return;
+    }
     Data.mvtsBanque.unshift(mvt);
     try {
       if (typeof Audit !== 'undefined') Audit.log('create', 'banque',

@@ -205,7 +205,9 @@ const Pointage = {
     const tEl = document.getElementById('pt-theorique');
     if (tEl) tEl.style.color = totTheorique >= 0 ? 'var(--c-bar)' : 'var(--c-red)';
 
-    // Dépenses du jour (tableau global, comme avant)
+    // Dépenses du jour (tableau global). La colonne Mode explique pourquoi
+    // certaines lignes ne réduisent PAS le solde espèces : une dépense payée
+    // banque ou mobile sort du solde correspondant, pas du cash.
     const tbody = document.getElementById('pt-deps');
     if (tbody) {
       const all = [];
@@ -213,17 +215,52 @@ const Pointage = {
       if (j && j.deps) {
         ['s', 'b', 'c'].forEach(k => {
           const dept = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' }[k];
-          (j.deps[k] || []).forEach(d => all.push({ dept, label: d.label, montant: d.montant }));
+          (j.deps[k] || []).forEach(d => all.push({ dept, label: d.label, montant: d.montant, paiement: 'esp' }));
         });
       }
       (Data.histDep || []).filter(d => d.date === date).forEach(d => all.push(d));
       if (!all.length) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-muted" style="text-align:center;padding:16px">Aucune dépense saisie ce jour</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:16px">Aucune dépense saisie ce jour</td></tr>';
       } else {
-        tbody.innerHTML = all.map(d =>
-          `<tr><td>${d.dept}</td><td>${this._esc(d.label)}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`
-        ).join('');
+        tbody.innerHTML = all.map(d => {
+          const cash = Data.isCashDep(d);
+          const modeCell = cash
+            ? '<span style="font-size:12px">💵 Espèces</span>'
+            : `<span class="badge b-amber" title="Payée par ${d.paiement} : sort du solde ${d.paiement === 'banque' ? 'bancaire' : 'mobile'}, pas des espèces de la caisse">${d.paiement === 'banque' ? '🏦 Banque' : '📱 Mobile'} · hors cash</span>`;
+          return `<tr><td>${d.dept}</td><td>${this._esc(d.label)}</td><td>${modeCell}</td><td style="text-align:right;font-weight:600">${Data.fmt(d.montant)}</td></tr>`;
+        }).join('');
       }
+    }
+
+    // Mouvements banque / mobile du jour : montre leur impact sur le cash,
+    // et SIGNALE ceux saisis sans caisse — ils ne touchent aucun cumul
+    // espèces (cause classique d'un « dépôt non pris en compte »).
+    const bmBox = document.getElementById('pt-bm-mvts');
+    if (bmBox) {
+      const caisseName = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      const rows = [];
+      const pushMvt = (m, srcIcon, srcLbl) => {
+        if (m.date !== date) return;
+        const sens = m.type === 'in' ? 'Entrée' : 'Sortie';
+        let impact;
+        if (!m.caisse) {
+          impact = '<span class="badge b-amber" title="Mouvement saisi sans caisse : il ne modifie aucun solde espèces. Supprime-le et ressaisis-le avec la caisse pour corriger.">⚠ sans caisse · aucun impact</span>';
+        } else {
+          const sign  = m.type === 'in' ? '−' : '+';
+          const color = m.type === 'in' ? 'var(--c-red)' : 'var(--c-bar)';
+          impact = `<span style="color:${color};font-weight:700">${sign}${Data.fmt(m.mnt || 0)}</span> <span style="font-size:10px;color:var(--c-muted)">${caisseName[m.caisse] || ''}</span>`;
+        }
+        rows.push(`<tr>
+          <td>${srcIcon} ${this._esc(srcLbl)}</td>
+          <td>${this._esc(m.lib || '')} <span style="font-size:10px;color:var(--c-muted)">${sens}${m.pending ? ' · ⏳ en attente' : ''}</span></td>
+          <td style="text-align:right;font-weight:600">${Data.fmt(m.mnt || 0)}</td>
+          <td style="text-align:right">${impact}</td>
+        </tr>`);
+      };
+      (Data.mvtsBanque || []).forEach(m => pushMvt(m, '🏦', m.op || 'Banque'));
+      (Data.mvtsMobile || []).forEach(m => pushMvt(m, '📱', m.op || 'Mobile'));
+      bmBox.innerHTML = rows.length ? rows.join('') :
+        '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:16px">Aucun mouvement banque/mobile ce jour</td></tr>';
     }
 
     // Mouvements employés du jour (prêts / remboursements)

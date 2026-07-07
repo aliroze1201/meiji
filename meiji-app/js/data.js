@@ -159,6 +159,10 @@ const Data = {
   stockArticles: [],
   stockMouvements: [],
 
+  // ===================== PRÉVISIONS DE CHARGES =====================
+  // Budget mensuel par catégorie : { 'YYYY-MM': { [nomCategorie]: montant } }
+  previsions: {},
+
   // ===================== FOND DE CAISSE INITIAL (report espèces) =====================
   // Solde d'ouverture par caisse, à partir duquel le cash se cumule jour après jour.
   // Modifiable depuis la page Pointage par admin/responsable.
@@ -373,6 +377,16 @@ const Data = {
     const map = {};
     this.categories.forEach(c => map[c.nom] = c.color);
     return map;
+  },
+
+  // ===================== NATURE DES CHARGES (fixe / variable) =====================
+  // Priorité au champ `nature` de la catégorie (éditable page Catégories ou
+  // via le badge de la page Analyse), sinon défauts métier ci-dessous.
+  NATURE_DEFAUT_FIXE: ['Loyer', 'Salaires'],
+  natureOfGroupe(nom) {
+    const c = (this.categories || []).find(x => x.nom === nom);
+    if (c && (c.nature === 'fixe' || c.nature === 'variable')) return c.nature;
+    return this.NATURE_DEFAUT_FIXE.includes(nom) ? 'fixe' : 'variable';
   },
 
   // ===================== Formats =====================

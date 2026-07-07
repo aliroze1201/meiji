@@ -508,6 +508,7 @@ const App = {
       (typeof Pointage !== 'undefined' && Pointage.restore ? Pointage.restore() : Promise.resolve()),
       (typeof Stock !== 'undefined' && Stock.restore ? Stock.restore() : Promise.resolve()),
       (typeof Categories !== 'undefined' && Categories.restore ? Categories.restore() : Promise.resolve()),
+      (typeof Analyse !== 'undefined' && Analyse.restorePrev ? Analyse.restorePrev() : Promise.resolve()),
       (typeof Fournisseurs !== 'undefined' && Fournisseurs.restore ? Fournisseurs.restore() : Promise.resolve()),
       (typeof CEmployes !== 'undefined' && CEmployes.restore ? CEmployes.restore() : Promise.resolve()),
       (typeof Associes !== 'undefined' && Associes.restore ? Associes.restore() : Promise.resolve()),

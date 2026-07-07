@@ -112,13 +112,24 @@ const Categories = {
             </div>
           </div>
 
-          <div class="fg"><label class="fl">Département</label>
-            <select id="cat-dept">
-              <option value="all"    ${!c || c.dept === 'all' ? 'selected' : ''}>Tous</option>
-              <option value="SUSHI"  ${c?.dept === 'SUSHI'  ? 'selected' : ''}>SUSHI</option>
-              <option value="BAR"    ${c?.dept === 'BAR'    ? 'selected' : ''}>BAR</option>
-              <option value="CHICHA" ${c?.dept === 'CHICHA' ? 'selected' : ''}>CHICHA</option>
-            </select>
+          <div class="fr">
+            <div class="fg"><label class="fl">Département</label>
+              <select id="cat-dept">
+                <option value="all"    ${!c || c.dept === 'all' ? 'selected' : ''}>Tous</option>
+                <option value="SUSHI"  ${c?.dept === 'SUSHI'  ? 'selected' : ''}>SUSHI</option>
+                <option value="BAR"    ${c?.dept === 'BAR'    ? 'selected' : ''}>BAR</option>
+                <option value="CHICHA" ${c?.dept === 'CHICHA' ? 'selected' : ''}>CHICHA</option>
+              </select>
+            </div>
+            <div class="fg"><label class="fl">Nature (charges)</label>
+              <select id="cat-nature">
+                <option value="variable" ${(c ? Data.natureOfGroupe(c.nom) : 'variable') === 'variable' ? 'selected' : ''}>📈 Variable</option>
+                <option value="fixe"     ${(c ? Data.natureOfGroupe(c.nom) : 'variable') === 'fixe'     ? 'selected' : ''}>📌 Fixe</option>
+              </select>
+              <div style="font-size:11px;color:var(--c-muted);margin-top:4px">
+                Fixe = coût régulier (loyer, salaires…) · Variable = suit l'activité (achats, transport…).
+              </div>
+            </div>
           </div>
 
           <div class="fg"><label class="fl">Description</label>
@@ -181,6 +192,7 @@ const Categories = {
       color: document.getElementById('cat-color')?.value,
       dept:  document.getElementById('cat-dept')?.value,
       desc:  document.getElementById('cat-desc')?.value || '',
+      nature: document.getElementById('cat-nature')?.value === 'fixe' ? 'fixe' : 'variable',
       parentId,
     };
 
@@ -297,7 +309,12 @@ const Categories = {
               ${!depth && hasKids ? `<span style="font-size:10px;color:var(--c-muted);margin-left:4px">(${kids.length})</span>` : ''}
             </div>
           </td>
-          <td><span class="badge ${c.type === 'dep' ? 'b-red' : c.type === 'rec' ? 'b-green' : 'b-purple'}">${c.type === 'dep' ? 'Dépense' : c.type === 'rec' ? 'Recette' : 'Les deux'}</span></td>
+          <td>
+            <span class="badge ${c.type === 'dep' ? 'b-red' : c.type === 'rec' ? 'b-green' : 'b-purple'}">${c.type === 'dep' ? 'Dépense' : c.type === 'rec' ? 'Recette' : 'Les deux'}</span>
+            ${c.type !== 'rec' ? (Data.natureOfGroupe(c.nom) === 'fixe'
+              ? '<span class="badge b-purple" title="Charge fixe" style="margin-left:4px">📌 Fixe</span>'
+              : '<span class="badge b-amber" title="Charge variable" style="margin-left:4px">📈 Variable</span>') : ''}
+          </td>
           <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:${c.color}"></span></td>
           <td><span class="badge b-blue">${c.dept === 'all' ? 'Tous' : c.dept}</span></td>
           <td class="nowrap">
