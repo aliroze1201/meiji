@@ -37,29 +37,44 @@ const Analyse = {
     this._renderPrevisions();
   },
 
-  setPrev(ym, nom, val) {
+  // Une prévision = { m: montant FCFA, q: quantité achetée }.
+  // Rétro-compat : les anciennes valeurs stockées comme simple nombre
+  // sont lues comme un montant (q = 0).
+  _prevVal(prevs, nom) {
+    const v = prevs ? prevs[nom] : null;
+    if (v == null) return { m: 0, q: 0 };
+    if (typeof v === 'object') return { m: Number(v.m) || 0, q: Number(v.q) || 0 };
+    return { m: Number(v) || 0, q: 0 };
+  },
+
+  setPrev(ym, nom, field, val) {
     if (!Data.previsions) Data.previsions = {};
     if (!Data.previsions[ym]) Data.previsions[ym] = {};
-    const before = Data.previsions[ym][nom] || 0;
+    const cur = this._prevVal(Data.previsions[ym], nom);
     const n = parseFloat(val);
-    if (!isFinite(n) || n <= 0) delete Data.previsions[ym][nom];
-    else Data.previsions[ym][nom] = Math.round(n);
-    const after = Data.previsions[ym][nom] || 0;
-    if (after !== before) {
+    const clean = (!isFinite(n) || n <= 0) ? 0
+      : (field === 'q' ? Math.round(n * 100) / 100 : Math.round(n));
+    const next = { ...cur, [field]: clean };
+    if (!next.m && !next.q) delete Data.previsions[ym][nom];
+    else Data.previsions[ym][nom] = next;
+    if (next[field] !== cur[field]) {
       try {
         if (typeof Audit !== 'undefined') Audit.log('update', 'analyse',
           `Prévision ${nom} (${ym})`,
-          `${Data.fmt(before)} → ${Data.fmt(after)}`,
-          { ym, nom, before: { montant: before }, after: { montant: after } });
+          field === 'q'
+            ? `Quantité : ${cur.q} → ${next.q}`
+            : `${Data.fmt(cur.m)} → ${Data.fmt(next.m)}`,
+          { ym, nom, before: cur, after: next });
       } catch (e) {}
       this.persistPrev();
     }
     this._renderPrevisions();
   },
 
-  // Suggestions analytiques : moyenne mensuelle du RÉALISÉ par catégorie
-  // sur les N mois précédant `ym` (seuls les mois ayant de l'activité
-  // comptent dans la moyenne, arrondi au millier).
+  // Suggestions analytiques : moyennes mensuelles du RÉALISÉ par catégorie
+  // (montant ET quantité achetée) sur les N mois précédant `ym`. Seuls les
+  // mois ayant de l'activité comptent dans la moyenne ; montants arrondis
+  // au millier, quantités à l'unité.
   _prevSuggestions(ym, nMois = 3) {
     const fenetre = [];
     let [y, m] = ym.split('-').map(Number);
@@ -70,7 +85,7 @@ const Analyse = {
     const set = new Set(fenetre);
     const nomsCat = new Set((Data.categories || [])
       .filter(c => c.type === 'dep' || c.type === 'both').map(c => c.nom));
-    const totaux = {};
+    const totaux = {}, totauxQ = {};
     const moisActifs = new Set();
     Data.getAllDeps().forEach(d => {
       const dm = (d.date || '').slice(0, 7);
@@ -79,26 +94,32 @@ const Analyse = {
       const g = d.groupe || 'Autres';
       if (!nomsCat.has(g)) return; // seules les catégories déclarées sont budgétées
       totaux[g] = (totaux[g] || 0) + (d.montant || 0);
+      const q = Number(d.qte);
+      if (isFinite(q) && q > 0) totauxQ[g] = (totauxQ[g] || 0) + q;
     });
     const div = Math.max(1, moisActifs.size);
-    const sugg = {};
+    const sugg = {}, suggQ = {};
     Object.entries(totaux).forEach(([g, t]) => {
       const avg = t / div;
       sugg[g] = avg >= 1000 ? Math.round(avg / 1000) * 1000 : Math.round(avg);
     });
-    return { sugg, moisActifs: [...moisActifs].sort(), fenetre };
+    Object.entries(totauxQ).forEach(([g, t]) => { suggQ[g] = Math.round(t / div); });
+    return { sugg, suggQ, moisActifs: [...moisActifs].sort(), fenetre };
   },
 
-  // Remplit les prévisions du mois avec les suggestions analytiques.
+  // Remplit les prévisions du mois avec les suggestions analytiques
+  // (montants ET quantités).
   autoFillPrev(ym) {
     if (typeof Auth !== 'undefined' && !Auth.canEdit('analyse')) { alert('Accès refusé.'); return; }
-    const { sugg, moisActifs } = this._prevSuggestions(ym, 3);
-    const entries = Object.entries(sugg).filter(([, v]) => v > 0);
+    const { sugg, suggQ, moisActifs } = this._prevSuggestions(ym, 3);
+    const noms = [...new Set([...Object.keys(sugg), ...Object.keys(suggQ)])]
+      .filter(g => (sugg[g] || 0) > 0 || (suggQ[g] || 0) > 0);
+    const entries = noms.map(g => [g, { m: sugg[g] || 0, q: suggQ[g] || 0 }]);
     if (!moisActifs.length || !entries.length) {
       alert('Pas assez d\'historique : aucune dépense trouvée sur les 3 mois précédents.');
       return;
     }
-    const tot = entries.reduce((s, [, v]) => s + v, 0);
+    const tot = entries.reduce((s, [, v]) => s + v.m, 0);
     const moisLbl = moisActifs.map(x => x.split('-').reverse().join('/')).join(' + ');
     if (!confirm(
       `Calculer les prévisions de ${ym} automatiquement ?\n\n` +
@@ -238,12 +259,15 @@ const Analyse = {
     const ym = this._prevYm || Data.today().slice(0, 7);
     const prevs = (Data.previsions && Data.previsions[ym]) || {};
 
-    // Réalisé du mois par groupe (dépenses + dépenses de journées, toutes caisses)
-    const realByG = {};
+    // Réalisé du mois par groupe (dépenses + dépenses de journées, toutes
+    // caisses) : montant ET quantité achetée (champ Qté des dépenses).
+    const realByG = {}, realQByG = {};
     Data.getAllDeps().forEach(d => {
       if ((d.date || '').slice(0, 7) !== ym) return;
       const g = d.groupe || 'Autres';
       realByG[g] = (realByG[g] || 0) + (d.montant || 0);
+      const q = Number(d.qte);
+      if (isFinite(q) && q > 0) realQByG[g] = (realQByG[g] || 0) + q;
     });
 
     // Hiérarchie des catégories de dépense : racines puis sous-catégories.
@@ -267,7 +291,7 @@ const Analyse = {
 
     // Suggestions analytiques (moyenne des mois précédents) : affichées en
     // filigrane dans les champs vides, applicables via « Calculer auto ».
-    const { sugg } = this._prevSuggestions(ym, 3);
+    const { sugg, suggQ } = this._prevSuggestions(ym, 3);
 
     // Sépare les lignes en DEUX tableaux : charges fixes et charges variables.
     // Une sous-catégorie peut être d'une autre nature que son parent : elle
@@ -275,13 +299,15 @@ const Analyse = {
     const fixes = [], variables = [];
     rows.forEach(row => (natureOf(row) === 'fixe' ? fixes : variables).push(row));
 
+    const fmtQ = (q) => (Math.round(q * 100) / 100).toLocaleString('fr-FR');
     const mkRows = (list) => {
       let tPrev = 0, tReal = 0;
       const sameTable = new Set(list.map(r => r.c.nom));
       const html = list.map(row => {
         const { c, depth, parent } = row;
-        const prev = Number(prevs[c.nom]) || 0;
+        const { m: prev, q: prevQ } = this._prevVal(prevs, c.nom);
         const real = realByG[c.nom] || 0;
+        const realQ = realQByG[c.nom] || 0;
         tPrev += prev; tReal += real;
         const ecart = real - prev;
         const ecartCell = prev
@@ -290,13 +316,17 @@ const Analyse = {
         const pctCell = prev
           ? `${Math.round((real / prev) * 100)}%`
           : '<span class="text-muted">—</span>';
+        // Quantité réalisée colorée selon la prévision quantité
+        const qCell = prevQ
+          ? `<span style="font-weight:700;color:${realQ > prevQ ? 'var(--c-red)' : 'var(--c-bar)'}">${fmtQ(realQ)}</span> <span style="font-size:11px;color:var(--c-muted)">/ ${fmtQ(prevQ)}</span>`
+          : (realQ ? fmtQ(realQ) : '<span class="text-muted">—</span>');
         const indented = depth && parent && sameTable.has(parent.nom);
         const nomCell = indented
           ? `<span style="color:var(--c-muted)">└</span> <span style="font-weight:500">${Data.esc(c.nom)}</span>`
           : depth && parent
             ? `<span style="font-weight:500"><span style="color:var(--c-muted)">${Data.esc(parent.nom)} ›</span> ${Data.esc(c.nom)}</span>`
             : `<span style="font-weight:600">${Data.esc(c.nom)}</span>`;
-        return `<tr${(!prev && !real) ? ' style="opacity:.65"' : ''}>
+        return `<tr${(!prev && !real && !prevQ && !realQ) ? ' style="opacity:.65"' : ''}>
           <td>
             <div style="display:flex;align-items:center;gap:7px;${indented ? 'padding-left:22px' : ''}">
               <span style="width:9px;height:9px;border-radius:2px;background:${c.color || '#888'};display:inline-block;flex-shrink:0"></span>
@@ -304,11 +334,19 @@ const Analyse = {
             </div>
           </td>
           <td style="text-align:right">
+            <input type="number" min="0" step="1" value="${prevQ || ''}"
+                   placeholder="${suggQ[c.nom] || 0}"
+                   title="${suggQ[c.nom] ? 'Suggestion (moyenne des 3 derniers mois) : ' + fmtQ(suggQ[c.nom]) : 'Renseigne le champ Qté lors de la saisie des dépenses pour suivre les quantités'}"
+                   style="width:80px;text-align:right;font-weight:600"
+                   onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, 'q', this.value)">
+          </td>
+          <td class="text-right">${qCell}</td>
+          <td style="text-align:right">
             <input type="number" min="0" step="1000" value="${prev || ''}"
                    placeholder="${sugg[c.nom] || 0}"
                    title="${sugg[c.nom] ? 'Suggestion (moyenne des 3 derniers mois) : ' + Data.fmt(sugg[c.nom]) : 'Aucun historique récent pour cette catégorie'}"
                    style="width:130px;text-align:right;font-weight:600"
-                   onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, this.value)">
+                   onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, 'm', this.value)">
           </td>
           <td class="text-right fw-bold">${real ? Data.fmts(real) : '<span class="text-muted">0</span>'}</td>
           <td class="text-right">${ecartCell}</td>
@@ -348,14 +386,16 @@ const Analyse = {
           <table>
             <thead><tr>
               <th>Catégorie</th>
+              <th class="text-right" title="Quantité à acheter prévue pour le mois">Qté prévue</th>
+              <th class="text-right" title="Quantité réellement achetée (champ Qté des dépenses)">Qté réalisée</th>
               <th class="text-right">Prévision (FCFA)</th>
               <th class="text-right">Réalisé</th>
               <th class="text-right">Écart</th>
               <th class="text-right">%</th>
             </tr></thead>
             <tbody>
-              ${rowsHtml || `<tr><td colspan="5" class="empty">Aucune catégorie ${titre.toLowerCase()} — clique le badge 📌/📈 d'une catégorie ci-dessous pour la classer.</td></tr>`}
-              <tr class="total-row"><td>${emoji} Total ${titre.toLowerCase()}</td><td class="text-right fw-bold">${Data.fmts(res.tPrev)}</td><td class="text-right fw-bold">${Data.fmts(res.tReal)}</td><td class="text-right fw-bold" style="color:${ecartTot > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecartTot > 0 ? '+' : ''}${Data.fmts(ecartTot)}</td><td></td></tr>
+              ${rowsHtml || `<tr><td colspan="7" class="empty">Aucune catégorie ${titre.toLowerCase()} — clique le badge 📌/📈 d'une catégorie ci-dessous pour la classer.</td></tr>`}
+              <tr class="total-row"><td>${emoji} Total ${titre.toLowerCase()}</td><td></td><td></td><td class="text-right fw-bold">${Data.fmts(res.tPrev)}</td><td class="text-right fw-bold">${Data.fmts(res.tReal)}</td><td class="text-right fw-bold" style="color:${ecartTot > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecartTot > 0 ? '+' : ''}${Data.fmts(ecartTot)}</td><td></td></tr>
             </tbody>
           </table>
         </div>`;
