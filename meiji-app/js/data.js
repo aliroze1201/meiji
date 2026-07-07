@@ -159,6 +159,10 @@ const Data = {
   stockArticles: [],
   stockMouvements: [],
 
+  // ===================== PRÉVISIONS DE CHARGES =====================
+  // Budget mensuel par catégorie : { 'YYYY-MM': { [nomCategorie]: montant } }
+  previsions: {},
+
   // ===================== FOND DE CAISSE INITIAL (report espèces) =====================
   // Solde d'ouverture par caisse, à partir duquel le cash se cumule jour après jour.
   // Modifiable depuis la page Pointage par admin/responsable.
