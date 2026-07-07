@@ -14,7 +14,13 @@ const Analyse = {
 
   // ===================== PRÉVISIONS MENSUELLES =====================
   PREV_KEY: 'meiji-previsions',
-  _prevYm: null,   // mois affiché dans la carte prévisions (défaut : mois courant)
+  _prevYm: null,     // mois affiché dans la carte prévisions (défaut : mois courant)
+  _prevTab: 'fixe',  // sous-onglet actif : 'fixe' | 'variable'
+
+  setPrevTab(t) {
+    this._prevTab = t === 'variable' ? 'variable' : 'fixe';
+    this._renderPrevisions();
+  },
 
   persistPrev() {
     if (typeof AppDB !== 'undefined') AppDB.save(this.PREV_KEY, Data.previsions || {});
@@ -288,6 +294,7 @@ const Analyse = {
         </div>`;
     };
 
+    const tab = this._prevTab;
     box.innerHTML = `
       <div class="card">
         <div class="card-header">
@@ -298,18 +305,28 @@ const Analyse = {
           </div>
         </div>
 
-        ${bloc('Charges fixes', '📌', F, F.html, 'var(--c-purple)')}
-        ${bloc('Charges variables', '📈', V, V.html, 'var(--c-warning)')}
+        <div class="tabs" style="margin-bottom:2px">
+          <button class="tab ${tab === 'fixe' ? 'active' : ''}" onclick="Analyse.setPrevTab('fixe')">
+            📌 Charges fixes${F.tPrev ? ' · ' + Data.fmts(F.tPrev) : ''}
+          </button>
+          <button class="tab ${tab === 'variable' ? 'active' : ''}" onclick="Analyse.setPrevTab('variable')">
+            📈 Charges variables${V.tPrev ? ' · ' + Data.fmts(V.tPrev) : ''}
+          </button>
+        </div>
+
+        ${tab === 'fixe'
+          ? bloc('Charges fixes', '📌', F, F.html, 'var(--c-purple)')
+          : bloc('Charges variables', '📈', V, V.html, 'var(--c-warning)')}
 
         <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:14px;padding:12px 14px;border-top:2px solid var(--c-border);font-size:13.5px">
-          <span style="font-weight:800">Total général : ${Data.fmt(totReal)} réalisé / ${Data.fmt(totPrev)} prévu</span>
+          <span style="font-weight:800">Total général (fixes + variables) : ${Data.fmt(totReal)} réalisé / ${Data.fmt(totPrev)} prévu</span>
           <span style="font-weight:800;color:${totReal > totPrev && totPrev ? 'var(--c-red)' : 'var(--c-bar)'}">
             ${totPrev ? (totReal > totPrev ? `dépassement de ${Data.fmt(totReal - totPrev)}` : `reste ${Data.fmt(totPrev - totReal)}`) : ''}
           </span>
         </div>
         <div style="font-size:11.5px;color:var(--c-muted)">
           Le « Réalisé » couvre toutes les caisses du mois choisi (indépendant du filtre de période).
-          Une catégorie change de tableau via son badge 📌/📈 (liste des charges ci-dessous) ou la page Catégories.
+          Une catégorie change de sous-onglet via son badge 📌/📈 (liste des charges ci-dessous) ou la page Catégories.
         </div>
       </div>`;
   },
