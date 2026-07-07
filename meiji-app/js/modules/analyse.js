@@ -57,6 +57,67 @@ const Analyse = {
     this._renderPrevisions();
   },
 
+  // Suggestions analytiques : moyenne mensuelle du RÉALISÉ par catégorie
+  // sur les N mois précédant `ym` (seuls les mois ayant de l'activité
+  // comptent dans la moyenne, arrondi au millier).
+  _prevSuggestions(ym, nMois = 3) {
+    const fenetre = [];
+    let [y, m] = ym.split('-').map(Number);
+    for (let i = 0; i < nMois; i++) {
+      m--; if (m === 0) { m = 12; y--; }
+      fenetre.push(`${y}-${String(m).padStart(2, '0')}`);
+    }
+    const set = new Set(fenetre);
+    const nomsCat = new Set((Data.categories || [])
+      .filter(c => c.type === 'dep' || c.type === 'both').map(c => c.nom));
+    const totaux = {};
+    const moisActifs = new Set();
+    Data.getAllDeps().forEach(d => {
+      const dm = (d.date || '').slice(0, 7);
+      if (!set.has(dm)) return;
+      moisActifs.add(dm);
+      const g = d.groupe || 'Autres';
+      if (!nomsCat.has(g)) return; // seules les catégories déclarées sont budgétées
+      totaux[g] = (totaux[g] || 0) + (d.montant || 0);
+    });
+    const div = Math.max(1, moisActifs.size);
+    const sugg = {};
+    Object.entries(totaux).forEach(([g, t]) => {
+      const avg = t / div;
+      sugg[g] = avg >= 1000 ? Math.round(avg / 1000) * 1000 : Math.round(avg);
+    });
+    return { sugg, moisActifs: [...moisActifs].sort(), fenetre };
+  },
+
+  // Remplit les prévisions du mois avec les suggestions analytiques.
+  autoFillPrev(ym) {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('analyse')) { alert('Accès refusé.'); return; }
+    const { sugg, moisActifs } = this._prevSuggestions(ym, 3);
+    const entries = Object.entries(sugg).filter(([, v]) => v > 0);
+    if (!moisActifs.length || !entries.length) {
+      alert('Pas assez d\'historique : aucune dépense trouvée sur les 3 mois précédents.');
+      return;
+    }
+    const tot = entries.reduce((s, [, v]) => s + v, 0);
+    const moisLbl = moisActifs.map(x => x.split('-').reverse().join('/')).join(' + ');
+    if (!confirm(
+      `Calculer les prévisions de ${ym} automatiquement ?\n\n` +
+      `Base : moyenne mensuelle du réalisé sur ${moisActifs.length} mois (${moisLbl}).\n` +
+      `${entries.length} catégorie(s) · total prévu ${Data.fmt(tot)}\n\n` +
+      `⚠️ Les prévisions déjà saisies pour ce mois seront remplacées.\n` +
+      `Tu peux ensuite ajuster chaque montant à la main.`)) return;
+    if (!Data.previsions) Data.previsions = {};
+    Data.previsions[ym] = Object.fromEntries(entries);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'analyse',
+        `Prévisions auto ${ym}`,
+        `${entries.length} catégorie(s) · ${Data.fmt(tot)} · base ${moisActifs.length} mois`,
+        { ym, after: Data.previsions[ym] });
+    } catch (e) {}
+    this.persistPrev();
+    this._renderPrevisions();
+  },
+
   copyPrevMonth(ym) {
     const [y, m] = ym.split('-').map(Number);
     const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
@@ -204,6 +265,10 @@ const Analyse = {
       return Data.natureOfGroupe(c.nom);
     };
 
+    // Suggestions analytiques (moyenne des mois précédents) : affichées en
+    // filigrane dans les champs vides, applicables via « Calculer auto ».
+    const { sugg } = this._prevSuggestions(ym, 3);
+
     // Sépare les lignes en DEUX tableaux : charges fixes et charges variables.
     // Une sous-catégorie peut être d'une autre nature que son parent : elle
     // apparaît alors dans l'autre tableau sous la forme « Parent › Nom ».
@@ -239,7 +304,9 @@ const Analyse = {
             </div>
           </td>
           <td style="text-align:right">
-            <input type="number" min="0" step="1000" value="${prev || ''}" placeholder="0"
+            <input type="number" min="0" step="1000" value="${prev || ''}"
+                   placeholder="${sugg[c.nom] || 0}"
+                   title="${sugg[c.nom] ? 'Suggestion (moyenne des 3 derniers mois) : ' + Data.fmt(sugg[c.nom]) : 'Aucun historique récent pour cette catégorie'}"
                    style="width:130px;text-align:right;font-weight:600"
                    onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, this.value)">
           </td>
@@ -301,6 +368,7 @@ const Analyse = {
           <span class="card-title"><i class="ti ti-target-arrow"></i> Prévisions de charges · ${moisLbl}</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="month" value="${ym}" onchange="Analyse.setPrevYm(this.value)">
+            <button class="btn btn-sm btn-primary" onclick="Analyse.autoFillPrev('${ym}')" title="Remplit chaque catégorie avec la moyenne mensuelle de son réalisé sur les 3 derniers mois"><i class="ti ti-wand"></i> Calculer auto</button>
             <button class="btn btn-sm" onclick="Analyse.copyPrevMonth('${ym}')" title="Reprendre les prévisions du mois précédent"><i class="ti ti-copy"></i> Copier mois précédent</button>
           </div>
         </div>
