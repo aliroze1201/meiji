@@ -3,8 +3,18 @@
  */
 
 const Analyse = {
+  // Comptes suivis par mot-clé : onglets dédiés qui regroupent TOUTES les
+  // charges (dépenses + dépenses de journées) dont le libellé ou
+  // l'observation mentionne la personne, quelle que soit la catégorie.
+  // Pour suivre quelqu'un d'autre, ajouter une entrée ici + un onglet
+  // data-filter correspondant dans index.html (an-tabs).
+  COMPTES: {
+    moustapha: { label: 'Moustapha', re: /MOUSTAPHA/i },
+  },
+
   render() {
     const filter = App.filters.an;
+    if (this.COMPTES[filter]) { this._renderCompte(this.COMPTES[filter]); return; }
     const all = App.filterByDate(Data.getAllDeps());
     const fil = filter === 'all' ? all : all.filter(d => d.dept === filter);
     const tot = fil.reduce((s,d) => s + d.montant, 0);
@@ -80,5 +90,71 @@ const Analyse = {
           </div>
         </div>`;
     }).join('');
+  },
+
+  // Vue « compte suivi » : total, répartition par caisse et détail
+  // chronologique de toutes les charges liées à la personne.
+  _renderCompte(cfg) {
+    const list = App.filterByDate(Data.getAllDeps())
+      .filter(d => cfg.re.test(`${d.label || ''} ${d.observation || ''}`))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const tot = list.reduce((s, d) => s + (d.montant || 0), 0);
+    const byDept = { SUSHI: 0, BAR: 0, CHICHA: 0 };
+    list.forEach(d => { byDept[d.dept] = (byDept[d.dept] || 0) + (d.montant || 0); });
+
+    const metricsEl = document.getElementById('an-metrics');
+    if (metricsEl) metricsEl.innerHTML = `
+      <div class="mc red"><div class="mc-label red">Total ${Data.esc(cfg.label)}</div><div class="mc-val red">${Data.fmt(tot)}</div><div class="mc-sub">sur la période affichée</div></div>
+      <div class="mc blue"><div class="mc-label blue">Opérations</div><div class="mc-val blue">${list.length}</div><div class="mc-sub">${list.length ? 'du ' + Data.fmtDs(list[list.length - 1].date) + ' au ' + Data.fmtDs(list[0].date) : '—'}</div></div>
+      <div class="mc"><div class="mc-label">Répartition caisses</div><div class="mc-val" style="font-size:14px">S ${Data.fmts(byDept.SUSHI)} · B ${Data.fmts(byDept.BAR)} · C ${Data.fmts(byDept.CHICHA)}</div></div>`;
+
+    const container = document.getElementById('an-groups');
+    if (!container) return;
+
+    if (!list.length) {
+      container.innerHTML = `
+        <div class="card">
+          <div class="empty">Aucune charge « ${Data.esc(cfg.label)} » sur la période affichée.<br>
+          <span style="font-size:12px">Sont comptées les dépenses dont le libellé ou l'observation contient « ${Data.esc(cfg.label)} ». Pense au filtre de période (« Tout » en haut).</span></div>
+        </div>`;
+      return;
+    }
+
+    const rows = list.map(d => {
+      const src = d._jSrc
+        ? `<span class="badge b-amber" title="Saisie dans la journée du ${Data.fmtD(d._jSrc.jDate)}">journée</span>`
+        : `<span class="badge b-blue">dépense</span>`;
+      const obs = d.observation && d.observation !== d.label
+        ? `<div style="font-size:11px;color:var(--c-muted)">${Data.esc(d.observation)}</div>` : '';
+      const mode = !d.paiement || d.paiement === 'esp' ? '💵' : d.paiement === 'banque' ? '🏦' : '📱';
+      return `<tr>
+        <td class="nowrap">${Data.fmtDs(d.date)}</td>
+        <td><span class="badge ${d.dept === 'SUSHI' ? 'b-blue' : d.dept === 'BAR' ? 'b-green' : 'b-amber'}">${d.dept}</span></td>
+        <td>${Data.esc(d.label || '')}${obs}</td>
+        <td>${Data.esc(d.groupe || '')}</td>
+        <td>${src}</td>
+        <td style="text-align:center">${mode}</td>
+        <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;display:inline-flex;align-items:center;gap:8px">
+            <i class="ti ti-user-search"></i> Détail des charges « ${Data.esc(cfg.label)} »
+          </span>
+          <span class="badge b-red" style="font-size:13px">${Data.fmt(tot)}</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Date</th><th>Caisse</th><th>Libellé</th><th>Catégorie</th><th>Source</th><th style="text-align:center">Mode</th><th class="text-right">Montant</th></tr></thead>
+            <tbody>
+              ${rows}
+              <tr class="total-row"><td colspan="6">Total ${Data.esc(cfg.label)}</td><td class="text-right fw-bold text-red">${Data.fmts(tot)} FCFA</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
   },
 };
