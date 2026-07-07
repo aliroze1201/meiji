@@ -375,6 +375,16 @@ const Data = {
     return map;
   },
 
+  // ===================== NATURE DES CHARGES (fixe / variable) =====================
+  // Priorité au champ `nature` de la catégorie (éditable page Catégories ou
+  // via le badge de la page Analyse), sinon défauts métier ci-dessous.
+  NATURE_DEFAUT_FIXE: ['Loyer', 'Salaires'],
+  natureOfGroupe(nom) {
+    const c = (this.categories || []).find(x => x.nom === nom);
+    if (c && (c.nature === 'fixe' || c.nature === 'variable')) return c.nature;
+    return this.NATURE_DEFAUT_FIXE.includes(nom) ? 'fixe' : 'variable';
+  },
+
   // ===================== Formats =====================
   // Montant. opts : { currency:true, signed:false }
   //   - currency:false   -> nombre nu (ex. fmts d'origine), retourne '0' si falsy

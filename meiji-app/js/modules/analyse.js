@@ -20,17 +20,21 @@ const Analyse = {
     const tot = fil.reduce((s,d) => s + d.montant, 0);
     const catColors = Data.getCatColors();
 
-    // Métriques
+    // Métriques + répartition fixe / variable (nature portée par la catégorie)
     const groups = {};
     fil.forEach(d => { groups[d.groupe] = (groups[d.groupe] || 0) + d.montant; });
     const dominant = Object.entries(groups).sort((a,b) => b[1]-a[1])[0]?.[0] || '-';
-    const distinctLabels = [...new Set(fil.map(d => d.label))].length;
+    const totFixe = fil.filter(d => Data.natureOfGroupe(d.groupe) === 'fixe')
+                       .reduce((s,d) => s + d.montant, 0);
+    const totVar  = tot - totFixe;
+    const pctFixe = tot ? Math.round((totFixe / tot) * 100) : 0;
 
     const metricsEl = document.getElementById('an-metrics');
     if (metricsEl) metricsEl.innerHTML = `
       <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red">${Data.fmt(tot)}</div></div>
-      <div class="mc blue"><div class="mc-label blue">Postes distincts</div><div class="mc-val blue">${distinctLabels}</div></div>
-      <div class="mc"><div class="mc-label">Groupe dominant</div><div class="mc-val" style="font-size:14px">${dominant}</div></div>`;
+      <div class="mc purple"><div class="mc-label purple">📌 Charges fixes</div><div class="mc-val purple">${Data.fmt(totFixe)}</div><div class="mc-sub">${pctFixe}% du total</div></div>
+      <div class="mc amber"><div class="mc-label amber">📈 Charges variables</div><div class="mc-val amber">${Data.fmt(totVar)}</div><div class="mc-sub">${tot ? 100 - pctFixe : 0}% du total</div></div>
+      <div class="mc"><div class="mc-label">Groupe dominant</div><div class="mc-val" style="font-size:14px">${Data.esc(dominant)}</div></div>`;
 
     // Groupes avec détail
     const byG = {};
@@ -47,6 +51,13 @@ const Analyse = {
     container.innerHTML = sorted.map(([grp, info]) => {
       const pct = tot ? Math.round((info.total / tot) * 100) : 0;
       const col = catColors[grp] || '#888';
+      // Badge fixe/variable cliquable : bascule la nature de la catégorie
+      const nature = Data.natureOfGroupe(grp);
+      const natureBadge = `
+        <span class="badge ${nature === 'fixe' ? 'b-purple' : 'b-amber'}"
+              onclick="event.stopPropagation();Analyse.toggleNature(${Data.esc(JSON.stringify(grp))})"
+              title="Clique pour basculer entre charge fixe et charge variable"
+              style="cursor:pointer">${nature === 'fixe' ? '📌 Fixe' : '📈 Variable'}</span>`;
       const byLabel = {};
       info.items.forEach(d => {
         if (!byLabel[d.label]) byLabel[d.label] = { total: 0, dept: d.dept, count: 0 };
@@ -68,7 +79,8 @@ const Analyse = {
             onclick="const sub=this.parentElement.querySelector('.an-sub');sub.style.display=sub.style.display==='none'?'block':'none'">
             <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700">
               <span style="width:10px;height:10px;border-radius:2px;background:${col};display:inline-block"></span>
-              ${grp}
+              ${Data.esc(grp)}
+              ${natureBadge}
               <span style="font-size:11px;color:#aaa;font-weight:400">${pct}%</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
@@ -90,6 +102,33 @@ const Analyse = {
           </div>
         </div>`;
     }).join('');
+  },
+
+  // Bascule la nature (fixe ↔ variable) de la catégorie portant ce nom.
+  // La nature est stockée sur la catégorie (page Catégories) et persiste
+  // dans le cloud comme le reste.
+  toggleNature(nom) {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('categories') && !Auth.canEdit('analyse')) {
+      alert('Accès refusé.'); return;
+    }
+    let c = (Data.categories || []).find(x => x.nom === nom);
+    if (!c) {
+      // Groupe sans catégorie déclarée (ancien mot-clé) : on la crée pour
+      // pouvoir porter la nature, invisible ailleurs sinon.
+      c = { id: Data.newId(), nom, type: 'dep', color: '#5F5E5A', dept: 'all', desc: '' };
+      Data.categories.push(c);
+    }
+    const before = Data.natureOfGroupe(nom);
+    c.nature = before === 'fixe' ? 'variable' : 'fixe';
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'categories',
+        `Catégorie ${nom}`,
+        `Nature : ${before} → ${c.nature}`,
+        { id: c.id, before: { nature: before }, after: { nature: c.nature } });
+    } catch (e) {}
+    if (typeof Categories !== 'undefined' && Categories.persist) Categories.persist();
+    this.render();
+    if (typeof Categories !== 'undefined' && Categories.render) Categories.render();
   },
 
   // Vue « compte suivi » : total, répartition par caisse et détail
