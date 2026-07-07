@@ -198,48 +198,95 @@ const Analyse = {
       return Data.natureOfGroupe(c.nom);
     };
 
-    let fixePrev = 0, fixeReal = 0, varPrev = 0, varReal = 0;
-    const trs = rows.map(row => {
-      const { c, depth } = row;
-      const nature = natureOf(row);
-      const prev = Number(prevs[c.nom]) || 0;
-      const real = realByG[c.nom] || 0;
-      if (nature === 'fixe') { fixePrev += prev; fixeReal += real; }
-      else { varPrev += prev; varReal += real; }
-      const ecart = real - prev;
-      const ecartCell = prev
-        ? `<span style="font-weight:700;color:${ecart > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecart > 0 ? '+' : ''}${Data.fmts(ecart)}</span>`
-        : '<span class="text-muted">—</span>';
-      const pctCell = prev
-        ? `${Math.round((real / prev) * 100)}%`
-        : '<span class="text-muted">—</span>';
-      return `<tr${(!prev && !real) ? ' style="opacity:.65"' : ''}>
-        <td>
-          <div style="display:flex;align-items:center;gap:7px;${depth ? 'padding-left:22px' : ''}">
-            ${depth ? '<span style="color:var(--c-muted)">└</span>' : ''}
-            <span style="width:9px;height:9px;border-radius:2px;background:${c.color || '#888'};display:inline-block;flex-shrink:0"></span>
-            <span style="font-weight:${depth ? 500 : 600}">${Data.esc(c.nom)}</span>
-          </div>
-        </td>
-        <td><span class="badge ${nature === 'fixe' ? 'b-purple' : 'b-amber'}">${nature === 'fixe' ? '📌 Fixe' : '📈 Variable'}</span></td>
-        <td style="text-align:right">
-          <input type="number" min="0" step="1000" value="${prev || ''}" placeholder="0"
-                 style="width:130px;text-align:right;font-weight:600"
-                 onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, this.value)">
-        </td>
-        <td class="text-right fw-bold">${real ? Data.fmts(real) : '<span class="text-muted">0</span>'}</td>
-        <td class="text-right">${ecartCell}</td>
-        <td class="text-right" style="font-size:12px;color:var(--c-muted)">${pctCell}</td>
-      </tr>`;
-    }).join('');
+    // Sépare les lignes en DEUX tableaux : charges fixes et charges variables.
+    // Une sous-catégorie peut être d'une autre nature que son parent : elle
+    // apparaît alors dans l'autre tableau sous la forme « Parent › Nom ».
+    const fixes = [], variables = [];
+    rows.forEach(row => (natureOf(row) === 'fixe' ? fixes : variables).push(row));
 
-    const totPrev = fixePrev + varPrev, totReal = fixeReal + varReal;
-    const fixePct = fixePrev ? Math.min(100, Math.round((fixeReal / fixePrev) * 100)) : 0;
+    const mkRows = (list) => {
+      let tPrev = 0, tReal = 0;
+      const sameTable = new Set(list.map(r => r.c.nom));
+      const html = list.map(row => {
+        const { c, depth, parent } = row;
+        const prev = Number(prevs[c.nom]) || 0;
+        const real = realByG[c.nom] || 0;
+        tPrev += prev; tReal += real;
+        const ecart = real - prev;
+        const ecartCell = prev
+          ? `<span style="font-weight:700;color:${ecart > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecart > 0 ? '+' : ''}${Data.fmts(ecart)}</span>`
+          : '<span class="text-muted">—</span>';
+        const pctCell = prev
+          ? `${Math.round((real / prev) * 100)}%`
+          : '<span class="text-muted">—</span>';
+        const indented = depth && parent && sameTable.has(parent.nom);
+        const nomCell = indented
+          ? `<span style="color:var(--c-muted)">└</span> <span style="font-weight:500">${Data.esc(c.nom)}</span>`
+          : depth && parent
+            ? `<span style="font-weight:500"><span style="color:var(--c-muted)">${Data.esc(parent.nom)} ›</span> ${Data.esc(c.nom)}</span>`
+            : `<span style="font-weight:600">${Data.esc(c.nom)}</span>`;
+        return `<tr${(!prev && !real) ? ' style="opacity:.65"' : ''}>
+          <td>
+            <div style="display:flex;align-items:center;gap:7px;${indented ? 'padding-left:22px' : ''}">
+              <span style="width:9px;height:9px;border-radius:2px;background:${c.color || '#888'};display:inline-block;flex-shrink:0"></span>
+              ${nomCell}
+            </div>
+          </td>
+          <td style="text-align:right">
+            <input type="number" min="0" step="1000" value="${prev || ''}" placeholder="0"
+                   style="width:130px;text-align:right;font-weight:600"
+                   onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, this.value)">
+          </td>
+          <td class="text-right fw-bold">${real ? Data.fmts(real) : '<span class="text-muted">0</span>'}</td>
+          <td class="text-right">${ecartCell}</td>
+          <td class="text-right" style="font-size:12px;color:var(--c-muted)">${pctCell}</td>
+        </tr>`;
+      }).join('');
+      return { html, tPrev, tReal };
+    };
+
+    const F = mkRows(fixes);
+    const V = mkRows(variables);
+    const totPrev = F.tPrev + V.tPrev, totReal = F.tReal + V.tReal;
     const moisLbl = (() => {
       const mois = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
       const [y, m] = ym.split('-');
       return `${mois[parseInt(m, 10)]} ${y}`;
     })();
+
+    // Un bloc = bandeau prévu/réalisé + tableau + ligne de total.
+    const bloc = (titre, emoji, res, rowsHtml, accent) => {
+      const over = res.tPrev && res.tReal > res.tPrev;
+      const pct = res.tPrev ? Math.min(100, Math.round((res.tReal / res.tPrev) * 100)) : 0;
+      const ecartTot = res.tReal - res.tPrev;
+      return `
+        <div style="background:var(--c-bg-2);border-radius:var(--r-md);padding:12px 14px;margin:14px 0 10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;font-size:13px">
+            <span style="font-weight:700">${emoji} ${titre} : ${Data.fmt(res.tReal)} réalisé / ${Data.fmt(res.tPrev)} prévu</span>
+            <span style="font-weight:700;color:${over ? 'var(--c-red)' : 'var(--c-bar)'}">
+              ${res.tPrev ? (over ? `dépassement de ${Data.fmt(res.tReal - res.tPrev)}` : `reste ${Data.fmt(res.tPrev - res.tReal)}`) : 'aucune prévision saisie'}
+            </span>
+          </div>
+          <div class="progress-bg" style="margin-top:8px">
+            <div class="progress-fill" style="width:${pct}%;background:${over ? 'var(--c-red)' : accent}"></div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Catégorie</th>
+              <th class="text-right">Prévision (FCFA)</th>
+              <th class="text-right">Réalisé</th>
+              <th class="text-right">Écart</th>
+              <th class="text-right">%</th>
+            </tr></thead>
+            <tbody>
+              ${rowsHtml || `<tr><td colspan="5" class="empty">Aucune catégorie ${titre.toLowerCase()} — clique le badge 📌/📈 d'une catégorie ci-dessous pour la classer.</td></tr>`}
+              <tr class="total-row"><td>${emoji} Total ${titre.toLowerCase()}</td><td class="text-right fw-bold">${Data.fmts(res.tPrev)}</td><td class="text-right fw-bold">${Data.fmts(res.tReal)}</td><td class="text-right fw-bold" style="color:${ecartTot > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecartTot > 0 ? '+' : ''}${Data.fmts(ecartTot)}</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>`;
+    };
 
     box.innerHTML = `
       <div class="card">
@@ -251,38 +298,18 @@ const Analyse = {
           </div>
         </div>
 
-        <div style="background:var(--c-bg-2);border-radius:var(--r-md);padding:12px 14px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;font-size:13px">
-            <span style="font-weight:700">📌 Charges fixes : ${Data.fmt(fixeReal)} réalisé / ${Data.fmt(fixePrev)} prévu</span>
-            <span style="font-weight:700;color:${fixeReal > fixePrev && fixePrev ? 'var(--c-red)' : 'var(--c-bar)'}">
-              ${fixePrev ? (fixeReal > fixePrev ? `dépassement de ${Data.fmt(fixeReal - fixePrev)}` : `reste ${Data.fmt(fixePrev - fixeReal)}`) : 'aucune prévision saisie'}
-            </span>
-          </div>
-          <div class="progress-bg" style="margin-top:8px">
-            <div class="progress-fill" style="width:${fixePct}%;background:${fixeReal > fixePrev && fixePrev ? 'var(--c-red)' : 'var(--c-purple)'}"></div>
-          </div>
-        </div>
+        ${bloc('Charges fixes', '📌', F, F.html, 'var(--c-purple)')}
+        ${bloc('Charges variables', '📈', V, V.html, 'var(--c-warning)')}
 
-        <div style="overflow-x:auto">
-          <table>
-            <thead><tr>
-              <th>Catégorie</th><th>Nature</th>
-              <th class="text-right">Prévision (FCFA)</th>
-              <th class="text-right">Réalisé</th>
-              <th class="text-right">Écart</th>
-              <th class="text-right">%</th>
-            </tr></thead>
-            <tbody>
-              ${trs}
-              <tr class="total-row"><td colspan="2">📌 Total charges fixes</td><td class="text-right fw-bold">${Data.fmts(fixePrev)}</td><td class="text-right fw-bold">${Data.fmts(fixeReal)}</td><td class="text-right fw-bold" style="color:${fixeReal - fixePrev > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${fixeReal - fixePrev > 0 ? '+' : ''}${Data.fmts(fixeReal - fixePrev)}</td><td></td></tr>
-              <tr class="total-row"><td colspan="2">📈 Total charges variables</td><td class="text-right fw-bold">${Data.fmts(varPrev)}</td><td class="text-right fw-bold">${Data.fmts(varReal)}</td><td class="text-right fw-bold" style="color:${varReal - varPrev > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${varReal - varPrev > 0 ? '+' : ''}${Data.fmts(varReal - varPrev)}</td><td></td></tr>
-              <tr class="total-row"><td colspan="2">Total général</td><td class="text-right fw-bold">${Data.fmts(totPrev)}</td><td class="text-right fw-bold">${Data.fmts(totReal)}</td><td class="text-right fw-bold" style="color:${totReal - totPrev > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${totReal - totPrev > 0 ? '+' : ''}${Data.fmts(totReal - totPrev)}</td><td></td></tr>
-            </tbody>
-          </table>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:14px;padding:12px 14px;border-top:2px solid var(--c-border);font-size:13.5px">
+          <span style="font-weight:800">Total général : ${Data.fmt(totReal)} réalisé / ${Data.fmt(totPrev)} prévu</span>
+          <span style="font-weight:800;color:${totReal > totPrev && totPrev ? 'var(--c-red)' : 'var(--c-bar)'}">
+            ${totPrev ? (totReal > totPrev ? `dépassement de ${Data.fmt(totReal - totPrev)}` : `reste ${Data.fmt(totPrev - totReal)}`) : ''}
+          </span>
         </div>
-        <div style="font-size:11.5px;color:var(--c-muted);margin-top:8px">
+        <div style="font-size:11.5px;color:var(--c-muted)">
           Le « Réalisé » couvre toutes les caisses du mois choisi (indépendant du filtre de période).
-          Astuce : ajoute des sous-catégories (page Catégories) pour détailler tes prévisions poste par poste.
+          Une catégorie change de tableau via son badge 📌/📈 (liste des charges ci-dessous) ou la page Catégories.
         </div>
       </div>`;
   },
