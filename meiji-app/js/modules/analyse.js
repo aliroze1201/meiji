@@ -71,10 +71,28 @@ const Analyse = {
     this._renderPrevisions();
   },
 
-  // Suggestions analytiques : moyennes mensuelles du RÉALISÉ par catégorie
-  // (montant ET quantité achetée) sur les N mois précédant `ym`. Seuls les
-  // mois ayant de l'activité comptent dans la moyenne ; montants arrondis
-  // au millier, quantités à l'unité.
+  // CA total (toutes caisses) d'un mois donné.
+  _caOfMonth(ym) {
+    return (Data.journees || [])
+      .filter(j => (j.date || '').slice(0, 7) === ym)
+      .reduce((s, j) => s + Data.caTotal(j), 0);
+  },
+
+  // Nature d'une catégorie par son nom, avec héritage du parent.
+  _natureOfNom(nom) {
+    const c = (Data.categories || []).find(x => x.nom === nom);
+    if (c && (c.nature === 'fixe' || c.nature === 'variable')) return c.nature;
+    if (c && c.parentId) {
+      const p = (Data.categories || []).find(x => String(x.id) === String(c.parentId));
+      if (p) return Data.natureOfGroupe(p.nom);
+    }
+    return Data.natureOfGroupe(nom);
+  },
+
+  // Suggestions analytiques sur les N mois précédant `ym` :
+  //  - moyennes mensuelles du réalisé par catégorie (montant + quantité) ;
+  //  - CA total et CA moyen de la fenêtre → ratios charge/CA par catégorie.
+  // Seuls les mois ayant de l'activité comptent dans les moyennes.
   _prevSuggestions(ym, nMois = 3) {
     const fenetre = [];
     let [y, m] = ym.split('-').map(Number);
@@ -85,7 +103,7 @@ const Analyse = {
     const set = new Set(fenetre);
     const nomsCat = new Set((Data.categories || [])
       .filter(c => c.type === 'dep' || c.type === 'both').map(c => c.nom));
-    const totaux = {}, totauxQ = {};
+    const totauxG = {}, totauxQG = {};
     const moisActifs = new Set();
     Data.getAllDeps().forEach(d => {
       const dm = (d.date || '').slice(0, 7);
@@ -93,46 +111,99 @@ const Analyse = {
       moisActifs.add(dm);
       const g = d.groupe || 'Autres';
       if (!nomsCat.has(g)) return; // seules les catégories déclarées sont budgétées
-      totaux[g] = (totaux[g] || 0) + (d.montant || 0);
+      totauxG[g] = (totauxG[g] || 0) + (d.montant || 0);
       const q = Number(d.qte);
-      if (isFinite(q) && q > 0) totauxQ[g] = (totauxQ[g] || 0) + q;
+      if (isFinite(q) && q > 0) totauxQG[g] = (totauxQG[g] || 0) + q;
     });
+    // CA de la fenêtre (même diviseur que les charges pour rester cohérent)
+    const totalCA = fenetre.reduce((s, f) => s + this._caOfMonth(f), 0);
     const div = Math.max(1, moisActifs.size);
+    const caMoyen = totalCA / div;
     const sugg = {}, suggQ = {};
-    Object.entries(totaux).forEach(([g, t]) => {
+    Object.entries(totauxG).forEach(([g, t]) => {
       const avg = t / div;
       sugg[g] = avg >= 1000 ? Math.round(avg / 1000) * 1000 : Math.round(avg);
     });
-    Object.entries(totauxQ).forEach(([g, t]) => { suggQ[g] = Math.round(t / div); });
-    return { sugg, suggQ, moisActifs: [...moisActifs].sort(), fenetre };
+    Object.entries(totauxQG).forEach(([g, t]) => { suggQ[g] = Math.round(t / div); });
+    return { sugg, suggQ, totauxG, totauxQG, totalCA, caMoyen, moisActifs: [...moisActifs].sort(), fenetre };
   },
 
-  // Remplit les prévisions du mois avec les suggestions analytiques
-  // (montants ET quantités).
+  // Prévision proposée pour une catégorie, avec le FACTEUR CA :
+  //  - charge FIXE     → moyenne historique simple (indépendante du CA) ;
+  //  - charge VARIABLE → % du CA historique (charge/CA de la fenêtre)
+  //                      appliqué au CA de référence du mois (caBase).
+  _suggestedFor(nom, S, caBase) {
+    const base = S.sugg[nom] || 0;
+    if (this._natureOfNom(nom) === 'fixe') return base;
+    if (!S.totalCA || !caBase) return base;
+    const v = ((S.totauxG[nom] || 0) / S.totalCA) * caBase;
+    return v >= 1000 ? Math.round(v / 1000) * 1000 : Math.round(v);
+  },
+  _suggestedQFor(nom, S, caBase) {
+    const base = S.suggQ[nom] || 0;
+    if (this._natureOfNom(nom) === 'fixe') return base;
+    if (!S.totalCA || !caBase) return base;
+    return Math.round(((S.totauxQG[nom] || 0) / S.totalCA) * caBase);
+  },
+
+  // CA prévu du mois (clé réservée __ca dans les prévisions du mois).
+  setPrevCA(ym, val) {
+    if (!Data.previsions) Data.previsions = {};
+    if (!Data.previsions[ym]) Data.previsions[ym] = {};
+    const before = Number(Data.previsions[ym].__ca) || 0;
+    const n = parseFloat(val);
+    if (!isFinite(n) || n <= 0) delete Data.previsions[ym].__ca;
+    else Data.previsions[ym].__ca = Math.round(n);
+    const after = Number(Data.previsions[ym].__ca) || 0;
+    if (after !== before) {
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('update', 'analyse',
+          `CA prévu (${ym})`, `${Data.fmt(before)} → ${Data.fmt(after)}`,
+          { ym, before: { ca: before }, after: { ca: after } });
+      } catch (e) {}
+      this.persistPrev();
+    }
+    this._renderPrevisions();
+  },
+
+  // Remplit les prévisions du mois avec les suggestions analytiques.
+  // Facteur CA : les charges VARIABLES sont indexées sur le CA (ratio
+  // charge/CA des mois précédents × CA prévu du mois — ou CA moyen si
+  // aucun CA prévu n'est saisi) ; les charges FIXES restent à leur
+  // moyenne historique.
   autoFillPrev(ym) {
     if (typeof Auth !== 'undefined' && !Auth.canEdit('analyse')) { alert('Accès refusé.'); return; }
-    const { sugg, suggQ, moisActifs } = this._prevSuggestions(ym, 3);
-    const noms = [...new Set([...Object.keys(sugg), ...Object.keys(suggQ)])]
-      .filter(g => (sugg[g] || 0) > 0 || (suggQ[g] || 0) > 0);
-    const entries = noms.map(g => [g, { m: sugg[g] || 0, q: suggQ[g] || 0 }]);
-    if (!moisActifs.length || !entries.length) {
+    const S = this._prevSuggestions(ym, 3);
+    const caPrev = Number((Data.previsions?.[ym] || {}).__ca) || 0;
+    const caBase = caPrev || Math.round(S.caMoyen);
+    const noms = [...new Set([...Object.keys(S.sugg), ...Object.keys(S.suggQ)])];
+    const entries = noms
+      .map(g => [g, { m: this._suggestedFor(g, S, caBase), q: this._suggestedQFor(g, S, caBase) }])
+      .filter(([, v]) => v.m > 0 || v.q > 0);
+    if (!S.moisActifs.length || !entries.length) {
       alert('Pas assez d\'historique : aucune dépense trouvée sur les 3 mois précédents.');
       return;
     }
     const tot = entries.reduce((s, [, v]) => s + v.m, 0);
-    const moisLbl = moisActifs.map(x => x.split('-').reverse().join('/')).join(' + ');
+    const moisLbl = S.moisActifs.map(x => x.split('-').reverse().join('/')).join(' + ');
+    const caTxt = S.totalCA && caBase
+      ? `CA de référence : ${Data.fmt(caBase)} ${caPrev ? '(CA prévu saisi)' : '(CA moyen des mois précédents)'}\n` +
+        `→ charges variables indexées sur le CA (ratio charge/CA historique), charges fixes = moyenne simple.\n`
+      : `Aucun CA trouvé sur la fenêtre : toutes les catégories à la moyenne simple.\n`;
     if (!confirm(
       `Calculer les prévisions de ${ym} automatiquement ?\n\n` +
-      `Base : moyenne mensuelle du réalisé sur ${moisActifs.length} mois (${moisLbl}).\n` +
-      `${entries.length} catégorie(s) · total prévu ${Data.fmt(tot)}\n\n` +
-      `⚠️ Les prévisions déjà saisies pour ce mois seront remplacées.\n` +
+      `Base : ${S.moisActifs.length} mois d'historique (${moisLbl}).\n` + caTxt +
+      `${entries.length} catégorie(s) · total prévu ${Data.fmt(tot)}` +
+      `${caBase ? ` · taux de charges prévu ${Math.round((tot / caBase) * 100)}% du CA` : ''}\n\n` +
+      `⚠️ Les prévisions déjà saisies pour ce mois seront remplacées (le CA prévu est conservé).\n` +
       `Tu peux ensuite ajuster chaque montant à la main.`)) return;
     if (!Data.previsions) Data.previsions = {};
     Data.previsions[ym] = Object.fromEntries(entries);
+    if (caPrev) Data.previsions[ym].__ca = caPrev;
     try {
       if (typeof Audit !== 'undefined') Audit.log('update', 'analyse',
         `Prévisions auto ${ym}`,
-        `${entries.length} catégorie(s) · ${Data.fmt(tot)} · base ${moisActifs.length} mois`,
+        `${entries.length} catégorie(s) · ${Data.fmt(tot)} · base ${S.moisActifs.length} mois · CA réf ${Data.fmt(caBase)}`,
         { ym, after: Data.previsions[ym] });
     } catch (e) {}
     this.persistPrev();
@@ -289,9 +360,13 @@ const Analyse = {
       return Data.natureOfGroupe(c.nom);
     };
 
-    // Suggestions analytiques (moyenne des mois précédents) : affichées en
-    // filigrane dans les champs vides, applicables via « Calculer auto ».
-    const { sugg, suggQ } = this._prevSuggestions(ym, 3);
+    // Suggestions analytiques (moyenne des mois précédents + facteur CA) :
+    // affichées en filigrane dans les champs vides, applicables via
+    // « Calculer auto ». caBase = CA prévu saisi, sinon CA moyen historique.
+    const S = this._prevSuggestions(ym, 3);
+    const caPrev = Number(prevs.__ca) || 0;
+    const caReal = this._caOfMonth(ym);
+    const caBase = caPrev || Math.round(S.caMoyen);
 
     // Sépare les lignes en DEUX tableaux : charges fixes et charges variables.
     // Une sous-catégorie peut être d'une autre nature que son parent : elle
@@ -335,20 +410,21 @@ const Analyse = {
           </td>
           <td style="text-align:right">
             <input type="number" min="0" step="1" value="${prevQ || ''}"
-                   placeholder="${suggQ[c.nom] || 0}"
-                   title="${suggQ[c.nom] ? 'Suggestion (moyenne des 3 derniers mois) : ' + fmtQ(suggQ[c.nom]) : 'Renseigne le champ Qté lors de la saisie des dépenses pour suivre les quantités'}"
+                   placeholder="${this._suggestedQFor(c.nom, S, caBase) || 0}"
+                   title="${this._suggestedQFor(c.nom, S, caBase) ? 'Suggestion (historique' + (this._natureOfNom(c.nom) === 'variable' ? ' indexé sur le CA' : '') + ') : ' + fmtQ(this._suggestedQFor(c.nom, S, caBase)) : 'Renseigne le champ Qté lors de la saisie des dépenses pour suivre les quantités'}"
                    style="width:80px;text-align:right;font-weight:600"
                    onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, 'q', this.value)">
           </td>
           <td class="text-right">${qCell}</td>
           <td style="text-align:right">
             <input type="number" min="0" step="1000" value="${prev || ''}"
-                   placeholder="${sugg[c.nom] || 0}"
-                   title="${sugg[c.nom] ? 'Suggestion (moyenne des 3 derniers mois) : ' + Data.fmt(sugg[c.nom]) : 'Aucun historique récent pour cette catégorie'}"
+                   placeholder="${this._suggestedFor(c.nom, S, caBase) || 0}"
+                   title="${this._suggestedFor(c.nom, S, caBase) ? 'Suggestion (historique' + (this._natureOfNom(c.nom) === 'variable' ? ' indexé sur le CA' : '') + ') : ' + Data.fmt(this._suggestedFor(c.nom, S, caBase)) : 'Aucun historique récent pour cette catégorie'}"
                    style="width:130px;text-align:right;font-weight:600"
                    onchange="Analyse.setPrev('${ym}', ${Data.esc(JSON.stringify(c.nom))}, 'm', this.value)">
           </td>
           <td class="text-right fw-bold">${real ? Data.fmts(real) : '<span class="text-muted">0</span>'}</td>
+          <td class="text-right" style="font-size:12px;color:var(--c-muted)" title="Part du CA réalisé du mois">${caReal && real ? (Math.round((real / caReal) * 1000) / 10) + '%' : '<span class="text-muted">—</span>'}</td>
           <td class="text-right">${ecartCell}</td>
           <td class="text-right" style="font-size:12px;color:var(--c-muted)">${pctCell}</td>
         </tr>`;
@@ -390,12 +466,13 @@ const Analyse = {
               <th class="text-right" title="Quantité réellement achetée (champ Qté des dépenses)">Qté réalisée</th>
               <th class="text-right">Prévision (FCFA)</th>
               <th class="text-right">Réalisé</th>
+              <th class="text-right" title="Part du chiffre d'affaires réalisé du mois">% du CA</th>
               <th class="text-right">Écart</th>
               <th class="text-right">%</th>
             </tr></thead>
             <tbody>
-              ${rowsHtml || `<tr><td colspan="7" class="empty">Aucune catégorie ${titre.toLowerCase()} — clique le badge 📌/📈 d'une catégorie ci-dessous pour la classer.</td></tr>`}
-              <tr class="total-row"><td>${emoji} Total ${titre.toLowerCase()}</td><td></td><td></td><td class="text-right fw-bold">${Data.fmts(res.tPrev)}</td><td class="text-right fw-bold">${Data.fmts(res.tReal)}</td><td class="text-right fw-bold" style="color:${ecartTot > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecartTot > 0 ? '+' : ''}${Data.fmts(ecartTot)}</td><td></td></tr>
+              ${rowsHtml || `<tr><td colspan="8" class="empty">Aucune catégorie ${titre.toLowerCase()} — clique le badge 📌/📈 d'une catégorie ci-dessous pour la classer.</td></tr>`}
+              <tr class="total-row"><td>${emoji} Total ${titre.toLowerCase()}</td><td></td><td></td><td class="text-right fw-bold">${Data.fmts(res.tPrev)}</td><td class="text-right fw-bold">${Data.fmts(res.tReal)}</td><td class="text-right fw-bold" style="font-size:12px">${caReal && res.tReal ? (Math.round((res.tReal / caReal) * 1000) / 10) + '%' : '—'}</td><td class="text-right fw-bold" style="color:${ecartTot > 0 ? 'var(--c-red)' : 'var(--c-bar)'}">${ecartTot > 0 ? '+' : ''}${Data.fmts(ecartTot)}</td><td></td></tr>
             </tbody>
           </table>
         </div>`;
@@ -408,9 +485,26 @@ const Analyse = {
           <span class="card-title"><i class="ti ti-target-arrow"></i> Prévisions de charges · ${moisLbl}</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="month" value="${ym}" onchange="Analyse.setPrevYm(this.value)">
-            <button class="btn btn-sm btn-primary" onclick="Analyse.autoFillPrev('${ym}')" title="Remplit chaque catégorie avec la moyenne mensuelle de son réalisé sur les 3 derniers mois"><i class="ti ti-wand"></i> Calculer auto</button>
+            <button class="btn btn-sm btn-primary" onclick="Analyse.autoFillPrev('${ym}')" title="Charges fixes = moyenne des 3 derniers mois · Charges variables = % du CA historique appliqué au CA prévu"><i class="ti ti-wand"></i> Calculer auto</button>
             <button class="btn btn-sm" onclick="Analyse.copyPrevMonth('${ym}')" title="Reprendre les prévisions du mois précédent"><i class="ti ti-copy"></i> Copier mois précédent</button>
           </div>
+        </div>
+
+        <!-- Facteur CA : base du calcul des charges variables + taux de charges -->
+        <div style="background:var(--c-bg-2);border-radius:var(--r-md);padding:10px 14px;margin-bottom:10px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;font-size:13px">
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span style="font-weight:700">💰 CA prévu :</span>
+            <input type="number" min="0" step="100000" value="${caPrev || ''}"
+                   placeholder="${Math.round(S.caMoyen) || 0}"
+                   title="Chiffre d'affaires attendu pour ${moisLbl}. Sert de base aux prévisions de charges variables (suggestion en grisé : CA moyen des 3 derniers mois)."
+                   style="width:150px;text-align:right;font-weight:700"
+                   onchange="Analyse.setPrevCA('${ym}', this.value)">
+          </span>
+          <span>CA réalisé : <b>${Data.fmt(caReal)}</b></span>
+          <span title="Taux de charges = total des charges / chiffre d'affaires">Taux de charges :
+            <b style="color:${caReal && totReal / caReal > 0.7 ? 'var(--c-red)' : 'var(--c-bar)'}">${caReal ? Math.round((totReal / caReal) * 100) + '%' : '—'} réalisé</b>
+            · <b>${caBase && totPrev ? Math.round((totPrev / caBase) * 100) + '%' : '—'} prévu</b>
+          </span>
         </div>
 
         <div class="tabs" style="margin-bottom:2px">
