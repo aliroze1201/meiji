@@ -51,6 +51,21 @@ const Charts = {
     return { grid, text };
   },
 
+  // Granularité adaptative : au-delà de 16 jours distincts, on agrège par
+  // MOIS pour que TOUTE la période soit visible (l'ancien slice(-12)
+  // tronquait silencieusement les premiers jours — données invisibles).
+  _bucket(dates) {
+    const uniq = [...new Set(dates.filter(Boolean))].sort();
+    const parMois = uniq.length > 16;
+    const keyOf = d => (parMois ? d.slice(0, 7) : d);
+    const keys = [...new Set(uniq.map(keyOf))];
+    const MOIS = ['','janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    const labelOf = k => parMois
+      ? `${MOIS[parseInt(k.slice(5), 10)]} ${k.slice(0, 4)}`
+      : Data.fmtDs(k);
+    return { keys, keyOf, labelOf, parMois };
+  },
+
   renderBarChart(containerId, journees) {
     const canvas = this._getCtx(containerId, false);
     if (!canvas) return;
@@ -60,18 +75,27 @@ const Charts = {
       canvas.parentElement.innerHTML = '<div class="empty" style="width:100%">Aucune donnée pour cette période</div>';
       return;
     }
-    const slice = journees.slice(-12);
-    const labels = slice.map(j => Data.fmtDs(j.date));
+    // Toutes les journées de la période sont représentées : par jour si la
+    // période est courte, agrégées par mois sinon (aucune troncature).
+    const B = this._bucket(journees.map(j => j.date));
+    const sums = {};
+    B.keys.forEach(k => { sums[k] = { s: 0, b: 0, c: 0 }; });
+    journees.forEach(j => {
+      const k = B.keyOf(j.date);
+      sums[k].s += Data.caisse(j, 's');
+      sums[k].b += Data.caisse(j, 'b');
+      sums[k].c += Data.caisse(j, 'c');
+    });
     const { grid, text } = this._commonOpts();
 
     this._instances[containerId] = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels,
+        labels: B.keys.map(B.labelOf),
         datasets: [
-          { label: 'SUSHI',  data: slice.map(j => Data.caisse(j,'s')), backgroundColor: '#2563EB', borderRadius: 4 },
-          { label: 'BAR',    data: slice.map(j => Data.caisse(j,'b')), backgroundColor: '#10B981', borderRadius: 4 },
-          { label: 'CHICHA', data: slice.map(j => Data.caisse(j,'c')), backgroundColor: '#F59E0B', borderRadius: 4 },
+          { label: 'SUSHI',  data: B.keys.map(k => sums[k].s), backgroundColor: '#2563EB', borderRadius: 4 },
+          { label: 'BAR',    data: B.keys.map(k => sums[k].b), backgroundColor: '#10B981', borderRadius: 4 },
+          { label: 'CHICHA', data: B.keys.map(k => sums[k].c), backgroundColor: '#F59E0B', borderRadius: 4 },
         ],
       },
       options: {
@@ -100,32 +124,42 @@ const Charts = {
     if (!canvas) return;
     this._destroy(containerId);
 
-    // Charges hors-journée par date (dans la période active).
-    // Les lignes _jSrc sont exclues : leur détail est déjà compté dans ds/db/dc.
-    const extraByDate = {};
+    // Source UNIQUE : Data.getAllCharges() — la même que le KPI « Charges »
+    // et la page Analyse (dépenses toutes modalités + détail journées +
+    // part non détaillée des journées + sorties directes banque/mobile).
+    // Les totaux du graphique collent donc exactement aux KPI.
+    const chargesByDate = {};
     Data.getAllCharges().forEach(d => {
-      if (d._jSrc || !d.date) return;
+      if (!d.date) return;
       if (typeof App !== 'undefined' && App.inPeriod && !App.inPeriod(d.date)) return;
-      extraByDate[d.date] = (extraByDate[d.date] || 0) + (d.montant || 0);
+      chargesByDate[d.date] = (chargesByDate[d.date] || 0) + (d.montant || 0);
     });
     const jByDate = {};
     journees.forEach(j => { jByDate[j.date] = j; });
-    const dates = [...new Set([...Object.keys(jByDate), ...Object.keys(extraByDate)])]
-      .sort().slice(-12);
+    const dates = [...new Set([...Object.keys(jByDate), ...Object.keys(chargesByDate)])].sort();
 
     if (!dates.length) {
       canvas.parentElement.innerHTML = '<div class="empty" style="width:100%">Aucune donnée</div>';
       return;
     }
-    const ca      = dates.map(dt => jByDate[dt] ? Data.caTotal(jByDate[dt]) : 0);
-    const charges = dates.map(dt => (jByDate[dt] ? Data.depTotal(jByDate[dt]) : 0) + (extraByDate[dt] || 0));
-    const net     = dates.map((dt, i) => ca[i] - charges[i]);
+    // Granularité adaptative (jour ou mois) : toute la période est visible.
+    const B = this._bucket(dates);
+    const caB = {}, chB = {};
+    B.keys.forEach(k => { caB[k] = 0; chB[k] = 0; });
+    dates.forEach(dt => {
+      const k = B.keyOf(dt);
+      if (jByDate[dt]) caB[k] += Data.caTotal(jByDate[dt]);
+      chB[k] += chargesByDate[dt] || 0;
+    });
+    const ca      = B.keys.map(k => caB[k]);
+    const charges = B.keys.map(k => chB[k]);
+    const net     = B.keys.map((k, i) => ca[i] - charges[i]);
     const { grid, text } = this._commonOpts();
 
     this._instances[containerId] = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels: dates.map(dt => Data.fmtDs(dt)),
+        labels: B.keys.map(B.labelOf),
         datasets: [
           { label: 'CA',      data: ca,      backgroundColor: '#2563EB', borderRadius: 4, order: 2 },
           { label: 'Charges', data: charges, backgroundColor: '#EF4444', borderRadius: 4, order: 2 },
@@ -264,10 +298,17 @@ const Charts = {
     const catColors = Data.getCatColors();
     const byG = {};
     deps.forEach(d => { byG[d.groupe] = (byG[d.groupe] || 0) + d.montant; });
-    const sorted = Object.entries(byG).sort((a,b) => b[1] - a[1]).slice(0, 7);
-    if (!sorted.length) {
+    const all = Object.entries(byG).sort((a,b) => b[1] - a[1]);
+    if (!all.length) {
       el.innerHTML = '<div class="empty">Aucune charge sur cette période</div>';
       return;
+    }
+    // Top 7 + une ligne agrégée pour le reste : rien n'est invisible.
+    const sorted = all.slice(0, 7);
+    const reste = all.slice(7);
+    if (reste.length) {
+      sorted.push([`… ${reste.length} autre${reste.length > 1 ? 's' : ''} catégorie${reste.length > 1 ? 's' : ''}`,
+        reste.reduce((s, [, v]) => s + v, 0)]);
     }
     const max = sorted[0][1];
     const tot = deps.reduce((s,d) => s + d.montant, 0) || 1;

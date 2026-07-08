@@ -377,6 +377,25 @@ const Data = {
     };
     (this.mvtsBanque || []).forEach(m => pushMvt(m, 'banque'));
     (this.mvtsMobile || []).forEach(m => pushMvt(m, 'mobile'));
+    // Part NON détaillée des journées : si le total de dépenses tapé
+    // (ds/db/dc) dépasse la somme du détail saisi, le delta est une vraie
+    // charge qui n'apparaissait nulle part dans l'analyse ni les KPI.
+    const deptOf = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+    const totOf  = (j) => ({ s: j.ds || 0, b: j.db || 0, c: j.dc || 0 });
+    (this.journees || []).forEach(j => {
+      const tot = totOf(j);
+      ['s', 'b', 'c'].forEach(k => {
+        const detail = ((j.deps && j.deps[k]) || []).reduce((s, d) => s + (d.montant || 0), 0);
+        const delta = Math.round((tot[k] || 0) - detail);
+        if (delta > 0) {
+          all.push({
+            date: j.date, dept: deptOf[k],
+            label: 'Dépenses journée (sans détail)', groupe: 'Autres',
+            montant: delta, paiement: 'esp', _jTot: true,
+          });
+        }
+      });
+    });
     return all;
   },
 
