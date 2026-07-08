@@ -90,26 +90,48 @@ const Charts = {
     });
   },
 
+  // CA vs Charges par jour + résultat net.
+  // Charges du jour = totaux de la journée (ds/db/dc) + dépenses hors-journée
+  // + sorties directes banque/mobile (toutes modalités, cf. getAllCharges).
+  // Les jours à charges SANS journée de CA (ex. paie des salaires) sont
+  // inclus dans l'axe — avant ils disparaissaient du graphique.
   renderCompareChart(containerId, journees) {
     const canvas = this._getCtx(containerId, false);
     if (!canvas) return;
     this._destroy(containerId);
 
-    if (!journees.length) {
+    // Charges hors-journée par date (dans la période active).
+    // Les lignes _jSrc sont exclues : leur détail est déjà compté dans ds/db/dc.
+    const extraByDate = {};
+    Data.getAllCharges().forEach(d => {
+      if (d._jSrc || !d.date) return;
+      if (typeof App !== 'undefined' && App.inPeriod && !App.inPeriod(d.date)) return;
+      extraByDate[d.date] = (extraByDate[d.date] || 0) + (d.montant || 0);
+    });
+    const jByDate = {};
+    journees.forEach(j => { jByDate[j.date] = j; });
+    const dates = [...new Set([...Object.keys(jByDate), ...Object.keys(extraByDate)])]
+      .sort().slice(-12);
+
+    if (!dates.length) {
       canvas.parentElement.innerHTML = '<div class="empty" style="width:100%">Aucune donnée</div>';
       return;
     }
-    const slice = journees.slice(-12);
-    const labels = slice.map(j => Data.fmtDs(j.date));
+    const ca      = dates.map(dt => jByDate[dt] ? Data.caTotal(jByDate[dt]) : 0);
+    const charges = dates.map(dt => (jByDate[dt] ? Data.depTotal(jByDate[dt]) : 0) + (extraByDate[dt] || 0));
+    const net     = dates.map((dt, i) => ca[i] - charges[i]);
     const { grid, text } = this._commonOpts();
 
     this._instances[containerId] = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels,
+        labels: dates.map(dt => Data.fmtDs(dt)),
         datasets: [
-          { label: 'CA',      data: slice.map(j => Data.caTotal(j)),   backgroundColor: '#2563EB', borderRadius: 4 },
-          { label: 'Charges', data: slice.map(j => Data.depTotal(j)),  backgroundColor: '#EF4444', borderRadius: 4 },
+          { label: 'CA',      data: ca,      backgroundColor: '#2563EB', borderRadius: 4, order: 2 },
+          { label: 'Charges', data: charges, backgroundColor: '#EF4444', borderRadius: 4, order: 2 },
+          { label: 'Résultat', data: net, type: 'line', borderColor: '#10B981',
+            backgroundColor: '#10B981', tension: .3, pointRadius: 3, pointHoverRadius: 5,
+            borderWidth: 2, order: 1 },
         ],
       },
       options: {
@@ -138,10 +160,11 @@ const Charts = {
     if (center) center.textContent = this._formatBig(total);
 
     if (total === 0) {
-      // Render empty placeholder ring
+      // Anneau vide, adapté au thème clair/sombre
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
       this._instances[canvasId] = new Chart(canvas, {
         type: 'doughnut',
-        data: { labels: ['—'], datasets: [{ data: [1], backgroundColor: ['#e2e8f0'], borderWidth: 0 }] },
+        data: { labels: ['—'], datasets: [{ data: [1], backgroundColor: [dark ? '#26282D' : '#e2e8f0'], borderWidth: 0 }] },
         options: { cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false } } },
       });
       return;
@@ -206,10 +229,11 @@ const Charts = {
   },
 
   renderDonutPay(canvasId, legendId, journees) {
-    const esp  = journees.reduce((s,j) => s + j.s.esp + j.b.esp + j.c.esp, 0);
-    const chq  = journees.reduce((s,j) => s + j.s.chq + j.b.chq + j.c.chq, 0);
-    const mob  = journees.reduce((s,j) => s + j.s.mob + j.b.mob + j.c.mob, 0);
-    const cred = journees.reduce((s,j) => s + j.s.cred + j.b.cred + j.c.cred, 0);
+    const sum = (j, f) => (j.s?.[f] || 0) + (j.b?.[f] || 0) + (j.c?.[f] || 0);
+    const esp  = journees.reduce((s,j) => s + sum(j, 'esp'),  0);
+    const chq  = journees.reduce((s,j) => s + sum(j, 'chq'),  0);
+    const mob  = journees.reduce((s,j) => s + sum(j, 'mob'),  0);
+    const cred = journees.reduce((s,j) => s + sum(j, 'cred'), 0);
     const total = esp + chq + mob + cred || 0;
     let data = [
       { label: 'Espèces', val: esp,  color: '#2563EB' },
@@ -254,7 +278,7 @@ const Charts = {
         <div class="progress-label">
           <span style="display:inline-flex;align-items:center;gap:8px">
             <span style="width:10px;height:10px;border-radius:50%;background:${c};flex-shrink:0;display:inline-block"></span>
-            <b>${g}</b>
+            <b>${Data.esc(g)}</b>
           </span>
           <span style="color:var(--c-muted);font-variant-numeric:tabular-nums">${Data.fmts(v)} FCFA <span style="opacity:.5">·</span> ${Math.round((v/tot)*100)}%</span>
         </div>

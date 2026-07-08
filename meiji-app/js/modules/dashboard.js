@@ -18,8 +18,10 @@ const Dashboard = {
     if (pl) pl.textContent = label;
 
     // ============== SOURCES ==============
-    const allDeps = Data.getAllDeps();
-    const depsPeriode = App.filterByDate(allDeps);            // dépenses dans la période
+    // Toutes modalités de paiement : dépenses + sorties directes banque/mobile
+    // (aligné sur la page Analyse charges, cf. Data.getAllCharges).
+    const allDeps = Data.getAllCharges();
+    const depsPeriode = App.filterByDate(allDeps);            // charges dans la période
     const credits = Array.isArray(Data.credits) ? Data.credits : [];
     const cheques = Array.isArray(Data.cheques) ? Data.cheques : [];
     const mvtsBk = Array.isArray(Data.mvtsBanque) ? Data.mvtsBanque : [];
@@ -187,7 +189,8 @@ const Dashboard = {
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
     const mvtBkOut = mvtsBkPer.filter(m => m.type === 'out')
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
-    const depBk = depsPeriode.filter(d => d.paiement === 'banque')
+    // !d._mvt : les sorties directes banque sont déjà soustraites via mvtBkOut
+    const depBk = depsPeriode.filter(d => d.paiement === 'banque' && !d._mvt)
       .reduce((s,d) => s + (d.montant || 0), 0);
     // Prélèvements associés en banque sur la période -> sortie théorique
     const prelvBk = prelvPer.filter(p => p.paiement === 'banque')
@@ -203,7 +206,8 @@ const Dashboard = {
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
     const mvtMbOut = mvtsMbPer.filter(m => m.type === 'out')
       .reduce((s,m) => s + (Number(m.mnt) || 0), 0);
-    const depMb = depsPeriode.filter(d => d.paiement === 'mobile')
+    // !d._mvt : les sorties directes mobile sont déjà soustraites via mvtMbOut
+    const depMb = depsPeriode.filter(d => d.paiement === 'mobile' && !d._mvt)
       .reduce((s,d) => s + (d.montant || 0), 0);
     // Prélèvements associés en mobile sur la période -> sortie théorique
     const prelvMb = prelvPer.filter(p => p.paiement === 'mobile')
