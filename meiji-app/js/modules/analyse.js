@@ -105,7 +105,7 @@ const Analyse = {
       .filter(c => c.type === 'dep' || c.type === 'both').map(c => c.nom));
     const totauxG = {}, totauxQG = {};
     const moisActifs = new Set();
-    Data.getAllDeps().forEach(d => {
+    Data.getAllCharges().forEach(d => {
       const dm = (d.date || '').slice(0, 7);
       if (!set.has(dm)) return;
       moisActifs.add(dm);
@@ -291,7 +291,7 @@ const Analyse = {
       return;
     }
     this._renderPrevisions();
-    const all = App.filterByDate(Data.getAllDeps());
+    const all = App.filterByDate(Data.getAllCharges());
     const fil = filter === 'all' ? all : all.filter(d => d.dept === filter);
     const tot = fil.reduce((s,d) => s + d.montant, 0);
     const catColors = Data.getCatColors();
@@ -307,7 +307,7 @@ const Analyse = {
 
     const metricsEl = document.getElementById('an-metrics');
     if (metricsEl) metricsEl.innerHTML = `
-      <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red">${Data.fmt(tot)}</div></div>
+      <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red">${Data.fmt(tot)}</div><div class="mc-sub">tous modes : espèces, banque, mobile</div></div>
       <div class="mc purple"><div class="mc-label purple">📌 Charges fixes</div><div class="mc-val purple">${Data.fmt(totFixe)}</div><div class="mc-sub">${pctFixe}% du total</div></div>
       <div class="mc amber"><div class="mc-label amber">📈 Charges variables</div><div class="mc-val amber">${Data.fmt(totVar)}</div><div class="mc-sub">${tot ? 100 - pctFixe : 0}% du total</div></div>
       <div class="mc"><div class="mc-label">Groupe dominant</div><div class="mc-val" style="font-size:14px">${Data.esc(dominant)}</div></div>`;
@@ -340,10 +340,17 @@ const Analyse = {
         byLabel[d.label].total += d.montant;
         byLabel[d.label].count++;
       });
+      const deptBadge = (dept) =>
+        dept === 'SUSHI'  ? '<span class="badge b-blue">SUSHI</span>'
+      : dept === 'BAR'    ? '<span class="badge b-green">BAR</span>'
+      : dept === 'CHICHA' ? '<span class="badge b-amber">CHICHA</span>'
+      : dept === 'BANQUE' ? '<span class="badge b-purple" title="Sortie directe du compte bancaire">🏦 Banque</span>'
+      : dept === 'MOBILE' ? '<span class="badge b-purple" title="Sortie directe du mobile money">📱 Mobile</span>'
+      : `<span class="badge">${Data.esc(dept || '—')}</span>`;
       const subRows = Object.entries(byLabel).sort((a,b) => b[1].total - a[1].total).map(([lbl, li]) => `
         <tr>
-          <td style="padding-left:1.5rem">${lbl}</td>
-          <td><span class="badge ${li.dept==='SUSHI'?'b-blue':li.dept==='BAR'?'b-green':'b-amber'}">${li.dept}</span></td>
+          <td style="padding-left:1.5rem">${Data.esc(lbl)}</td>
+          <td>${deptBadge(li.dept)}</td>
           <td class="text-right" style="color:#aaa">${li.count}x</td>
           <td class="text-right fw-bold text-red">${Data.fmts(li.total)} FCFA</td>
           <td class="text-right" style="color:#aaa;font-size:11px">${info.total ? Math.round((li.total/info.total)*100) : 0}%</td>
@@ -363,6 +370,8 @@ const Analyse = {
               <span class="badge b-blue">S: ${Data.fmts(info.byDept.SUSHI)}</span>
               <span class="badge b-green">B: ${Data.fmts(info.byDept.BAR)}</span>
               <span class="badge b-amber">C: ${Data.fmts(info.byDept.CHICHA)}</span>
+              ${info.byDept.BANQUE ? `<span class="badge b-purple" title="Sorties directes banque">🏦 ${Data.fmts(info.byDept.BANQUE)}</span>` : ''}
+              ${info.byDept.MOBILE ? `<span class="badge b-purple" title="Sorties directes mobile money">📱 ${Data.fmts(info.byDept.MOBILE)}</span>` : ''}
               <span class="fw-bold text-red" style="font-size:13px">${Data.fmt(info.total)}</span>
               <span style="color:#aaa">▼</span>
             </div>
@@ -391,7 +400,7 @@ const Analyse = {
     // Réalisé du mois par groupe (dépenses + dépenses de journées, toutes
     // caisses) : montant ET quantité achetée (champ Qté des dépenses).
     const realByG = {}, realQByG = {};
-    Data.getAllDeps().forEach(d => {
+    Data.getAllCharges().forEach(d => {
       if ((d.date || '').slice(0, 7) !== ym) return;
       const g = d.groupe || 'Autres';
       realByG[g] = (realByG[g] || 0) + (d.montant || 0);
@@ -590,7 +599,8 @@ const Analyse = {
           </span>
         </div>
         <div style="font-size:11.5px;color:var(--c-muted)">
-          Le « Réalisé » couvre toutes les caisses du mois choisi (indépendant du filtre de période).
+          Le « Réalisé » couvre toutes les caisses et TOUS les modes de paiement du mois choisi
+          (dépenses espèces/banque/mobile + sorties directes banque et mobile money, hors transferts internes).
           Une catégorie change de sous-onglet via son badge 📌/📈 (liste des charges ci-dessous) ou la page Catégories.
         </div>
       </div>`;
@@ -626,7 +636,7 @@ const Analyse = {
   // Vue « compte suivi » : total, répartition par caisse et détail
   // chronologique de toutes les charges liées à la personne.
   _renderCompte(cfg) {
-    const list = App.filterByDate(Data.getAllDeps())
+    const list = App.filterByDate(Data.getAllCharges())
       .filter(d => cfg.re.test(`${d.label || ''} ${d.observation || ''}`))
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     const tot = list.reduce((s, d) => s + (d.montant || 0), 0);
@@ -660,7 +670,7 @@ const Analyse = {
       const mode = !d.paiement || d.paiement === 'esp' ? '💵' : d.paiement === 'banque' ? '🏦' : '📱';
       return `<tr>
         <td class="nowrap">${Data.fmtDs(d.date)}</td>
-        <td><span class="badge ${d.dept === 'SUSHI' ? 'b-blue' : d.dept === 'BAR' ? 'b-green' : 'b-amber'}">${d.dept}</span></td>
+        <td><span class="badge ${d.dept === 'SUSHI' ? 'b-blue' : d.dept === 'BAR' ? 'b-green' : d.dept === 'BANQUE' || d.dept === 'MOBILE' ? 'b-purple' : 'b-amber'}">${d.dept === 'BANQUE' ? '🏦 Banque' : d.dept === 'MOBILE' ? '📱 Mobile' : d.dept}</span></td>
         <td>${Data.esc(d.label || '')}${obs}</td>
         <td>${Data.esc(d.groupe || '')}</td>
         <td>${src}</td>

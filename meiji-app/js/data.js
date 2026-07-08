@@ -352,6 +352,34 @@ const Data = {
     return all;
   },
 
+  // Toutes les charges pour l'ANALYSE, toutes modalités de paiement :
+  // dépenses (espèces / banque / mobile) + sorties DIRECTES banque et
+  // mobile money. Sont exclues pour éviter les doubles comptes :
+  //  - sorties avec caisse (retrait banque→caisse = transfert interne),
+  //  - mouvements liés à un prélèvement associé (pas une charge d'exploitation),
+  //  - mouvements liés à un chèque (déjà suivis via Suivi chèques),
+  //  - mouvements en attente (pending).
+  getAllCharges() {
+    const all = this.getAllDeps();
+    const pushMvt = (m, src) => {
+      if (m.type !== 'out' || m.pending) return;
+      if (m.caisse) return;
+      if (m.relPrelv || m.relCheque) return;
+      all.push({
+        date: m.date,
+        dept: src === 'banque' ? 'BANQUE' : 'MOBILE',
+        label: m.lib || '',
+        groupe: this.getGroupe(m.lib || ''),
+        montant: Number(m.mnt) || 0,
+        paiement: src,
+        _mvt: true,
+      });
+    };
+    (this.mvtsBanque || []).forEach(m => pushMvt(m, 'banque'));
+    (this.mvtsMobile || []).forEach(m => pushMvt(m, 'mobile'));
+    return all;
+  },
+
   getGroupe(label) {
     const u = label.toUpperCase();
     const G = {
