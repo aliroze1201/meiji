@@ -146,6 +146,64 @@ const Analyse = {
     return Math.round(((S.totauxQG[nom] || 0) / S.totalCA) * caBase);
   },
 
+  // Estimation du CA réalisable pour un mois, basée sur les mois précédents :
+  // rythme journalier historique (CA / jour d'ouverture) × nombre de jours
+  // d'ouverture habituel. Si le mois est déjà entamé, l'estimation part du
+  // CA déjà réalisé et projette les jours d'ouverture restants.
+  _estimateCA(ym, nMois = 3) {
+    const fenetre = [];
+    let [y, m] = ym.split('-').map(Number);
+    for (let i = 0; i < nMois; i++) {
+      m--; if (m === 0) { m = 12; y--; }
+      fenetre.push(`${y}-${String(m).padStart(2, '0')}`);
+    }
+    let totalCA = 0, totalJours = 0, moisActifs = 0;
+    fenetre.forEach(f => {
+      const js = (Data.journees || []).filter(j => (j.date || '').slice(0, 7) === f);
+      if (!js.length) return;
+      moisActifs++;
+      totalJours += js.length;
+      totalCA += js.reduce((s, j) => s + Data.caTotal(j), 0);
+    });
+    if (!moisActifs || !totalJours || !totalCA) return null;
+    const caJour = totalCA / totalJours;              // rythme par jour d'ouverture
+    const joursMoyens = Math.round(totalJours / moisActifs); // jours d'ouverture / mois
+    const jsCur = (Data.journees || []).filter(j => (j.date || '').slice(0, 7) === ym);
+    const dejaCA = jsCur.reduce((s, j) => s + Data.caTotal(j), 0);
+    const dejaJours = jsCur.length;
+    const joursRestants = Math.max(0, joursMoyens - dejaJours);
+    const brut = dejaCA + caJour * joursRestants;
+    const estimation = brut >= 1e6
+      ? Math.round(brut / 100000) * 100000
+      : Math.round(brut / 10000) * 10000;
+    return { estimation, caJour, joursMoyens, dejaCA, dejaJours, joursRestants, moisActifs };
+  },
+
+  // Bouton « Estimer le CA » : calcule et propose l'estimation comme CA prévu.
+  estimateCA(ym) {
+    if (typeof Auth !== 'undefined' && !Auth.canEdit('analyse')) { alert('Accès refusé.'); return; }
+    const E = this._estimateCA(ym, 3);
+    if (!E) {
+      alert('Pas assez d\'historique : aucune journée de CA trouvée sur les 3 mois précédents.');
+      return;
+    }
+    const lignes = [
+      `Estimation du CA réalisable : ${Data.fmt(E.estimation)}`,
+      '',
+      'Méthode (basée sur les ' + E.moisActifs + ' derniers mois d\'activité) :',
+      `· rythme historique : ${Data.fmt(Math.round(E.caJour))} par jour d'ouverture`,
+      `· jours d'ouverture habituels : ${E.joursMoyens} / mois`,
+    ];
+    if (E.dejaJours > 0) {
+      lignes.push(
+        `· déjà réalisé ce mois : ${Data.fmt(E.dejaCA)} en ${E.dejaJours} jour(s)`,
+        `· projection restante : ${E.joursRestants} jour(s) × ${Data.fmt(Math.round(E.caJour))}`);
+    }
+    lignes.push('', 'Utiliser cette estimation comme CA prévu du mois ?');
+    if (!confirm(lignes.join('\n'))) return;
+    this.setPrevCA(ym, String(E.estimation));
+  },
+
   // CA prévu du mois (clé réservée __ca dans les prévisions du mois).
   setPrevCA(ym, val) {
     if (!Data.previsions) Data.previsions = {};
@@ -366,7 +424,8 @@ const Analyse = {
     const S = this._prevSuggestions(ym, 3);
     const caPrev = Number(prevs.__ca) || 0;
     const caReal = this._caOfMonth(ym);
-    const caBase = caPrev || Math.round(S.caMoyen);
+    const caEst = this._estimateCA(ym, 3);           // CA réalisable estimé
+    const caBase = caPrev || caEst?.estimation || Math.round(S.caMoyen);
 
     // Sépare les lignes en DEUX tableaux : charges fixes et charges variables.
     // Une sous-catégorie peut être d'une autre nature que son parent : elle
@@ -495,12 +554,16 @@ const Analyse = {
           <span style="display:inline-flex;align-items:center;gap:8px">
             <span style="font-weight:700">💰 CA prévu :</span>
             <input type="number" min="0" step="100000" value="${caPrev || ''}"
-                   placeholder="${Math.round(S.caMoyen) || 0}"
-                   title="Chiffre d'affaires attendu pour ${moisLbl}. Sert de base aux prévisions de charges variables (suggestion en grisé : CA moyen des 3 derniers mois)."
+                   placeholder="${caEst?.estimation || Math.round(S.caMoyen) || 0}"
+                   title="Chiffre d'affaires attendu pour ${moisLbl}. Sert de base aux prévisions de charges variables. Suggestion en grisé : CA réalisable estimé d'après le rythme des mois précédents."
                    style="width:150px;text-align:right;font-weight:700"
                    onchange="Analyse.setPrevCA('${ym}', this.value)">
+            <button class="btn btn-sm" onclick="Analyse.estimateCA('${ym}')"
+                    title="Estime le CA réalisable : rythme journalier des mois précédents × jours d'ouverture habituels, en partant du CA déjà encaissé si le mois est entamé">
+              <i class="ti ti-chart-line"></i> Estimer le CA
+            </button>
           </span>
-          <span>CA réalisé : <b>${Data.fmt(caReal)}</b></span>
+          <span>CA réalisé : <b>${Data.fmt(caReal)}</b>${caEst && caReal && caEst.estimation > caReal ? ` <span style="font-size:11.5px;color:var(--c-muted)">· réalisable ≈ ${Data.fmt(caEst.estimation)}</span>` : ''}</span>
           <span title="Taux de charges = total des charges / chiffre d'affaires">Taux de charges :
             <b style="color:${caReal && totReal / caReal > 0.7 ? 'var(--c-red)' : 'var(--c-bar)'}">${caReal ? Math.round((totReal / caReal) * 100) + '%' : '—'} réalisé</b>
             · <b>${caBase && totPrev ? Math.round((totPrev / caBase) * 100) + '%' : '—'} prévu</b>
