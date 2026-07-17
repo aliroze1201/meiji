@@ -5,7 +5,7 @@
 
 const App = {
 
-  currentPage: 'dashboard',
+  currentPage: 'accueil',
   period: 'tout',
   filters: {
     dep: 'all',
@@ -42,6 +42,7 @@ const App = {
 
   updateTopbarTitle(pageId) {
     const titles = {
+      accueil: 'Accueil',
       dashboard: 'Tableau de bord',
       recettes: 'Recettes CA',
       depenses: 'Dépenses',
@@ -326,6 +327,9 @@ const App = {
   renderAll() {
     const pl = document.getElementById('period-label');
     if (pl) pl.textContent = this.getPeriodLabel();
+    // Accueil rendu en premier : indépendant des autres modules (et de leurs
+    // CDN), il reste affiché même si un rendu ultérieur échoue.
+    if (typeof Accueil !== 'undefined' && Accueil.render) Accueil.render();
     Dashboard.render();
     Recettes.render();
     Depenses.renderTable();
