@@ -358,10 +358,14 @@ const Fournisseurs = {
 
     const fourNom = fa.four || 'Fournisseur';
     const refFact = fa.num ? ` (${fa.num})` : '';
+    // Détail conservé sur le règlement pour l'affichage (pointage, historique) :
+    // caisse impactée (espèces), compte débité (banque/mobile), n° de chèque.
+    let regCaisse = null, regCompte = null, regChequeNum = null;
 
     if (mode === 'esp') {
       const caisseRaw = document.getElementById('reg-caisse')?.value || 'b';
       const caisse = ['s','b','c'].includes(caisseRaw) ? caisseRaw : 'b';
+      regCaisse = caisse;
       const deptMap = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
       if (!Array.isArray(Data.histDep)) Data.histDep = [];
       Data.histDep.push({
@@ -379,6 +383,7 @@ const Fournisseurs = {
     else if (mode === 'banque') {
       const bk = document.getElementById('reg-bk')?.value;
       if (!bk) { alert('Choisis la banque à débiter.'); return; }
+      regCompte = bk;
       if (!Array.isArray(Data.mvtsBanque)) Data.mvtsBanque = [];
       Data.mvtsBanque.unshift({
         id: Data.newId(),
@@ -396,6 +401,7 @@ const Fournisseurs = {
     else if (mode === 'mobile') {
       const op = document.getElementById('reg-mb')?.value;
       if (!op) { alert('Choisis l\'opérateur Mobile.'); return; }
+      regCompte = op;
       if (!Array.isArray(Data.mvtsMobile)) Data.mvtsMobile = [];
       Data.mvtsMobile.unshift({
         id: Data.newId(),
@@ -415,6 +421,7 @@ const Fournisseurs = {
       const bk  = document.getElementById('reg-chq-bk')?.value;
       if (!num) { alert('N° de chèque requis.'); return; }
       if (!bk)  { alert('Banque tirée requise.'); return; }
+      regCompte = bk; regChequeNum = num;
       if (!Array.isArray(Data.cheques)) Data.cheques = [];
       if (!Array.isArray(Data.mvtsBanque)) Data.mvtsBanque = [];
 
@@ -456,7 +463,7 @@ const Fournisseurs = {
     fa.cred = (Number(fa.cred) || 0) + montant;
     fa.solde = (Number(fa.deb) || 0) - fa.cred;
     if (!Array.isArray(fa.reglements)) fa.reglements = [];
-    fa.reglements.push({ id: Data.newId(), date, montant, mode, obs });
+    fa.reglements.push({ id: Data.newId(), date, montant, mode, obs, caisse: regCaisse, compte: regCompte, chequeNum: regChequeNum });
     try {
       if (typeof Audit !== 'undefined') Audit.log('create', 'reglements-fournisseur',
         `Règlement ${fa.four || ''} · ${fa.num || ''}`,
@@ -568,15 +575,22 @@ const Fournisseurs = {
 
     const modeLabels = { esp: '💵 Espèces', banque: '🏦 Banque', mobile: '📱 Mobile', cheque: '🧾 Chèque' };
     const totalPaye = regs.reduce((s, r) => s + (Number(r.montant) || 0), 0);
+    const caisseNames = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
     const payRows = regs.slice()
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      .map(r => `
+      .map(r => {
+        const extra = r.mode === 'esp'    ? (caisseNames[r.caisse] || '')
+                    : r.mode === 'cheque' ? (r.chequeNum ? `n°${r.chequeNum}` : '') + (r.compte ? ` · ${r.compte}` : '')
+                    : (r.compte || '');
+        const modeCell = `${modeLabels[r.mode] || this._esc(r.mode || '')}${extra ? ` <span style="color:var(--c-muted)">· ${this._esc(extra)}</span>` : ''}`;
+        return `
         <tr>
           <td class="nowrap">${Data.fmtD(r.date)}</td>
           <td class="text-right text-green fw-bold">${Data.fmt(r.montant)}</td>
-          <td>${modeLabels[r.mode] || this._esc(r.mode || '')}</td>
+          <td>${modeCell}</td>
           <td>${this._esc(r.obs || '')}</td>
-        </tr>`).join('');
+        </tr>`;
+      }).join('');
     const detailRow = `
       <tr class="fourn-pay-row" id="fpay-${f.id}" style="display:none">
         <td colspan="9">

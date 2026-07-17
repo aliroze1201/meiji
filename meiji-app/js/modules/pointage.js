@@ -218,7 +218,10 @@ const Pointage = {
           (j.deps[k] || []).forEach(d => all.push({ dept, label: d.label, montant: d.montant, paiement: 'esp' }));
         });
       }
-      (Data.histDep || []).filter(d => d.date === date).forEach(d => all.push(d));
+      // Les règlements fournisseurs (relFacture) sont exclus ici : ils ont
+      // leur propre section « Règlements fournisseurs du jour ». Ils restent
+      // néanmoins déduits du cash via Data.cashOutOnDate (espèces).
+      (Data.histDep || []).filter(d => d.date === date && !d.relFacture).forEach(d => all.push(d));
       if (!all.length) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:16px">Aucune dépense saisie ce jour</td></tr>';
       } else {
@@ -241,6 +244,7 @@ const Pointage = {
       const rows = [];
       const pushMvt = (m, srcIcon, srcLbl) => {
         if (m.date !== date) return;
+        if (m.relFacture) return;   // règlement fournisseur → section dédiée
         const sens = m.type === 'in' ? 'Entrée' : 'Sortie';
         let impact;
         if (!m.caisse) {
@@ -261,6 +265,46 @@ const Pointage = {
       (Data.mvtsMobile || []).forEach(m => pushMvt(m, '📱', m.op || 'Mobile'));
       bmBox.innerHTML = rows.length ? rows.join('') :
         '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:16px">Aucun mouvement banque/mobile ce jour</td></tr>';
+    }
+
+    // Règlements fournisseurs du jour (tous modes) — vue centralisée.
+    // Espèces : déduit du cash de la caisse (déjà compté via cashOutOnDate).
+    // Banque / mobile / chèque : sortent du solde correspondant, pas du cash.
+    const frBox = document.getElementById('pt-four-regs');
+    if (frBox) {
+      const caisseName = { s: 'SUSHI', b: 'BAR', c: 'CHICHA' };
+      const modeLabels = { esp: '💵 Espèces', banque: '🏦 Banque', mobile: '📱 Mobile', cheque: '🧾 Chèque' };
+      const regs = [];
+      (Data.fournisseurs || []).forEach(fa => {
+        (fa.reglements || []).forEach(r => {
+          if (r.date === date) regs.push({ ...r, four: fa.four, num: fa.num });
+        });
+      });
+      if (!regs.length) {
+        frBox.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:16px">Aucun règlement fournisseur ce jour</td></tr>';
+      } else {
+        frBox.innerHTML = regs.map(r => {
+          let impact;
+          if (r.mode === 'esp') {
+            impact = `<span style="color:var(--c-red);font-weight:700">−${Data.fmt(r.montant)}</span> <span style="font-size:10px;color:var(--c-muted)">${caisseName[r.caisse] || ''}</span>`;
+          } else if (r.mode === 'cheque') {
+            impact = '<span class="badge b-amber" title="Chèque émis : impacte la banque une fois encaissé, pas le cash">⏳ chèque · hors caisse</span>';
+          } else {
+            const src = r.mode === 'banque' ? 'banque' : 'mobile';
+            impact = `<span class="badge b-amber" title="Réglé par ${src} : sort du solde ${src}, pas des espèces de la caisse">hors caisse</span>`;
+          }
+          const extra = r.mode === 'esp'    ? (caisseName[r.caisse] || '')
+                      : r.mode === 'cheque' ? (r.chequeNum ? `n°${r.chequeNum}` : '')
+                      : (r.compte || '');
+          return `<tr>
+            <td>${this._esc(r.four || '')}</td>
+            <td>${this._esc(r.num || '')}${r.obs ? ` <span style="font-size:10px;color:var(--c-muted)">${this._esc(r.obs)}</span>` : ''}</td>
+            <td>${modeLabels[r.mode] || this._esc(r.mode || '')}${extra ? ` <span style="font-size:10px;color:var(--c-muted)">${this._esc(extra)}</span>` : ''}</td>
+            <td style="text-align:right;font-weight:600">${Data.fmt(r.montant)}</td>
+            <td style="text-align:right">${impact}</td>
+          </tr>`;
+        }).join('');
+      }
     }
 
     // Mouvements employés du jour (prêts / remboursements)
