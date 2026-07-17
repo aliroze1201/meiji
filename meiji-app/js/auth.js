@@ -117,6 +117,7 @@ const Auth = {
   },
 
   hasAccess(pageId) {
+    if (pageId === 'accueil') return true;   // l'accueil (menu) est ouvert à tous les rôles
     if (!Config.isAuthEnabled()) return true;
     if (!this.profile) return false;
     if (this.profile.role === 'admin') return true;
