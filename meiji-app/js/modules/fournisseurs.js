@@ -520,16 +520,39 @@ const Fournisseurs = {
     if (!tb) return;
     if (!list.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Aucune facture sur cette période</td></tr>'; return; }
 
-    tb.innerHTML = list.map(f => {
-      const solde = Number(f.solde) || 0;
-      const regBtn = f.id && solde > 0
-        ? `<button class="btn btn-sm btn-success" title="Régler la facture" onclick="Fournisseurs.openReglement(${f.id})"><i class="ti ti-credit-card"></i> Régler</button>`
-        : '';
-      return `
+    // Séparation : les factures non soldées (« en cours ») restent en haut,
+    // les factures totalement réglées (« soldées ») basculent en bas.
+    const enCours = list.filter(f => (Number(f.solde) || 0) > 0);
+    const soldees = list.filter(f => (Number(f.solde) || 0) <= 0);
+
+    let html = '';
+    if (enCours.length && soldees.length) {
+      html += `<tr class="fourn-sep"><td colspan="9"><i class="ti ti-clock"></i> En cours (${enCours.length})</td></tr>`;
+    }
+    html += enCours.map(f => this._factureRows(f)).join('');
+    if (soldees.length) {
+      html += `<tr class="fourn-sep fourn-sep-done"><td colspan="9"><i class="ti ti-circle-check"></i> Réglées (${soldees.length})</td></tr>`;
+      html += soldees.map(f => this._factureRows(f)).join('');
+    }
+    tb.innerHTML = html;
+  },
+
+  // Construit la ligne d'une facture + sa ligne « déroulante » de détail des règlements.
+  _factureRows(f) {
+    const solde = Number(f.solde) || 0;
+    const regBtn = f.id && solde > 0
+      ? `<button class="btn btn-sm btn-success" title="Régler la facture" onclick="Fournisseurs.openReglement(${f.id})"><i class="ti ti-credit-card"></i> Régler</button>`
+      : '';
+    const regs = Array.isArray(f.reglements) ? f.reglements : [];
+    const nb = regs.length;
+    const payToggle = (f.id && nb)
+      ? `<button class="btn btn-sm fourn-pay-toggle" id="fpay-btn-${f.id}" title="Voir le détail des paiements" onclick="Fournisseurs.togglePayments(${f.id})"><i class="ti ti-chevron-right"></i> ${nb} paiement${nb > 1 ? 's' : ''}</button>`
+      : '';
+    const mainRow = `
       <tr data-search-id="four:${this._esc(f.four || '')}">
         <td class="nowrap">${Data.fmtDs(f.date)}</td>
         <td class="fw-bold">${this._esc(f.four || '')}</td>
-        <td>${this._esc(f.num || '')}</td>
+        <td>${this._esc(f.num || '')}${payToggle ? `<div style="margin-top:4px">${payToggle}</div>` : ''}</td>
         <td>${this._esc(f.lib || '')}</td>
         <td class="text-right text-red">${Data.fmts(f.deb)}</td>
         <td class="text-right text-green">${Data.fmts(f.cred)}</td>
@@ -541,7 +564,44 @@ const Fournisseurs = {
           ${f.id ? `<button class="btn btn-sm btn-danger" title="Supprimer" onclick="Fournisseurs.removeFacture(${f.id})" style="margin-left:4px">🗑</button>` : ''}
         </td>
       </tr>`;
-    }).join('');
+    if (!f.id || !nb) return mainRow;
+
+    const modeLabels = { esp: '💵 Espèces', banque: '🏦 Banque', mobile: '📱 Mobile', cheque: '🧾 Chèque' };
+    const totalPaye = regs.reduce((s, r) => s + (Number(r.montant) || 0), 0);
+    const payRows = regs.slice()
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      .map(r => `
+        <tr>
+          <td class="nowrap">${Data.fmtD(r.date)}</td>
+          <td class="text-right text-green fw-bold">${Data.fmt(r.montant)}</td>
+          <td>${modeLabels[r.mode] || this._esc(r.mode || '')}</td>
+          <td>${this._esc(r.obs || '')}</td>
+        </tr>`).join('');
+    const detailRow = `
+      <tr class="fourn-pay-row" id="fpay-${f.id}" style="display:none">
+        <td colspan="9">
+          <div class="fourn-pay-box">
+            <div class="fourn-pay-head">🧾 Détail des règlements — ${this._esc(f.four || '')}${f.num ? ` · ${this._esc(f.num)}` : ''}</div>
+            <table class="fourn-pay-table">
+              <thead><tr><th>Date</th><th class="text-right">Montant</th><th>Mode</th><th>Observation</th></tr></thead>
+              <tbody>${payRows}</tbody>
+              <tfoot><tr><td class="fw-bold">Total réglé</td><td class="text-right fw-bold text-green">${Data.fmt(totalPaye)}</td><td colspan="2"></td></tr></tfoot>
+            </table>
+          </div>
+        </td>
+      </tr>`;
+    return mainRow + detailRow;
+  },
+
+  // Ouvre / referme la ligne déroulante des paiements d'une facture.
+  togglePayments(id) {
+    const row = document.getElementById('fpay-' + id);
+    const btn = document.getElementById('fpay-btn-' + id);
+    if (!row) return;
+    const open = row.style.display === 'none';
+    row.style.display = open ? '' : 'none';
+    const icon = btn && btn.querySelector('i');
+    if (icon) icon.className = open ? 'ti ti-chevron-down' : 'ti ti-chevron-right';
   },
 
   // ===================== PERSISTANCE =====================
