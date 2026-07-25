@@ -312,18 +312,106 @@ const Analyse = {
       <div class="mc amber"><div class="mc-label amber">📈 Charges variables</div><div class="mc-val amber">${Data.fmt(totVar)}</div><div class="mc-sub">${tot ? 100 - pctFixe : 0}% du total</div></div>
       <div class="mc"><div class="mc-label">Groupe dominant</div><div class="mc-val" style="font-size:14px">${Data.esc(dominant)}</div></div>`;
 
-    // Groupes avec détail
-    const byG = {};
+    // Arborescence à 3 niveaux : Catégorie racine › Sous-catégorie › détail.
+    // Le `groupe` d'une charge est un nom de catégorie : soit une racine
+    // (rattachée directement), soit une sous-catégorie (rattachée sous son
+    // parent). Un groupe libre (mot-clé sans catégorie déclarée) devient
+    // une racine sans sous-catégorie.
+    const catByName = {};
+    (Data.categories || []).forEach(c => { catByName[c.nom] = c; });
+    const rootAndSub = (name) => {
+      const c = catByName[name];
+      if (!c) return { root: name, sub: null };
+      if (c.parentId != null) {
+        const p = (Data.categories || []).find(x => String(x.id) === String(c.parentId));
+        return { root: p ? p.nom : name, sub: name };
+      }
+      return { root: name, sub: null };
+    };
+
+    const DIRECT = '__direct__'; // charges rattachées à la racine, sans sous-catégorie
+    const tree = {};
     fil.forEach(d => {
-      if (!byG[d.groupe]) byG[d.groupe] = { total: 0, items: [], byDept: { SUSHI: 0, BAR: 0, CHICHA: 0 } };
-      byG[d.groupe].total += d.montant;
-      byG[d.groupe].items.push(d);
-      byG[d.groupe].byDept[d.dept] = (byG[d.groupe].byDept[d.dept] || 0) + d.montant;
+      const g = d.groupe || 'Autres';
+      const { root, sub } = rootAndSub(g);
+      if (!tree[root]) tree[root] = { total: 0, byDept: { SUSHI: 0, BAR: 0, CHICHA: 0 }, subs: {} };
+      const T = tree[root];
+      T.total += d.montant;
+      T.byDept[d.dept] = (T.byDept[d.dept] || 0) + d.montant;
+      const sk = sub || DIRECT;
+      if (!T.subs[sk]) T.subs[sk] = { total: 0, items: [], byDept: { SUSHI: 0, BAR: 0, CHICHA: 0 } };
+      const St = T.subs[sk];
+      St.total += d.montant;
+      St.items.push(d);
+      St.byDept[d.dept] = (St.byDept[d.dept] || 0) + d.montant;
     });
-    const sorted = Object.entries(byG).sort((a,b) => b[1].total - a[1].total);
+    const sorted = Object.entries(tree).sort((a, b) => b[1].total - a[1].total);
 
     const container = document.getElementById('an-groups');
     if (!container) return;
+
+    const deptBadge = (dept) =>
+        dept === 'SUSHI'  ? '<span class="badge b-blue">SUSHI</span>'
+      : dept === 'BAR'    ? '<span class="badge b-green">BAR</span>'
+      : dept === 'CHICHA' ? '<span class="badge b-amber">CHICHA</span>'
+      : dept === 'BANQUE' ? '<span class="badge b-purple" title="Sortie directe du compte bancaire">🏦 Banque</span>'
+      : dept === 'MOBILE' ? '<span class="badge b-purple" title="Sortie directe du mobile money">📱 Mobile</span>'
+      : `<span class="badge">${Data.esc(dept || '—')}</span>`;
+    const modeIcon = (d) => {
+      const p = d.paiement || 'esp';
+      return p === 'banque' ? '<span title="Banque">🏦</span>'
+        : p === 'mobile'    ? '<span title="Mobile money">📱</span>'
+        : '<span title="Espèces">💵</span>';
+    };
+    // Tableau de détail (dépenses ligne par ligne), trié du plus récent au
+    // plus ancien. `denom` sert au calcul du % de chaque ligne.
+    const detailTable = (items, denom) => {
+      const rows = items.slice()
+        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.montant - a.montant))
+        .map(d => {
+          const obs = d.observation && d.observation !== d.label
+            ? `<div style="font-size:11px;color:var(--c-muted)">${Data.esc(d.observation)}</div>` : '';
+          return `
+            <tr>
+              <td class="nowrap" style="color:#aaa">${Data.fmtDs(d.date)}</td>
+              <td>${Data.esc(d.label || '')}${obs}</td>
+              <td>${deptBadge(d.dept)}</td>
+              <td style="text-align:center">${modeIcon(d)}</td>
+              <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
+              <td class="text-right" style="color:#aaa;font-size:11px">${denom ? Math.round((d.montant / denom) * 100) : 0}%</td>
+            </tr>`;
+        }).join('');
+      return `
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Date</th><th>Désignation</th><th>Caisse</th><th style="text-align:center">Mode</th><th class="text-right">Montant</th><th class="text-right">%</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    };
+    // Bloc déroulable d'une sous-catégorie : en-tête cliquable + détail masqué.
+    const subBlock = (label, info2, denom, opts = {}) => {
+      const spct = denom ? Math.round((info2.total / denom) * 100) : 0;
+      const dot = opts.color
+        ? `<span style="width:8px;height:8px;border-radius:2px;background:${opts.color};display:inline-block"></span>` : '';
+      const nameStyle = opts.muted ? 'font-style:italic;color:var(--c-muted)' : '';
+      return `
+        <div style="border-top:1px solid var(--c-border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:.5rem 0 .5rem 1.25rem"
+            onclick="const s=this.nextElementSibling;s.style.display=s.style.display==='none'?'block':'none'">
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;${nameStyle}">
+              ${dot}${label}
+              <span style="font-size:11px;color:#aaa;font-weight:400">${spct}%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="fw-bold text-red" style="font-size:12px">${Data.fmt(info2.total)}</span>
+              <span style="color:#aaa">▼</span>
+            </div>
+          </div>
+          <div style="display:none;padding-left:1.25rem">${detailTable(info2.items, info2.total)}</div>
+        </div>`;
+    };
+
     container.innerHTML = sorted.map(([grp, info]) => {
       const pct = tot ? Math.round((info.total / tot) * 100) : 0;
       const col = catColors[grp] || '#888';
@@ -334,37 +422,30 @@ const Analyse = {
               onclick="event.stopPropagation();Analyse.toggleNature(${Data.esc(JSON.stringify(grp))})"
               title="Clique pour basculer entre charge fixe et charge variable"
               style="cursor:pointer">${nature === 'fixe' ? '📌 Fixe' : '📈 Variable'}</span>`;
-      const deptBadge = (dept) =>
-        dept === 'SUSHI'  ? '<span class="badge b-blue">SUSHI</span>'
-      : dept === 'BAR'    ? '<span class="badge b-green">BAR</span>'
-      : dept === 'CHICHA' ? '<span class="badge b-amber">CHICHA</span>'
-      : dept === 'BANQUE' ? '<span class="badge b-purple" title="Sortie directe du compte bancaire">🏦 Banque</span>'
-      : dept === 'MOBILE' ? '<span class="badge b-purple" title="Sortie directe du mobile money">📱 Mobile</span>'
-      : `<span class="badge">${Data.esc(dept || '—')}</span>`;
-      // Détail COMPLET : chaque dépense de la catégorie, ligne par ligne
-      // (date, libellé, observation, caisse, mode de paiement, montant),
-      // triée du plus récent au plus ancien.
-      const modeIcon = (d) => {
-        const p = d.paiement || 'esp';
-        return p === 'banque' ? '<span title="Banque">🏦</span>'
-          : p === 'mobile'    ? '<span title="Mobile money">📱</span>'
-          : '<span title="Espèces">💵</span>';
-      };
-      const subRows = info.items.slice()
-        .sort((a,b) => (b.date || '').localeCompare(a.date || '') || (b.montant - a.montant))
-        .map(d => {
-          const obs = d.observation && d.observation !== d.label
-            ? `<div style="font-size:11px;color:var(--c-muted)">${Data.esc(d.observation)}</div>` : '';
-          return `
-        <tr>
-          <td class="nowrap" style="padding-left:1.5rem;color:#aaa">${Data.fmtDs(d.date)}</td>
-          <td>${Data.esc(d.label || '')}${obs}</td>
-          <td>${deptBadge(d.dept)}</td>
-          <td style="text-align:center">${modeIcon(d)}</td>
-          <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
-          <td class="text-right" style="color:#aaa;font-size:11px">${info.total ? Math.round((d.montant/info.total)*100) : 0}%</td>
-        </tr>`;
-        }).join('');
+
+      // Sous-catégories réelles (hors bucket « sans sous-catégorie »).
+      const realSubs = Object.entries(info.subs)
+        .filter(([k]) => k !== DIRECT)
+        .sort((a, b) => b[1].total - a[1].total);
+      const directBucket = info.subs[DIRECT];
+
+      let body;
+      if (realSubs.length === 0) {
+        // Pas de sous-catégorie : le déroulé montre directement le détail.
+        body = `
+          <div style="padding-left:1.25rem">
+            <div style="font-size:11px;color:#aaa;margin:.25rem 0 .35rem">Détail complet</div>
+            ${detailTable(directBucket ? directBucket.items : [], info.total)}
+          </div>`;
+      } else {
+        // Sous-catégories déroulables + éventuel bucket « sans sous-catégorie ».
+        body = realSubs
+          .map(([sname, sinfo]) => subBlock(Data.esc(sname), sinfo, info.total, { color: catColors[sname] || col }))
+          .join('')
+          + (directBucket
+            ? subBlock('Sans sous-catégorie', directBucket, info.total, { muted: true })
+            : '');
+      }
 
       return `
         <div class="card" style="padding:14px 18px">
@@ -389,17 +470,7 @@ const Analyse = {
           <div class="progress-bg" style="margin:.5rem 0">
             <div class="progress-fill" style="background:${col};width:${pct}%"></div>
           </div>
-          <div class="an-sub" style="display:none">
-            <div style="font-size:11px;color:#aaa;margin:.25rem 0 .35rem;padding-left:1.5rem">
-              Détail complet
-            </div>
-            <div style="overflow-x:auto">
-              <table>
-                <thead><tr><th>Date</th><th>Désignation</th><th>Caisse</th><th style="text-align:center">Mode</th><th class="text-right">Montant</th><th class="text-right">%</th></tr></thead>
-                <tbody>${subRows}</tbody>
-              </table>
-            </div>
-          </div>
+          <div class="an-sub" style="display:none">${body}</div>
         </div>`;
     }).join('');
   },
