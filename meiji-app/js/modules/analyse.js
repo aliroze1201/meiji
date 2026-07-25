@@ -391,7 +391,7 @@ const Analyse = {
           </div>
           <div class="an-sub" style="display:none">
             <div style="font-size:11px;color:#aaa;margin:.25rem 0 .35rem;padding-left:1.5rem">
-              Détail complet · ${info.items.length} dépense${info.items.length > 1 ? 's' : ''}
+              Détail complet
             </div>
             <div style="overflow-x:auto">
               <table>
