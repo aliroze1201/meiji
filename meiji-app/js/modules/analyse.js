@@ -632,6 +632,18 @@ const Analyse = {
         </div>`;
     };
 
+    // Réconciliation « à part » : charges du mois dont le groupe n'est PAS
+    // une catégorie déclarée (ex. « Fournisseurs »). Elles comptent dans le
+    // « Total charges » (carte du haut) mais pas dans le « Réalisé »
+    // ci-dessus, qui n'additionne que les catégories déclarées. On les
+    // affiche séparément pour que : Réalisé + Non catégorisé = Total du mois.
+    const declaredNames = new Set(rows.map(r => r.c.nom));
+    const nonCat = Object.entries(realByG)
+      .filter(([g]) => !declaredNames.has(g))
+      .sort((a, b) => b[1] - a[1]);
+    const totNonCat = nonCat.reduce((s, [, v]) => s + v, 0);
+    const totMoisCharges = totReal + totNonCat;
+
     const tab = this._prevTab;
     box.innerHTML = `
       <div class="card">
@@ -683,6 +695,39 @@ const Analyse = {
           <span style="font-weight:800;color:${totReal > totPrev && totPrev ? 'var(--c-red)' : 'var(--c-bar)'}">
             ${totPrev ? (totReal > totPrev ? `dépassement de ${Data.fmt(totReal - totPrev)}` : `reste ${Data.fmt(totPrev - totReal)}`) : ''}
           </span>
+        </div>
+
+        <!-- Réconciliation séparée : pourquoi le « Réalisé » diffère du « Total charges » du mois -->
+        <div style="background:var(--c-bg-2);border-radius:var(--r-md);padding:12px 14px;margin-top:10px;font-size:13px">
+          <div style="font-weight:700;margin-bottom:6px">🔎 Réconciliation du mois (${moisLbl})</div>
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0">
+            <span>Réalisé catégorisé (fixes + variables)</span>
+            <b>${Data.fmt(totReal)}</b>
+          </div>
+          ${nonCat.length ? `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;color:var(--c-red)">
+            <span>+ Charges non catégorisées</span>
+            <b>${Data.fmt(totNonCat)}</b>
+          </div>
+          <div style="padding:2px 0 6px 12px;font-size:11.5px;color:var(--c-muted)">
+            ${nonCat.map(([g, v]) => `${Data.esc(g)} : ${Data.fmts(v)} FCFA`).join(' · ')}
+          </div>` : ''}
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0 2px;border-top:1px solid var(--c-border);font-weight:800">
+            <span>= Total charges du mois</span>
+            <span>${Data.fmt(totMoisCharges)}</span>
+          </div>
+          ${nonCat.length ? `
+          <div style="font-size:11.5px;color:var(--c-muted);margin-top:6px">
+            Les « charges non catégorisées » (groupe sans catégorie déclarée, ex. « Fournisseurs »)
+            comptent dans le « Total charges » mais pas dans le « Réalisé » ci-dessus.
+            Déclare-les en catégorie (page Catégories) pour les suivre dans les prévisions.
+          </div>` : `
+          <div style="font-size:11.5px;color:var(--c-muted);margin-top:6px">
+            Toutes les charges du mois sont rattachées à une catégorie déclarée : le réalisé couvre 100% des charges du mois.
+          </div>`}
+          <div style="font-size:11.5px;color:var(--c-muted);margin-top:4px">
+            Ce total ne concerne que <b>${moisLbl}</b>, toutes caisses. Le « Total charges » en haut de page dépend, lui, du filtre de période et de caisse sélectionné.
+          </div>
         </div>
         <div style="font-size:11.5px;color:var(--c-muted)">
           Le « Réalisé » couvre toutes les caisses et TOUS les modes de paiement du mois choisi
