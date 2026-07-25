@@ -334,12 +334,6 @@ const Analyse = {
               onclick="event.stopPropagation();Analyse.toggleNature(${Data.esc(JSON.stringify(grp))})"
               title="Clique pour basculer entre charge fixe et charge variable"
               style="cursor:pointer">${nature === 'fixe' ? '📌 Fixe' : '📈 Variable'}</span>`;
-      const byLabel = {};
-      info.items.forEach(d => {
-        if (!byLabel[d.label]) byLabel[d.label] = { total: 0, dept: d.dept, count: 0 };
-        byLabel[d.label].total += d.montant;
-        byLabel[d.label].count++;
-      });
       const deptBadge = (dept) =>
         dept === 'SUSHI'  ? '<span class="badge b-blue">SUSHI</span>'
       : dept === 'BAR'    ? '<span class="badge b-green">BAR</span>'
@@ -347,14 +341,30 @@ const Analyse = {
       : dept === 'BANQUE' ? '<span class="badge b-purple" title="Sortie directe du compte bancaire">🏦 Banque</span>'
       : dept === 'MOBILE' ? '<span class="badge b-purple" title="Sortie directe du mobile money">📱 Mobile</span>'
       : `<span class="badge">${Data.esc(dept || '—')}</span>`;
-      const subRows = Object.entries(byLabel).sort((a,b) => b[1].total - a[1].total).map(([lbl, li]) => `
+      // Détail COMPLET : chaque dépense de la catégorie, ligne par ligne
+      // (date, libellé, observation, caisse, mode de paiement, montant),
+      // triée du plus récent au plus ancien.
+      const modeIcon = (d) => {
+        const p = d.paiement || 'esp';
+        return p === 'banque' ? '<span title="Banque">🏦</span>'
+          : p === 'mobile'    ? '<span title="Mobile money">📱</span>'
+          : '<span title="Espèces">💵</span>';
+      };
+      const subRows = info.items.slice()
+        .sort((a,b) => (b.date || '').localeCompare(a.date || '') || (b.montant - a.montant))
+        .map(d => {
+          const obs = d.observation && d.observation !== d.label
+            ? `<div style="font-size:11px;color:var(--c-muted)">${Data.esc(d.observation)}</div>` : '';
+          return `
         <tr>
-          <td style="padding-left:1.5rem">${Data.esc(lbl)}</td>
-          <td>${deptBadge(li.dept)}</td>
-          <td class="text-right" style="color:#aaa">${li.count}x</td>
-          <td class="text-right fw-bold text-red">${Data.fmts(li.total)} FCFA</td>
-          <td class="text-right" style="color:#aaa;font-size:11px">${info.total ? Math.round((li.total/info.total)*100) : 0}%</td>
-        </tr>`).join('');
+          <td class="nowrap" style="padding-left:1.5rem;color:#aaa">${Data.fmtDs(d.date)}</td>
+          <td>${Data.esc(d.label || '')}${obs}</td>
+          <td>${deptBadge(d.dept)}</td>
+          <td style="text-align:center">${modeIcon(d)}</td>
+          <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
+          <td class="text-right" style="color:#aaa;font-size:11px">${info.total ? Math.round((d.montant/info.total)*100) : 0}%</td>
+        </tr>`;
+        }).join('');
 
       return `
         <div class="card" style="padding:14px 18px">
@@ -380,10 +390,15 @@ const Analyse = {
             <div class="progress-fill" style="background:${col};width:${pct}%"></div>
           </div>
           <div class="an-sub" style="display:none">
-            <table>
-              <thead><tr><th>Désignation</th><th>Dept</th><th>Nb fois</th><th class="text-right">Total</th><th class="text-right">%</th></tr></thead>
-              <tbody>${subRows}</tbody>
-            </table>
+            <div style="font-size:11px;color:#aaa;margin:.25rem 0 .35rem;padding-left:1.5rem">
+              Détail complet · ${info.items.length} dépense${info.items.length > 1 ? 's' : ''}
+            </div>
+            <div style="overflow-x:auto">
+              <table>
+                <thead><tr><th>Date</th><th>Désignation</th><th>Caisse</th><th style="text-align:center">Mode</th><th class="text-right">Montant</th><th class="text-right">%</th></tr></thead>
+                <tbody>${subRows}</tbody>
+              </table>
+            </div>
           </div>
         </div>`;
     }).join('');
