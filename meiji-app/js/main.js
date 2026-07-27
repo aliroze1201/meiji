@@ -13,6 +13,7 @@ const App = {
     cred: 'all',
     cemp: 'all',
     an: 'all',
+    prix: 'all',
   },
 
   // ===================== NAVIGATION =====================
@@ -48,6 +49,7 @@ const App = {
       depenses: 'Dépenses',
       pointage: 'Pointage journée',
       analyse: 'Analyse charges',
+      prix: 'Analyse des prix',
       banque: 'Compte Bancaire',
       mobile: 'Mobile Money',
       categories: 'Catégories',
@@ -334,6 +336,7 @@ const App = {
     Recettes.render();
     Depenses.renderTable();
     Analyse.render();
+    if (typeof Prix !== 'undefined') Prix.render();
     Banque.render();
     Mobile.render();
     Categories.render();
@@ -397,6 +400,7 @@ const App = {
     this.initTabs('cred-tabs', f => { this.filters.cred = f; Credits.render(); });
     // cemp-tabs : les onglets sont reconstruits dynamiquement par CEmployes.renderTabs()
     this.initTabs('an-tabs', f => { this.filters.an = f; Analyse.render(); });
+    this.initTabs('prix-tabs', f => { this.filters.prix = f; if (typeof Prix !== 'undefined') Prix.render(); });
 
     // Dropdown "Nouvelle ligne"
     const dd = document.getElementById('dep-dd');
