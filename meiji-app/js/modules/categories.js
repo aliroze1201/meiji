@@ -295,6 +295,12 @@ const Categories = {
     const groups = this._noncatGroups();
     const nb = groups.reduce((s, g) => s + g.count, 0);
     const tot = groups.reduce((s, g) => s + g.total, 0);
+    // Badge compteur dans le menu Gestion › Sans catégorie
+    const navBadge = document.getElementById('nav-noncat-badge');
+    if (navBadge) {
+      navBadge.textContent = String(nb);
+      navBadge.style.display = nb ? '' : 'none';
+    }
     const countEl = document.getElementById('cat-noncat-count');
     if (countEl) countEl.textContent = String(nb);
     const totEl = document.getElementById('cat-noncat-total');

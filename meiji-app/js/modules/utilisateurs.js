@@ -136,6 +136,7 @@ const Utilisateurs = {
     mobile: 'Mobile Money',
     suivi: 'Suivi chèques',
     categories: 'Catégories',
+    'sans-categorie': 'Sans catégorie',
     employes: 'Employés',
     'comptes-emp': 'Comptes employés',
     credits: 'Crédits clients',

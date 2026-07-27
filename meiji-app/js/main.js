@@ -54,6 +54,7 @@ const App = {
       banque: 'Compte Bancaire',
       mobile: 'Mobile Money',
       categories: 'Catégories',
+      'sans-categorie': 'Dépenses sans catégorie',
       employes: 'Employés',
       'comptes-emp': 'Comptes employés',
       credits: 'Crédits clients',

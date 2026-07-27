@@ -21,6 +21,7 @@ const Accueil = {
     { page: 'mobile',      icon: 'ti-device-mobile',    label: 'Mobile Money',     color: 'teal'  },
     { page: 'suivi',       icon: 'ti-checks',           label: 'Suivi chèques',    color: 'teal'  },
     { page: 'categories',  icon: 'ti-tags',             label: 'Catégories',       color: 'amber' },
+    { page: 'sans-categorie', icon: 'ti-tag-off',       label: 'Sans catégorie',   color: 'red'   },
     { page: 'employes',    icon: 'ti-users',            label: 'Employés',         color: 'blue'  },
     { page: 'comptes-emp', icon: 'ti-user-dollar',      label: 'Comptes employés', color: 'green' },
     { page: 'credits',     icon: 'ti-receipt-2',        label: 'Crédits clients',  color: 'red'   },
