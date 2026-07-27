@@ -159,6 +159,15 @@ const Data = {
   stockArticles: [],
   stockMouvements: [],
 
+  // ===================== DÉPENSES EN ATTENTE DE VALIDATION =====================
+  // Circuit de validation : les dépenses saisies puis « validées » par un
+  // employé arrivent ici, en attente de vérification par la direction (DG).
+  // Ce n'est qu'à la validation DG qu'elles sont enregistrées dans histDep
+  // (et donc comptées dans les totaux, le cash, l'analyse…).
+  // [{ id, date, dept, label, groupe, qte, prix, montant, observation,
+  //    paiement, soumisPar, soumisLe }]
+  depAttente: [],
+
   // ===================== PRÉVISIONS DE CHARGES =====================
   // Budget mensuel par catégorie : { 'YYYY-MM': { [nomCategorie]: montant } }
   previsions: {},
@@ -188,6 +197,7 @@ const Data = {
       }
     };
     scan(this.histDep, 'userId');
+    scan(this.depAttente, 'id');
     scan(this.credits, 'id');
     scan(this.cheques, 'id');
     scan(this.mvtsBanque, 'id');

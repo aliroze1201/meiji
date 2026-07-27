@@ -11,8 +11,170 @@ const Depenses = {
   // Render globale appelée par App.renderAll()
   renderTable() {
     this.renderHistory();
+    this.renderAttente();
     this.renderDrafts();
     this.refreshCatList();
+  },
+
+  // ===================== VALIDATION DG (dépenses en attente) =====================
+  // Rappel sécurité : ce gate ne protège que l'AFFICHAGE (comme les rôles
+  // partout ailleurs) — la vraie sécurité reste les policies RLS Supabase.
+  canValidate() {
+    if (typeof Auth === 'undefined' || typeof Config === 'undefined'
+        || !Config.isAuthEnabled || !Config.isAuthEnabled()) return true; // mode public
+    if (!Auth.profile) return false;
+    if (!Auth.canEdit('depenses')) return false;
+    return ['admin', 'gerant'].includes(Auth.profile.role);
+  },
+
+  _currentUserName() {
+    if (typeof Auth === 'undefined' || !Auth.profile) return '—';
+    return Auth.profile.nom || Auth.toUsername(Auth.profile.email) || '—';
+  },
+
+  renderAttente() {
+    const card = document.getElementById('dep-attente-card');
+    const tb = document.getElementById('dep-attente-table');
+    if (!card || !tb) return;
+    const list = (Data.depAttente || []).slice()
+      .sort((a, b) => (a.soumisLe || '').localeCompare(b.soumisLe || ''));
+
+    if (!list.length) { card.style.display = 'none'; tb.innerHTML = ''; return; }
+    card.style.display = '';
+
+    const canV = this.canValidate();
+    const total = list.reduce((s, d) => s + (d.montant || 0), 0);
+    this._set('dep-attente-count', String(list.length));
+    this._set('dep-attente-total', Data.fmt(total));
+    const hint = document.getElementById('dep-attente-hint');
+    if (hint) hint.textContent = canV
+      ? 'Vérifie chaque ligne puis valide-la : elle sera alors enregistrée dans les dépenses (totaux, cash, analyses). Une ligne rejetée est supprimée définitivement.'
+      : 'Ces dépenses seront prises en compte après vérification et validation par la direction.';
+    const btnAll = document.getElementById('btn-validate-all-attente');
+    if (btnAll) btnAll.style.display = canV && list.length > 1 ? '' : 'none';
+
+    const dash = '<span style="color:var(--c-muted)">—</span>';
+    const canFix = (typeof Auth === 'undefined' || !Auth.canEdit || Auth.canEdit('depenses'));
+    tb.innerHTML = list.map(d => {
+      const obs = d.observation ? this._escape(d.observation) : '';
+      const pay = d.paiement === 'banque' ? '🏦 Banque' : d.paiement === 'mobile' ? '📱 Mobile' : '💵 Espèces';
+      const soumis = `${this._escape(d.soumisPar || '—')}<div style="font-size:10.5px;color:var(--c-muted)">${d.soumisLe ? Data.fmtDs(d.soumisLe.slice(0, 10)) : ''}</div>`;
+      const actions = canV
+        ? `<button class="btn btn-sm btn-success" title="Vérifiée : enregistrer dans les dépenses" onclick="Depenses.validateAttente(${d.id})"><i class="ti ti-check"></i> Valider</button>
+           <button class="btn-ghost" title="Corriger (renvoyer dans la zone de saisie)" onclick="Depenses.editAttente(${d.id})" style="margin:0 2px"><i class="ti ti-pencil"></i></button>
+           <button class="btn-ghost" title="Rejeter (supprimer définitivement)" onclick="Depenses.rejectAttente(${d.id})"><i class="ti ti-trash"></i></button>`
+        : (canFix
+            ? `<span class="badge b-amber">⏳ En attente</span>
+               <button class="btn-ghost" title="Corriger (renvoyer dans la zone de saisie)" onclick="Depenses.editAttente(${d.id})" style="margin-left:2px"><i class="ti ti-pencil"></i></button>`
+            : `<span class="badge b-amber">⏳ En attente</span>`);
+      return `
+      <tr>
+        <td class="nowrap">${Data.fmtDs(d.date)}</td>
+        <td><span class="badge ${d.dept==='SUSHI'?'b-blue':d.dept==='BAR'?'b-green':'b-amber'}">${d.dept}</span></td>
+        <td>${this._escape(d.groupe || d.label || '')}</td>
+        <td class="text-right">${d.qte != null ? d.qte : dash}</td>
+        <td class="text-right">${d.prix != null ? Data.fmts(d.prix) : dash}</td>
+        <td class="text-right fw-bold" style="color:var(--c-warning)">${Data.fmts(d.montant)} FCFA</td>
+        <td style="font-size:11px;color:var(--c-muted)">${pay}</td>
+        <td>${obs ? `<span title="${obs}" style="display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${obs}</span>` : dash}</td>
+        <td style="font-size:12px">${soumis}</td>
+        <td class="nowrap">${actions}</td>
+      </tr>`;
+    }).join('');
+  },
+
+  // Validation DG d'une ligne : la dépense est enregistrée dans histDep
+  // (elle compte alors dans les totaux, le cash et les analyses).
+  validateAttente(id) {
+    if (!this.canValidate()) return alert('Accès refusé : seule la direction peut valider les dépenses.');
+    const idx = (Data.depAttente || []).findIndex(d => d.id === id);
+    if (idx < 0) { App.renderAll(); return; }
+    const d = Data.depAttente[idx];
+    if (typeof Clotures !== 'undefined' && Clotures.guard(d.date, 'La validation de cette dépense')) return;
+    const { id: _id, soumisPar, soumisLe, ...payload } = d;
+    Data.depAttente.splice(idx, 1);
+    Data.histDep.push({ ...payload, userId: Data.newId() });
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
+        `Dépense ${d.dept} · ${d.label} (validée par ${this._currentUserName()})`,
+        `${Data.fmt(d.montant)} · soumise par ${soumisPar || '—'}`,
+        { id, after: payload });
+    } catch (e) {}
+    this.persist();
+    this.persistAttente();
+    App.renderAll();
+  },
+
+  // Valide toutes les lignes en attente (hors mois clôturés).
+  validateAllAttente() {
+    if (!this.canValidate()) return alert('Accès refusé : seule la direction peut valider les dépenses.');
+    const list = (Data.depAttente || []);
+    if (!list.length) return;
+    const blocked = typeof Clotures !== 'undefined'
+      ? list.filter(d => Clotures.isMonthClosed && Clotures.isMonthClosed(d.date)) : [];
+    const ok = list.filter(d => !blocked.includes(d));
+    if (!ok.length) { alert('🔒 Toutes les lignes en attente appartiennent à des mois clôturés.'); return; }
+    const total = ok.reduce((s, d) => s + (d.montant || 0), 0);
+    if (!confirm(`Valider les ${ok.length} dépense(s) en attente (${Data.fmt(total)}) ?`
+      + (blocked.length ? `\n\n⚠️ ${blocked.length} ligne(s) de mois clôturés seront laissées en attente.` : ''))) return;
+    ok.forEach(d => {
+      const { id: _id, soumisPar, soumisLe, ...payload } = d;
+      Data.histDep.push({ ...payload, userId: Data.newId() });
+      try {
+        if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
+          `Dépense ${d.dept} · ${d.label} (validée par ${this._currentUserName()})`,
+          `${Data.fmt(d.montant)} · soumise par ${soumisPar || '—'}`,
+          { id: d.id, after: payload });
+      } catch (e) {}
+    });
+    Data.depAttente = blocked;
+    this.persist();
+    this.persistAttente();
+    App.renderAll();
+    if (App.toast) App.toast(`✅ ${ok.length} dépense(s) validée(s) et enregistrée(s).`, 'info', 7000);
+  },
+
+  // Rejet DG : la ligne est supprimée définitivement (tracé dans l'historique).
+  rejectAttente(id) {
+    if (!this.canValidate()) return alert('Accès refusé : seule la direction peut rejeter les dépenses.');
+    const idx = (Data.depAttente || []).findIndex(d => d.id === id);
+    if (idx < 0) { App.renderAll(); return; }
+    const d = Data.depAttente[idx];
+    if (!confirm(`Rejeter cette dépense ?\n\n${d.dept} · ${d.label} · ${Data.fmt(d.montant)}\nSoumise par ${d.soumisPar || '—'}\n\nElle sera supprimée définitivement (elle n'a jamais été comptée).`)) return;
+    Data.depAttente.splice(idx, 1);
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('delete', 'depenses',
+        `Dépense ${d.dept} · ${d.label} (rejetée par ${this._currentUserName()})`,
+        `${Data.fmt(d.montant)} · soumise par ${d.soumisPar || '—'}`,
+        { id, before: d });
+    } catch (e) {}
+    this.persistAttente();
+    App.renderAll();
+  },
+
+  // Renvoie une ligne en attente dans la zone de saisie pour correction.
+  // À la re-validation de la saisie, elle repartira en attente de validation.
+  editAttente(id) {
+    const idx = (Data.depAttente || []).findIndex(d => d.id === id);
+    if (idx < 0) { App.renderAll(); return; }
+    const d = Data.depAttente[idx];
+    Data.depAttente.splice(idx, 1);
+    this.drafts.unshift({
+      id:       this._draftSeq++,
+      date:     d.date,
+      dept:     d.dept,
+      cat:      d.groupe || d.label || '',
+      qte:      d.qte != null ? String(d.qte) : '',
+      prix:     d.prix != null ? String(d.prix) : '',
+      montant:  d.montant != null ? String(d.montant) : '',
+      obs:      d.observation || '',
+      paiement: d.paiement || 'esp',
+    });
+    this.persistAttente();
+    this.persistDrafts();
+    App.renderAll();
+    const card = document.getElementById('draft-card');
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
 
   refreshCatList() {
@@ -386,11 +548,12 @@ const Depenses = {
     const nbEdit = this.drafts.filter(d => d.editingUserId || d.editingJournee).length;
     const nbNew  = this.drafts.length - nbEdit;
     const parts = [];
-    if (nbNew)  parts.push(`${nbNew} nouvelle(s)`);
+    if (nbNew)  parts.push(`${nbNew} nouvelle(s) → en attente de validation`);
     if (nbEdit) parts.push(`${nbEdit} modifiée(s)`);
     if (!confirm(`Valider la saisie ? (${parts.join(' + ')})`)) return;
 
     const touchedJournees = new Set();
+    let nbAttente = 0;
     this.drafts.forEach(d => {
       const payload = {
         date:   d.date,
@@ -437,27 +600,42 @@ const Depenses = {
             { id: d.editingUserId, after: payload });
         } catch (e) {}
       } else {
+        // Nouvelle dépense : elle N'EST PAS enregistrée directement.
+        // Elle part dans la liste « En attente de validation » et ne sera
+        // comptée dans les dépenses qu'après validation par la direction.
         const newId = Data.newId();
-        Data.histDep.push({ ...payload, userId: newId });
+        Data.depAttente.push({
+          ...payload,
+          id: newId,
+          soumisPar: this._currentUserName(),
+          soumisLe: new Date().toISOString(),
+        });
+        nbAttente++;
         try {
           if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
-            `Dépense ${payload.dept} · ${payload.label}`,
+            `Dépense ${payload.dept} · ${payload.label} (soumise pour validation)`,
             `${Data.fmt(payload.montant)} · ${payload.paiement}`,
             { id: newId, after: payload });
         } catch (e) {}
       }
     });
 
-    const committedDates = this.drafts.map(d => d.date);
+    const committedDates = this.drafts.filter(d => d.editingUserId || d.editingJournee).map(d => d.date);
     this.drafts = [];
     this.persistDrafts();
     this.persist();
+    if (nbAttente) this.persistAttente();
     if (touchedJournees.size && typeof Recettes !== 'undefined' && Recettes.persistUser) {
       Recettes.persistUser(Array.from(touchedJournees));
     }
     App.renderAll();
 
-    // Si le filtre de période actif masque des lignes tout juste validées,
+    if (nbAttente && App.toast) {
+      App.toast(this.canValidate()
+        ? `📨 ${nbAttente} dépense(s) en attente de validation — vérifie-les dans la carte « En attente de validation » ci-dessous.`
+        : `📨 ${nbAttente} dépense(s) envoyée(s) en attente de vérification et de validation par la direction.`, 'info', 9000);
+    }
+    // Si le filtre de période actif masque des lignes tout juste modifiées,
     // le signaler : sinon elles semblent avoir « disparu » alors qu'elles
     // sont bien enregistrées.
     const hidden = committedDates.filter(dt => !App.inPeriod(dt)).length;
@@ -486,10 +664,15 @@ const Depenses = {
   // ===================== PERSISTANCE LOCALE =====================
   STORAGE_KEY: 'meiji-user-deps',
   DRAFT_KEY:   'meiji-dep-drafts',
+  ATTENTE_KEY: 'meiji-dep-attente',
 
   persist() {
     const userDeps = Data.histDep.filter(d => d.userId);
     AppDB.save(this.STORAGE_KEY, userDeps);
+  },
+
+  persistAttente() {
+    AppDB.save(this.ATTENTE_KEY, Data.depAttente || []);
   },
 
   persistDrafts() {
@@ -503,6 +686,8 @@ const Depenses = {
   },
 
   async restore() {
+    const attente = await AppDB.load(this.ATTENTE_KEY);
+    if (Array.isArray(attente)) Data.depAttente = attente;
     const userDeps = await AppDB.load(this.STORAGE_KEY);
     if (Array.isArray(userDeps)) {
       // La version persistée fait autorité pour les dépenses utilisateur.
