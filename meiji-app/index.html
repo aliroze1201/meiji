@@ -8,9 +8,9 @@
   <meta name="robots" content="noindex">
   <title>MEIJI — Gestion Restaurant</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍣</text></svg>">
-  <link rel="stylesheet" href="css/styles.css?v=20260727-efeccd62">
+  <link rel="stylesheet" href="css/styles.css?v=20260727-c8744ca6">
   <!-- Version bornée à la majeure @3 (pas @latest : évite un changement de rendu surprise) -->
-  <link rel="stylesheet" href="css/vendor/tabler-icons.min.css?v=20260727-efeccd62">
+  <link rel="stylesheet" href="css/vendor/tabler-icons.min.css?v=20260727-c8744ca6">
   <!-- defer : ces bibliothèques s'exécutent avant DOMContentLoaded (App.init)
        mais ne bloquent plus le premier rendu de la page. -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -50,6 +50,7 @@
           <div class="tn-dropdown">
             <div class="nav-item" data-page="recettes"><i class="ti ti-trending-up"></i><span class="label">Recettes CA</span></div>
             <div class="nav-item" data-page="depenses"><i class="ti ti-trending-down"></i><span class="label">Dépenses</span></div>
+            <div class="nav-item" data-page="validation"><i class="ti ti-checkbox"></i><span class="label">Validation dépenses</span><span class="badge b-amber" id="nav-validation-badge" style="display:none;margin-left:6px">0</span></div>
             <div class="nav-item" data-page="analyse"><i class="ti ti-chart-pie"></i><span class="label">Analyse charges</span></div>
             <div class="nav-item" data-page="prix"><i class="ti ti-chart-line"></i><span class="label">Analyse des prix</span></div>
             <div class="nav-item" data-page="banque"><i class="ti ti-building-bank"></i><span class="label">Banque</span></div>
@@ -577,8 +578,36 @@
           <div id="draft-empty" class="empty" style="padding:18px">Aucune ligne en cours. Cliquez <b>+ Ligne</b> pour commencer.</div>
         </div>
 
-        <!-- EN ATTENTE DE VALIDATION (direction) -->
-        <div class="card" id="dep-attente-card" style="display:none;border-left:3px solid var(--c-warning)">
+        <!-- KPIs -->
+        <div class="g4">
+          <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red" id="dep-tot">0</div></div>
+          <div class="mc blue"><div class="mc-label blue">SUSHI</div><div class="mc-val blue" id="dep-s">0</div></div>
+          <div class="mc green"><div class="mc-label green">BAR</div><div class="mc-val green" id="dep-b">0</div></div>
+          <div class="mc amber"><div class="mc-label amber">CHICHA</div><div class="mc-val amber" id="dep-c">0</div></div>
+        </div>
+
+        <!-- TABLEAU HISTORIQUE -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)">
+            <span class="card-title"><i class="ti ti-history"></i> Dépenses validées</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr><th>Date</th><th>Catégorie</th><th class="text-right">Qté</th><th class="text-right">P.U.</th><th class="text-right">Montant</th><th>Dept</th><th>Mode</th><th>Observation</th><th></th></tr></thead>
+              <tbody id="dep-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VALIDATION DES DÉPENSES (circuit DG) -->
+    <div class="page" id="page-validation">
+      <div class="period-bar">
+        <span class="period-bar-title"><i class="ti ti-checkbox"></i> Validation des dépenses</span>
+      </div>
+      <div class="content">
+        <div class="card" id="dep-attente-card" style="border-left:3px solid var(--c-warning)">
           <div class="card-header">
             <span class="card-title"><i class="ti ti-clock"></i> En attente de validation
               <span class="badge b-amber" id="dep-attente-count">0</span></span>
@@ -598,26 +627,9 @@
               <tbody id="dep-attente-table"></tbody>
             </table>
           </div>
-        </div>
-
-        <!-- KPIs -->
-        <div class="g4">
-          <div class="mc red"><div class="mc-label red">Total charges</div><div class="mc-val red" id="dep-tot">0</div></div>
-          <div class="mc blue"><div class="mc-label blue">SUSHI</div><div class="mc-val blue" id="dep-s">0</div></div>
-          <div class="mc green"><div class="mc-label green">BAR</div><div class="mc-val green" id="dep-b">0</div></div>
-          <div class="mc amber"><div class="mc-label amber">CHICHA</div><div class="mc-val amber" id="dep-c">0</div></div>
-        </div>
-
-        <!-- TABLEAU HISTORIQUE -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div class="card-header" style="padding:14px 18px;margin-bottom:0;border-bottom:1px solid var(--c-line)">
-            <span class="card-title"><i class="ti ti-history"></i> Dépenses validées</span>
-          </div>
-          <div style="overflow-x:auto">
-            <table>
-              <thead><tr><th>Date</th><th>Catégorie</th><th class="text-right">Qté</th><th class="text-right">P.U.</th><th class="text-right">Montant</th><th>Dept</th><th>Mode</th><th>Observation</th><th></th></tr></thead>
-              <tbody id="dep-table"></tbody>
-            </table>
+          <div class="text-muted" style="font-size:11.5px;margin-top:8px">
+            Les dépenses saisies puis validées dans l'onglet <b>Dépenses</b> arrivent ici.
+            Elles ne sont comptées dans les totaux, le cash et les analyses qu'après validation par la direction.
           </div>
         </div>
       </div>
@@ -1240,35 +1252,35 @@
 <!-- MODALS (injectés par JS) -->
 <div id="modal-container" role="region" aria-label="Boîtes de dialogue"></div>
 
-<script src="js/config.js?v=20260727-efeccd62"></script>
-<script src="js/auth.js?v=20260727-efeccd62"></script>
-<script src="js/data.js?v=20260727-efeccd62"></script>
-<script src="js/journees-db.js?v=20260727-efeccd62"></script>
-<script src="js/app-db.js?v=20260727-efeccd62"></script>
-<script src="js/audit.js?v=20260727-efeccd62"></script>
-<script src="js/charts.js?v=20260727-efeccd62"></script>
-<script src="js/modules/accueil.js?v=20260727-efeccd62"></script>
-<script src="js/modules/dashboard.js?v=20260727-efeccd62"></script>
-<script src="js/modules/pointage.js?v=20260727-efeccd62"></script>
-<script src="js/modules/recettes.js?v=20260727-efeccd62"></script>
-<script src="js/modules/depenses.js?v=20260727-efeccd62"></script>
-<script src="js/modules/analyse.js?v=20260727-efeccd62"></script>
-<script src="js/modules/prix.js?v=20260727-efeccd62"></script>
-<script src="js/modules/banque.js?v=20260727-efeccd62"></script>
-<script src="js/modules/mobile.js?v=20260727-efeccd62"></script>
-<script src="js/modules/categories.js?v=20260727-efeccd62"></script>
-<script src="js/modules/employes.js?v=20260727-efeccd62"></script>
-<script src="js/modules/comptes-emp.js?v=20260727-efeccd62"></script>
-<script src="js/modules/credits.js?v=20260727-efeccd62"></script>
-<script src="js/modules/suivi.js?v=20260727-efeccd62"></script>
-<script src="js/modules/fournisseurs.js?v=20260727-efeccd62"></script>
-<script src="js/modules/stock.js?v=20260727-efeccd62"></script>
-<script src="js/modules/associes.js?v=20260727-efeccd62"></script>
-<script src="js/modules/bilan.js?v=20260727-efeccd62"></script>
-<script src="js/modules/clotures.js?v=20260727-efeccd62"></script>
-<script src="js/modules/utilisateurs.js?v=20260727-efeccd62"></script>
-<script src="js/modules/search.js?v=20260727-efeccd62"></script>
-<script src="js/main.js?v=20260727-efeccd62"></script>
+<script src="js/config.js?v=20260727-c8744ca6"></script>
+<script src="js/auth.js?v=20260727-c8744ca6"></script>
+<script src="js/data.js?v=20260727-c8744ca6"></script>
+<script src="js/journees-db.js?v=20260727-c8744ca6"></script>
+<script src="js/app-db.js?v=20260727-c8744ca6"></script>
+<script src="js/audit.js?v=20260727-c8744ca6"></script>
+<script src="js/charts.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/accueil.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/dashboard.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/pointage.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/recettes.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/depenses.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/analyse.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/prix.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/banque.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/mobile.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/categories.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/employes.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/comptes-emp.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/credits.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/suivi.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/fournisseurs.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/stock.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/associes.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/bilan.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/clotures.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/utilisateurs.js?v=20260727-c8744ca6"></script>
+<script src="js/modules/search.js?v=20260727-c8744ca6"></script>
+<script src="js/main.js?v=20260727-c8744ca6"></script>
 
 <!--
   Filet de sécurité : recalcul du P.U. dans la saisie des dépenses, attaché

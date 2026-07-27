@@ -47,6 +47,7 @@ const App = {
       dashboard: 'Tableau de bord',
       recettes: 'Recettes CA',
       depenses: 'Dépenses',
+      validation: 'Validation des dépenses',
       pointage: 'Pointage journée',
       analyse: 'Analyse charges',
       prix: 'Analyse des prix',

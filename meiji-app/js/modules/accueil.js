@@ -14,6 +14,7 @@ const Accueil = {
     { page: 'pointage',    icon: 'ti-cash-register',    label: 'Pointage journée', color: 'green' },
     { page: 'recettes',    icon: 'ti-trending-up',      label: 'Recettes CA',      color: 'green' },
     { page: 'depenses',    icon: 'ti-trending-down',    label: 'Dépenses',         color: 'red'   },
+    { page: 'validation',  icon: 'ti-checkbox',         label: 'Validation dépenses', color: 'amber' },
     { page: 'analyse',     icon: 'ti-chart-pie',        label: 'Analyse charges',  color: 'amber' },
     { page: 'prix',        icon: 'ti-chart-line',       label: 'Analyse des prix', color: 'red'   },
     { page: 'banque',      icon: 'ti-building-bank',    label: 'Banque',           color: 'blue'  },
