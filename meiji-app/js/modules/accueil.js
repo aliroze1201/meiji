@@ -15,6 +15,7 @@ const Accueil = {
     { page: 'recettes',    icon: 'ti-trending-up',      label: 'Recettes CA',      color: 'green' },
     { page: 'depenses',    icon: 'ti-trending-down',    label: 'Dépenses',         color: 'red'   },
     { page: 'analyse',     icon: 'ti-chart-pie',        label: 'Analyse charges',  color: 'amber' },
+    { page: 'prix',        icon: 'ti-chart-line',       label: 'Analyse des prix', color: 'red'   },
     { page: 'banque',      icon: 'ti-building-bank',    label: 'Banque',           color: 'blue'  },
     { page: 'mobile',      icon: 'ti-device-mobile',    label: 'Mobile Money',     color: 'teal'  },
     { page: 'suivi',       icon: 'ti-checks',           label: 'Suivi chèques',    color: 'teal'  },

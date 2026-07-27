@@ -130,6 +130,7 @@ const Utilisateurs = {
     recettes: 'Recettes CA',
     depenses: 'Dépenses',
     analyse: 'Analyse charges',
+    prix: 'Analyse des prix',
     banque: 'Banque',
     mobile: 'Mobile Money',
     suivi: 'Suivi chèques',
