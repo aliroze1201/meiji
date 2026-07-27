@@ -103,6 +103,10 @@ const App = {
       `${Data.histDep.filter(d => d.userId).length} dépense(s)`,
       () => Depenses.persist()
     );
+    if (typeof Depenses !== 'undefined' && Depenses.persistAttente) await tryStep(
+      `${(Data.depAttente || []).length} dépense(s) en attente de validation`,
+      () => Depenses.persistAttente()
+    );
     if (typeof Banque   !== 'undefined' && Banque.save)   await tryStep('Banque (solde + mouvements)',         () => Banque.save());
     if (typeof Banque   !== 'undefined' && Banque.saveList) await tryStep(`Liste banques (${(Data.banques||[]).length})`, () => Banque.saveList());
     if (typeof Mobile   !== 'undefined' && Mobile.save)   await tryStep('Mobile Money (solde + mouvements)',   () => Mobile.save());
