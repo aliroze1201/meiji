@@ -129,6 +129,7 @@ const Utilisateurs = {
     pointage: 'Pointage journée',
     recettes: 'Recettes CA',
     depenses: 'Dépenses',
+    validation: 'Validation dépenses',
     analyse: 'Analyse charges',
     prix: 'Analyse des prix',
     banque: 'Banque',

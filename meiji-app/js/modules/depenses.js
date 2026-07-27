@@ -33,25 +33,34 @@ const Depenses = {
   },
 
   renderAttente() {
-    const card = document.getElementById('dep-attente-card');
     const tb = document.getElementById('dep-attente-table');
-    if (!card || !tb) return;
+    if (!tb) return;
     const list = (Data.depAttente || []).slice()
       .sort((a, b) => (a.soumisLe || '').localeCompare(b.soumisLe || ''));
 
-    if (!list.length) { card.style.display = 'none'; tb.innerHTML = ''; return; }
-    card.style.display = '';
+    // Badge compteur dans le menu Finances › Validation dépenses
+    const navBadge = document.getElementById('nav-validation-badge');
+    if (navBadge) {
+      navBadge.textContent = String(list.length);
+      navBadge.style.display = list.length ? '' : 'none';
+    }
 
     const canV = this.canValidate();
     const total = list.reduce((s, d) => s + (d.montant || 0), 0);
     this._set('dep-attente-count', String(list.length));
-    this._set('dep-attente-total', Data.fmt(total));
+    this._set('dep-attente-total', list.length ? Data.fmt(total) : '');
     const hint = document.getElementById('dep-attente-hint');
     if (hint) hint.textContent = canV
       ? 'Vérifie chaque ligne puis valide-la : elle sera alors enregistrée dans les dépenses (totaux, cash, analyses). Une ligne rejetée est supprimée définitivement.'
       : 'Ces dépenses seront prises en compte après vérification et validation par la direction.';
     const btnAll = document.getElementById('btn-validate-all-attente');
     if (btnAll) btnAll.style.display = canV && list.length > 1 ? '' : 'none';
+
+    if (!list.length) {
+      tb.innerHTML = `<tr><td colspan="10" class="empty">Aucune dépense en attente de validation.<br>
+        <span style="font-size:12px">Les dépenses saisies puis validées dans l'onglet Dépenses apparaîtront ici.</span></td></tr>`;
+      return;
+    }
 
     const dash = '<span style="color:var(--c-muted)">—</span>';
     const canFix = (typeof Auth === 'undefined' || !Auth.canEdit || Auth.canEdit('depenses'));
@@ -172,9 +181,11 @@ const Depenses = {
     });
     this.persistAttente();
     this.persistDrafts();
-    App.renderAll();
-    const card = document.getElementById('draft-card');
-    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (App.currentPage !== 'depenses') App.nav('depenses'); // la zone de saisie est sur l'onglet Dépenses
+    else App.renderAll();
+    setTimeout(() => {
+      document.getElementById('draft-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   },
 
   refreshCatList() {
@@ -632,8 +643,8 @@ const Depenses = {
 
     if (nbAttente && App.toast) {
       App.toast(this.canValidate()
-        ? `📨 ${nbAttente} dépense(s) en attente de validation — vérifie-les dans la carte « En attente de validation » ci-dessous.`
-        : `📨 ${nbAttente} dépense(s) envoyée(s) en attente de vérification et de validation par la direction.`, 'info', 9000);
+        ? `📨 ${nbAttente} dépense(s) en attente — vérifie-les dans l'onglet « Validation dépenses » (menu Finances).`
+        : `📨 ${nbAttente} dépense(s) envoyée(s) en attente de vérification et de validation par la direction (onglet « Validation dépenses »).`, 'info', 9000);
     }
     // Si le filtre de période actif masque des lignes tout juste modifiées,
     // le signaler : sinon elles semblent avoir « disparu » alors qu'elles
