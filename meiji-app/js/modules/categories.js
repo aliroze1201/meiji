@@ -270,11 +270,175 @@ const Categories = {
     return out;
   },
 
+  // ===================== DÉPENSES SANS CATÉGORIE =====================
+  // Groupes portés par des dépenses enregistrées (histDep + dépenses de
+  // journées) qui ne correspondent à AUCUNE catégorie déclarée. L'utilisateur
+  // peut créer la catégorie manquante ou rattacher ces dépenses à une
+  // catégorie / sous-catégorie existante (le champ `groupe` est réécrit).
+  _noncatGroups() {
+    const declared = new Set((Data.categories || []).map(c => c.nom));
+    const groups = {};
+    (Data.getAllDeps() || []).forEach(d => {
+      const g = d.groupe || 'Autres';
+      if (declared.has(g)) return;
+      if (!groups[g]) groups[g] = { nom: g, count: 0, total: 0, items: [] };
+      groups[g].count++;
+      groups[g].total += d.montant || 0;
+      groups[g].items.push(d);
+    });
+    return Object.values(groups).sort((a, b) => b.total - a.total);
+  },
+
+  renderSansCategorie() {
+    const tb = document.getElementById('cat-noncat-table');
+    if (!tb) return;
+    const groups = this._noncatGroups();
+    const nb = groups.reduce((s, g) => s + g.count, 0);
+    const tot = groups.reduce((s, g) => s + g.total, 0);
+    const countEl = document.getElementById('cat-noncat-count');
+    if (countEl) countEl.textContent = String(nb);
+    const totEl = document.getElementById('cat-noncat-total');
+    if (totEl) totEl.textContent = groups.length ? Data.fmt(tot) : '';
+
+    if (!groups.length) {
+      tb.innerHTML = `<tr><td colspan="4" class="empty">✅ Toutes les dépenses enregistrées sont rattachées à une catégorie déclarée.</td></tr>`;
+      return;
+    }
+
+    tb.innerHTML = groups.map(g => {
+      const nomArg = Data.esc(JSON.stringify(g.nom));
+      const detail = g.items.slice()
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        .map(d => `
+          <tr>
+            <td class="nowrap">${Data.fmtDs(d.date)}</td>
+            <td><span class="badge ${d.dept === 'SUSHI' ? 'b-blue' : d.dept === 'BAR' ? 'b-green' : 'b-amber'}">${d.dept}</span></td>
+            <td>${Data.esc(d.label || '')}${d.observation && d.observation !== d.label ? `<div style="font-size:11px;color:var(--c-muted)">${Data.esc(d.observation)}</div>` : ''}</td>
+            <td>${d._jSrc ? '<span class="badge b-amber" style="font-size:10px">journée</span>' : '<span class="badge b-blue" style="font-size:10px">dépense</span>'}</td>
+            <td class="text-right fw-bold text-red">${Data.fmts(d.montant)} FCFA</td>
+          </tr>`).join('');
+      return `
+      <tr style="cursor:pointer" title="Clique pour voir le détail des dépenses de ce groupe"
+          onclick="const n=this.nextElementSibling;if(n)n.style.display=n.style.display==='none'?'':'none'">
+        <td><b>${Data.esc(g.nom)}</b></td>
+        <td class="text-right">${g.count}</td>
+        <td class="text-right fw-bold" style="color:var(--c-warning)">${Data.fmts(g.total)} FCFA</td>
+        <td class="nowrap">
+          <button class="btn btn-sm btn-primary" title="Créer une catégorie (ou sous-catégorie via le choix du parent) portant ce nom"
+                  onclick="event.stopPropagation();Categories.createFromGroupe(${nomArg})"><i class="ti ti-plus"></i> Créer la catégorie</button>
+          <button class="btn btn-sm" title="Déplacer ces dépenses vers une catégorie ou sous-catégorie existante"
+                  onclick="event.stopPropagation();Categories.openAttachModal(${nomArg})"><i class="ti ti-arrow-merge"></i> Rattacher à…</button>
+        </td>
+      </tr>
+      <tr style="display:none">
+        <td colspan="4" style="background:var(--c-bg-2);padding:8px 14px">
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr><th>Date</th><th>Caisse</th><th>Libellé</th><th>Source</th><th class="text-right">Montant</th></tr></thead>
+              <tbody>${detail}</tbody>
+            </table>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  },
+
+  // Ouvre la modale « Nouvelle catégorie » préremplie avec le nom du groupe.
+  // Comme le rattachement des dépenses se fait par NOM, dès que la catégorie
+  // est créée avec ce nom exact, toutes les dépenses du groupe sont classées.
+  // L'utilisateur peut aussi choisir un parent pour en faire une sous-catégorie.
+  createFromGroupe(nom) {
+    this.openModal(null);
+    setTimeout(() => {
+      const inp = document.getElementById('cat-nom');
+      if (inp) { inp.value = nom; inp.select?.(); }
+    }, 40);
+  },
+
+  // Modale « Rattacher à… » : choix d'une catégorie ou sous-catégorie de
+  // dépense existante, puis réécriture du groupe des dépenses concernées.
+  openAttachModal(nom) {
+    const groups = this._noncatGroups();
+    const g = groups.find(x => x.nom === nom);
+    if (!g) { this.render(); return; }
+    const opts = this._sortedHierarchy()
+      .filter(({ c }) => c.type === 'dep' || c.type === 'both')
+      .map(({ c, depth }) => {
+        const parent = depth ? this.byId(c.parentId) : null;
+        const label = parent ? `${parent.nom} › ${c.nom}` : c.nom;
+        return `<option value="${c.id}">${this._esc(label)}${depth ? ' (sous-catégorie)' : ''}</option>`;
+      }).join('');
+    if (!opts) { alert('Aucune catégorie de dépense déclarée. Crée d\'abord une catégorie.'); return; }
+    this._attachNom = nom;
+    App.showModal(`
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:420px">
+          <div class="modal-title"><i class="ti ti-arrow-merge"></i> Rattacher « ${this._esc(nom)} »</div>
+          <div style="font-size:13px;margin-bottom:10px">
+            ${g.count} dépense(s) · <b>${Data.fmt(g.total)}</b><br>
+            <span style="font-size:11.5px;color:var(--c-muted)">Toutes ces dépenses seront déplacées vers la catégorie choisie
+            (leur libellé d'origine est conservé en désignation).</span>
+          </div>
+          <div class="fg"><label class="fl">Catégorie ou sous-catégorie de destination</label>
+            <select id="noncat-attach-select">${opts}</select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="App.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="Categories.attachGroupe()"><i class="ti ti-check"></i> Rattacher</button>
+          </div>
+        </div>
+      </div>`);
+  },
+
+  attachGroupe() {
+    const nom = this._attachNom;
+    const sel = document.getElementById('noncat-attach-select');
+    const target = sel ? this.byId(parseInt(sel.value, 10)) : null;
+    if (!nom || !target) { App.closeModal(); return; }
+
+    const match = (d) => (d.groupe || 'Autres') === nom;
+    let nbDep = 0;
+    (Data.histDep || []).forEach(d => { if (match(d)) { d.groupe = target.nom; nbDep++; } });
+
+    const touched = new Set();
+    (Data.journees || []).forEach(j => {
+      ['s', 'b', 'c'].forEach(k => {
+        ((j.deps && j.deps[k]) || []).forEach(d => {
+          if (match(d)) { d.groupe = target.nom; j.userRec = true; touched.add(j); nbDep++; }
+        });
+      });
+    });
+
+    // Cohérence : les dépenses encore en attente de validation suivent aussi.
+    let nbAtt = 0;
+    (Data.depAttente || []).forEach(d => { if (match(d)) { d.groupe = target.nom; nbAtt++; } });
+
+    try {
+      if (typeof Audit !== 'undefined') Audit.log('update', 'categories',
+        `Groupe « ${nom} » rattaché à ${target.nom}`,
+        `${nbDep} dépense(s)${nbAtt ? ` + ${nbAtt} en attente` : ''} déplacée(s)`,
+        { from: nom, to: target.nom, toId: target.id });
+    } catch (e) {}
+
+    if (typeof Depenses !== 'undefined') {
+      if (Depenses.persist) Depenses.persist();
+      if (nbAtt && Depenses.persistAttente) Depenses.persistAttente();
+    }
+    if (touched.size && typeof Recettes !== 'undefined' && Recettes.persistUser) {
+      Recettes.persistUser(Array.from(touched));
+    }
+    this._attachNom = null;
+    App.closeModal();
+    App.renderAll();
+    if (App.toast) App.toast(`✅ ${nbDep + nbAtt} dépense(s) « ${Data.esc(nom)} » rattachée(s) à « ${Data.esc(target.nom)} ».`, 'info', 7000);
+  },
+
   // ===================== RENDER =====================
   render() {
     const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
     const countEl = document.getElementById('cat-count');
     if (countEl) countEl.textContent = Data.categories.length + ' catégorie(s)';
+    this.renderSansCategorie();
 
     const treeHtml = (rootType) => {
       const racines = Data.categories
