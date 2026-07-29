@@ -102,12 +102,15 @@ const Depenses = {
     if (typeof Clotures !== 'undefined' && Clotures.guard(d.date, 'La validation de cette dépense')) return;
     const { id: _id, soumisPar, soumisLe, ...payload } = d;
     Data.depAttente.splice(idx, 1);
-    Data.histDep.push({ ...payload, userId: Data.newId() });
+    // Conserve l'id d'attente comme userId : la trace « create » de l'audit
+    // et la dépense en base gardent ainsi le même id (rapprochement fiable).
+    const uid = Data.histDep.some(x => String(x.userId) === String(_id)) ? Data.newId() : _id;
+    Data.histDep.push({ ...payload, userId: uid });
     try {
       if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
         `Dépense ${d.dept} · ${d.label} (validée par ${this._currentUserName()})`,
         `${Data.fmt(d.montant)} · soumise par ${soumisPar || '—'}`,
-        { id, after: payload });
+        { id: uid, after: payload, validation: true });
     } catch (e) {}
     this.persist();
     this.persistAttente();
@@ -128,12 +131,14 @@ const Depenses = {
       + (blocked.length ? `\n\n⚠️ ${blocked.length} ligne(s) de mois clôturés seront laissées en attente.` : ''))) return;
     ok.forEach(d => {
       const { id: _id, soumisPar, soumisLe, ...payload } = d;
-      Data.histDep.push({ ...payload, userId: Data.newId() });
+      // Même règle que validateAttente : l'id d'attente devient le userId.
+      const uid = Data.histDep.some(x => String(x.userId) === String(_id)) ? Data.newId() : _id;
+      Data.histDep.push({ ...payload, userId: uid });
       try {
         if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
           `Dépense ${d.dept} · ${d.label} (validée par ${this._currentUserName()})`,
           `${Data.fmt(d.montant)} · soumise par ${soumisPar || '—'}`,
-          { id: d.id, after: payload });
+          { id: uid, after: payload, validation: true });
       } catch (e) {}
     });
     Data.depAttente = blocked;
@@ -168,6 +173,14 @@ const Depenses = {
     if (idx < 0) { App.renderAll(); return; }
     const d = Data.depAttente[idx];
     Data.depAttente.splice(idx, 1);
+    try {
+      // Trace le renvoi : sinon le « create » de la soumission resterait
+      // orphelin et le rapprochement Historique ↔ Base le verrait en divergence.
+      if (typeof Audit !== 'undefined') Audit.log('update', 'depenses',
+        `Dépense ${d.dept} · ${d.label} (renvoyée en saisie pour correction)`,
+        `${Data.fmt(d.montant)} · soumise par ${d.soumisPar || '—'}`,
+        { id, before: d, renvoyee: true });
+    } catch (e) {}
     this.drafts.unshift({
       id:       this._draftSeq++,
       date:     d.date,

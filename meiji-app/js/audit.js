@@ -463,6 +463,26 @@ const Audit = {
     const log = (Data.activityLog || []).filter(e => e.module === 'depenses');
     const deps = (Data.histDep || []).filter(d => d.userId);
 
+    // Saisies soumises mais pas encore validées par la direction : elles ont
+    // une trace « create » dans l'audit sans être en base — c'est le
+    // fonctionnement normal, PAS une divergence.
+    const attente = Data.depAttente || [];
+    const attenteIds = new Set(attente.map(d => String(d.id)));
+    // Trace de validation DG : depuis la conservation de l'id, la dépense en
+    // base porte le même id que le « create » ; pour l'ancien historique
+    // (nouvel id à la validation), on rapproche par contenu (meta.after).
+    const validations = log.filter(e => e.action === 'update'
+      && (e.meta?.validation || /\(validée par /.test(e.entity || '')));
+    const validatedIds = new Set(validations.map(e => e.meta?.id).filter(v => v != null).map(String));
+    // Lignes d'attente renvoyées en saisie pour correction : leur « create »
+    // d'origine n'aboutira jamais en base (une nouvelle soumission le remplace).
+    const renvoyeIds = new Set(log
+      .filter(e => e.action === 'update' && (e.meta?.renvoyee || /\(renvoyée en saisie/.test(e.entity || '')))
+      .map(e => e.meta?.id).filter(v => v != null).map(String));
+    // Ids connus de l'audit toutes actions confondues : une dépense extraite
+    // d'une journée ou validée n'a qu'une trace « update » portant son id.
+    const auditAnyIds = new Set(log.map(e => e.meta?.id).filter(v => v != null).map(String));
+
     // Date métier d'une entrée d'audit : les créations/modifs portent la
     // dépense complète dans meta.after, les suppressions dans meta.before.
     // (l'ancien filtre sur meta.date seul ne trouvait jamais rien)
@@ -477,12 +497,39 @@ const Audit = {
       const auditCreateIds = new Set(auditCreate.map(e => e.meta?.id).filter(v => v != null).map(String));
       const deletedIds     = new Set(auditDelete.map(e => e.meta?.id).filter(v => v != null).map(String));
       const currentIds     = new Set(current.map(d => String(d.userId)));
+      const pending        = attente.filter(d => d.date === date);
       // Manquantes = créées d'après l'audit, absentes de la base, SANS trace
-      // de suppression volontaire → dépenses perdues, restaurables.
-      const inAuditNotCurrent = [...auditCreateIds].filter(id => !currentIds.has(id) && !deletedIds.has(id));
-      const inCurrentNotAudit = [...currentIds].filter(id => !auditCreateIds.has(id));
+      // de suppression (rejet compris), de validation ni de renvoi en saisie,
+      // et pas encore en attente de validation → dépenses perdues, restaurables.
+      const inAuditNotCurrent = [...auditCreateIds].filter(id => !currentIds.has(id)
+        && !deletedIds.has(id) && !attenteIds.has(id)
+        && !validatedIds.has(id) && !renvoyeIds.has(id));
+      // En trop = en base sans AUCUNE trace audit portant leur id, ni
+      // validation ancienne rapprochable par contenu (date/montant/dept/label).
+      const usedVal = new Set();
+      const hasValidationTrace = d => {
+        const i = validations.findIndex((e, ix) => !usedVal.has(ix)
+          && e.meta?.after
+          && e.meta.after.date === d.date
+          && Number(e.meta.after.montant || 0) === Number(d.montant || 0)
+          && (e.meta.after.dept || '') === (d.dept || '')
+          && (e.meta.after.label || e.meta.after.groupe || '') === (d.label || d.groupe || ''));
+        if (i < 0) return false;
+        usedVal.add(i);
+        return true;
+      };
+      const inCurrentNotAudit = [...currentIds].filter(id => {
+        if (auditAnyIds.has(id)) return false;
+        const d = current.find(x => String(x.userId) === id);
+        return !(d && hasValidationTrace(d));
+      });
 
       const totalCurrent = current.reduce((s,d) => s + (d.montant || 0), 0);
+      const totalPending = pending.reduce((s,d) => s + (d.montant || 0), 0);
+
+      const rowsPending = pending.length
+        ? pending.map(d => `<tr><td>${this._esc(d.dept || '')}</td><td>${this._esc(d.label || d.groupe || '')}</td><td class="text-right fw-bold" style="color:var(--c-warning)">${Data.fmt(d.montant)}</td><td>${this._esc(d.soumisPar || '—')}</td><td style="font-size:11px;color:var(--c-muted)">#${d.id}</td></tr>`).join('')
+        : '';
 
       const rowsCurrent = current.length
         ? current.map(d => `<tr><td>${this._esc(d.dept || '')}</td><td>${this._esc(d.label || d.groupe || '')}</td><td class="text-right fw-bold">${Data.fmt(d.montant)}</td><td>${this._esc(d.paiement || 'esp')}</td><td style="font-size:11px;color:var(--c-muted)">#${d.userId}</td></tr>`).join('')
@@ -527,7 +574,7 @@ const Audit = {
 
       const rowsDiffExtra = inCurrentNotAudit.length
         ? inCurrentNotAudit.map(id => {
-            const d = current.find(x => x.userId === id);
+            const d = current.find(x => String(x.userId) === id);
             return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(d?.dept || '?')}</td><td>${this._esc(d?.label || d?.groupe || '')}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${Data.fmt(d?.montant)}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td></tr>`;
           }).join('')
         : '<tr><td colspan="4" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les dépenses présentes ont une trace audit ✓</td></tr>';
@@ -565,6 +612,16 @@ const Audit = {
             <div class="mc red"><div class="mc-label red">Audit · suppr</div><div class="mc-val red">${auditDelete.length}</div></div>
           </div>
 
+          ${pending.length ? `
+          <details open>
+            <summary style="cursor:pointer;font-weight:600;margin:8px 0 6px;color:var(--c-warning)">⏳ En attente de validation (${pending.length}) · ${Data.fmt(totalPending)}</summary>
+            <div style="font-size:12px;color:var(--c-muted);margin:4px 0 6px">
+              Saisies soumises mais pas encore validées par la direction : elles ne comptent pas encore
+              dans les dépenses et ne sont <b>pas</b> des divergences.
+            </div>
+            <table style="margin-bottom:12px"><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>Soumise par</th><th>ID</th></tr></thead><tbody>${rowsPending}</tbody></table>
+          </details>` : ''}
+
           <details ${current.length ? 'open' : ''}>
             <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">Dépenses actuellement en base (${current.length})</summary>
             <table style="margin-bottom:12px"><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>Mode</th><th>ID</th></tr></thead><tbody>${rowsCurrent}</tbody></table>
@@ -586,7 +643,7 @@ const Audit = {
                 <summary style="cursor:pointer;font-weight:700;color:var(--c-danger);font-size:14px">⚠ Détail des divergences (${inAuditNotCurrent.length + inCurrentNotAudit.length}) · Montant total : ${Data.fmt(totalDivergence)}</summary>
                 <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Audit sans base</b> — lignes audit dont la dépense a disparu (sans trace de suppression) · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalMissing)}</span> :</div>
                 <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th class="text-right">Montant</th><th>ID</th><th></th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
-                <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Base sans audit</b> — dépenses présentes sans trace de création dans l'audit · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalExtra)}</span> :</div>
+                <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Base sans audit</b> — dépenses présentes sans aucune trace dans l'audit · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalExtra)}</span> :</div>
                 <table><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffExtra}</tbody></table>
               </details>
             </div>` : ''}
