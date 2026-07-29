@@ -639,7 +639,7 @@ const Depenses = {
           if (typeof Audit !== 'undefined') Audit.log('create', 'depenses',
             `Dépense ${payload.dept} · ${payload.label} (soumise pour validation)`,
             `${Data.fmt(payload.montant)} · ${payload.paiement}`,
-            { id: newId, after: payload });
+            { id: newId, after: payload, attente: true });
         } catch (e) {}
       }
     });

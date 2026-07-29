@@ -424,6 +424,48 @@ const Audit = {
     }).join('');
   },
 
+  // Reconstitue, pour chaque dépense tracée dans l'audit (meta.id), son
+  // DERNIER état connu en rejouant les traces dans l'ordre chronologique :
+  //  - payload : copie de la dépense (fusion des before/after successifs —
+  //    une modification de date ou de montant est donc bien reflétée) ;
+  //  - status  : 'base' (attendue dans Data.histDep), 'attente' (soumise,
+  //    jamais validée), 'validee-legacy' (validée quand la validation
+  //    attribuait encore un nouvel id : en base sous un autre id),
+  //    'supprimee' (suppression ou rejet volontaire), 'renvoyee' (renvoyée
+  //    en saisie pour correction).
+  _depStates() {
+    const entries = (Data.activityLog || [])
+      .filter(e => e && e.module === 'depenses' && e.meta && e.meta.id != null)
+      .slice()
+      .sort((a, b) => String(a.ts || '').localeCompare(String(b.ts || '')) || ((a.id || 0) - (b.id || 0)));
+    const states = new Map();
+    entries.forEach(e => {
+      const k = String(e.meta.id);
+      const st = states.get(k) || { id: e.meta.id, payload: {}, status: null };
+      // Fusionne les copies en ignorant les champs techniques (id/userId).
+      const merge = src => {
+        if (!src || typeof src !== 'object') return;
+        const { id: _i, userId: _u, ...rest } = src;
+        st.payload = { ...st.payload, ...rest };
+      };
+      merge(e.meta.before);
+      merge(e.meta.after);
+      // Entrées de backfill : { id, date } sans copie complète.
+      if (!st.payload.date && e.meta.date) st.payload.date = e.meta.date;
+      if (e.action === 'delete') st.status = 'supprimee';
+      else if (e.meta.renvoyee || /\(renvoyée en saisie/.test(e.entity || '')) st.status = 'renvoyee';
+      else if (e.action === 'create') st.status = (e.meta.attente || /\(soumise pour validation\)/.test(e.entity || '')) ? 'attente' : 'base';
+      else if (e.action === 'update' && !e.meta.validation && /\(validée par /.test(e.entity || '')) st.status = 'validee-legacy';
+      else st.status = 'base'; // update : modification, validation (id conservé) ou extraction de journée
+      st.lastEntity  = e.entity || '';
+      st.lastDetails = e.details || '';
+      st.lastUser    = e.userName || '';
+      st.lastTs      = e.ts;
+      states.set(k, st);
+    });
+    return states;
+  },
+
   // Rapprochement entre l'historique audit (module 'depenses') et la base
   // réelle Data.histDep pour identifier les divergences sur une plage de
   // dates choisie par l'utilisateur (par défaut hier + aujourd'hui).
@@ -468,20 +510,26 @@ const Audit = {
     // fonctionnement normal, PAS une divergence.
     const attente = Data.depAttente || [];
     const attenteIds = new Set(attente.map(d => String(d.id)));
-    // Trace de validation DG : depuis la conservation de l'id, la dépense en
-    // base porte le même id que le « create » ; pour l'ancien historique
-    // (nouvel id à la validation), on rapproche par contenu (meta.after).
+    // Traces de validation DG : servent à rapprocher PAR CONTENU les dépenses
+    // de l'ancien historique, quand la validation attribuait un nouvel id.
     const validations = log.filter(e => e.action === 'update'
       && (e.meta?.validation || /\(validée par /.test(e.entity || '')));
-    const validatedIds = new Set(validations.map(e => e.meta?.id).filter(v => v != null).map(String));
-    // Lignes d'attente renvoyées en saisie pour correction : leur « create »
-    // d'origine n'aboutira jamais en base (une nouvelle soumission le remplace).
-    const renvoyeIds = new Set(log
-      .filter(e => e.action === 'update' && (e.meta?.renvoyee || /\(renvoyée en saisie/.test(e.entity || '')))
-      .map(e => e.meta?.id).filter(v => v != null).map(String));
-    // Ids connus de l'audit toutes actions confondues : une dépense extraite
-    // d'une journée ou validée n'a qu'une trace « update » portant son id.
-    const auditAnyIds = new Set(log.map(e => e.meta?.id).filter(v => v != null).map(String));
+
+    // Dernier état connu de chaque dépense d'après l'audit. Le rapprochement
+    // se fait sur la DERNIÈRE date connue (une dépense dont la date a été
+    // modifiée n'apparaît plus « perdue » à son ancienne date) et la copie
+    // restaurable est le dernier état, pas la copie d'origine.
+    const states = this._depStates();
+    const allBaseIds = new Set(deps.map(d => String(d.userId)));
+    // Perdues = attendues en base (ou en attente de validation) d'après leur
+    // dernière trace, mais absentes des deux : restaurables.
+    const lost = [];
+    states.forEach((st, k) => {
+      if (allBaseIds.has(k) || attenteIds.has(k)) return;          // présente quelque part : OK
+      if (st.status !== 'base' && st.status !== 'attente') return; // supprimée/rejetée/renvoyée/validée-legacy : normal
+      if (!st.payload.date) return;                                // aucune date métier exploitable
+      lost.push({ key: k, ...st });
+    });
 
     // Date métier d'une entrée d'audit : les créations/modifs portent la
     // dépense complète dans meta.after, les suppressions dans meta.before.
@@ -494,16 +542,10 @@ const Audit = {
       const auditUpdate = log.filter(e => e.action === 'update' && depDateOf(e) === date);
       const current     = deps.filter(d => d.date === date);
 
-      const auditCreateIds = new Set(auditCreate.map(e => e.meta?.id).filter(v => v != null).map(String));
-      const deletedIds     = new Set(auditDelete.map(e => e.meta?.id).filter(v => v != null).map(String));
-      const currentIds     = new Set(current.map(d => String(d.userId)));
-      const pending        = attente.filter(d => d.date === date);
-      // Manquantes = créées d'après l'audit, absentes de la base, SANS trace
-      // de suppression (rejet compris), de validation ni de renvoi en saisie,
-      // et pas encore en attente de validation → dépenses perdues, restaurables.
-      const inAuditNotCurrent = [...auditCreateIds].filter(id => !currentIds.has(id)
-        && !deletedIds.has(id) && !attenteIds.has(id)
-        && !validatedIds.has(id) && !renvoyeIds.has(id));
+      const currentIds = new Set(current.map(d => String(d.userId)));
+      const pending    = attente.filter(d => d.date === date);
+      // Perdues du jour : rapprochées sur la DERNIÈRE date connue de la dépense.
+      const missing = lost.filter(x => x.payload.date === date);
       // En trop = en base sans AUCUNE trace audit portant leur id, ni
       // validation ancienne rapprochable par contenu (date/montant/dept/label).
       const usedVal = new Set();
@@ -519,7 +561,7 @@ const Audit = {
         return true;
       };
       const inCurrentNotAudit = [...currentIds].filter(id => {
-        if (auditAnyIds.has(id)) return false;
+        if (states.has(id)) return false;
         const d = current.find(x => String(x.userId) === id);
         return !(d && hasValidationTrace(d));
       });
@@ -543,10 +585,9 @@ const Audit = {
         ? auditUpdate.map(e => `<tr><td>${this._esc(e.entity || '')}</td><td>${this._esc(e.details || '')}</td><td style="font-size:11px;color:var(--c-muted)">${this._esc(this._fmtTs(e.ts))}</td><td>${this._esc(e.userName || '')}</td></tr>`).join('')
         : '<tr><td colspan="4" class="empty">Aucune modification historisée</td></tr>';
 
-      // Montants des divergences (depuis meta.after/before pour l'audit, depuis la base pour l'extra)
-      const missingEntries = inAuditNotCurrent.map(id => auditCreate.find(x => String(x.meta?.id) === id));
-      const missingAmounts = missingEntries.map(e =>
-        Number(e?.meta?.after?.montant ?? e?.meta?.before?.montant ?? 0) || 0);
+      // Montants des divergences (dernier état connu pour les perdues,
+      // valeurs en base pour les « en trop »)
+      const missingAmounts = missing.map(x => Number(x.payload.montant ?? 0) || 0);
       const extraAmounts = inCurrentNotAudit.map(id => {
         const d = current.find(x => String(x.userId) === id);
         return Number(d?.montant ?? 0) || 0;
@@ -555,20 +596,19 @@ const Audit = {
       const totalExtra   = extraAmounts.reduce((s, m) => s + m, 0);
       const totalDivergence = totalMissing + totalExtra;
 
-      // Entrées restaurables : l'audit porte la dépense complète (meta.after)
-      const restorableIds = missingEntries
-        .filter(e => e && (e.meta?.after || e.meta?.before))
-        .map(e => e.id);
+      // Restaurables : la copie fusionnée porte au moins date + montant
+      // (les entrées de backfill { id, date } n'ont pas de copie complète).
+      const restorable = missing.filter(x => x.payload.montant != null);
 
-      const rowsDiffMissing = inAuditNotCurrent.length
-        ? inAuditNotCurrent.map((id, i) => {
-            const e = missingEntries[i];
+      const rowsDiffMissing = missing.length
+        ? missing.map((x, i) => {
             const m = missingAmounts[i];
-            const canRestore = !!(e && (e.meta?.after || e.meta?.before));
+            const canRestore = x.payload.montant != null;
+            const note = x.status === 'attente' ? ' · était en attente de validation' : '';
             const restoreBtn = canRestore
-              ? `<button class="btn btn-sm btn-primary" onclick="Audit.restoreDeps('${e.id}')" title="Recréer cette dépense à partir de sa copie dans l'historique"><i class="ti ti-restore"></i> Restaurer</button>`
+              ? `<button class="btn btn-sm btn-primary" onclick="Audit.restoreDeps('${this._esc(String(x.id))}')" title="Recréer cette dépense à partir de sa dernière copie dans l'historique"><i class="ti ti-restore"></i> Restaurer</button>`
               : '<span class="text-muted" style="font-size:11px">copie indisponible</span>';
-            return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(e?.entity || '?')}</td><td>${this._esc(e?.details || '')}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${m ? Data.fmt(m) : '—'}</td><td style="font-size:11px;color:var(--c-muted)">#${id}</td><td>${restoreBtn}</td></tr>`;
+            return `<tr style="background:var(--c-danger-soft)"><td>${this._esc(x.lastEntity || ('Dépense ' + (x.payload.dept || '?') + ' · ' + (x.payload.label || x.payload.groupe || '')))}</td><td>${this._esc((x.lastDetails || '') + note)}</td><td class="text-right fw-bold" style="color:var(--c-danger)">${m ? Data.fmt(m) : '—'}</td><td style="font-size:11px;color:var(--c-muted)">#${this._esc(String(x.id))}</td><td>${restoreBtn}</td></tr>`;
           }).join('')
         : '<tr><td colspan="5" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les créations de l\'audit sont présentes en base ✓</td></tr>';
 
@@ -579,7 +619,7 @@ const Audit = {
           }).join('')
         : '<tr><td colspan="4" class="empty" style="color:var(--c-bar)">Aucune divergence — toutes les dépenses présentes ont une trace audit ✓</td></tr>';
 
-      const okDiff = inAuditNotCurrent.length === 0 && inCurrentNotAudit.length === 0;
+      const okDiff = missing.length === 0 && inCurrentNotAudit.length === 0;
       const statusBadge = okDiff
         ? '<span class="badge b-green">✓ Tout est cohérent</span>'
         : `<span class="badge b-red">⚠ Divergence · ${Data.fmt(totalDivergence)}</span>`;
@@ -593,16 +633,16 @@ const Audit = {
           ${!okDiff ? `
             <div style="background:var(--c-danger-soft);border-left:4px solid var(--c-danger);padding:10px 12px;margin-bottom:12px;border-radius:4px">
               <div style="font-weight:700;color:var(--c-danger);font-size:14px;margin-bottom:4px">
-                ⚠ ${inAuditNotCurrent.length + inCurrentNotAudit.length} divergence(s) détectée(s)
+                ⚠ ${missing.length + inCurrentNotAudit.length} divergence(s) détectée(s)
               </div>
               <div style="font-size:13px;color:var(--c-text)">
                 Montant total des divergences : <b style="color:var(--c-danger);font-size:15px">${Data.fmt(totalDivergence)}</b>
                 ${totalMissing > 0 ? ` · <span style="color:var(--c-muted)">audit sans base : <b>${Data.fmt(totalMissing)}</b></span>` : ''}
                 ${totalExtra   > 0 ? ` · <span style="color:var(--c-muted)">base sans audit : <b>${Data.fmt(totalExtra)}</b></span>` : ''}
               </div>
-              ${restorableIds.length ? `
-              <button class="btn btn-primary" style="margin-top:8px" onclick="Audit.restoreDeps('${restorableIds.join(',')}')">
-                <i class="ti ti-restore"></i> Restaurer les ${restorableIds.length} dépense(s) perdue(s) du ${Data.fmtDs(date)}
+              ${restorable.length ? `
+              <button class="btn btn-primary" style="margin-top:8px" onclick="Audit.restoreDeps('${this._esc(restorable.map(x => String(x.id)).join(','))}')">
+                <i class="ti ti-restore"></i> Restaurer les ${restorable.length} dépense(s) perdue(s) du ${Data.fmtDs(date)}
               </button>` : ''}
             </div>` : ''}
           <div class="g4" style="margin-bottom:12px">
@@ -640,8 +680,8 @@ const Audit = {
           ${!okDiff ? `
             <div style="border-top:2px dashed var(--c-danger);padding-top:10px;margin-top:6px;background:var(--c-danger-soft);padding:12px;border-radius:6px">
               <details open>
-                <summary style="cursor:pointer;font-weight:700;color:var(--c-danger);font-size:14px">⚠ Détail des divergences (${inAuditNotCurrent.length + inCurrentNotAudit.length}) · Montant total : ${Data.fmt(totalDivergence)}</summary>
-                <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Audit sans base</b> — lignes audit dont la dépense a disparu (sans trace de suppression) · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalMissing)}</span> :</div>
+                <summary style="cursor:pointer;font-weight:700;color:var(--c-danger);font-size:14px">⚠ Détail des divergences (${missing.length + inCurrentNotAudit.length}) · Montant total : ${Data.fmt(totalDivergence)}</summary>
+                <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Audit sans base</b> — dépenses dont la dernière trace audit indique qu'elles devraient exister, mais introuvables · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalMissing)}</span> :</div>
                 <table style="margin-bottom:12px"><thead><tr><th>Entité</th><th>Détails</th><th class="text-right">Montant</th><th>ID</th><th></th></tr></thead><tbody>${rowsDiffMissing}</tbody></table>
                 <div style="font-size:13px;color:var(--c-text);margin:10px 0 6px"><b>Base sans audit</b> — dépenses présentes sans aucune trace dans l'audit · <span style="color:var(--c-danger);font-weight:700">${Data.fmt(totalExtra)}</span> :</div>
                 <table><thead><tr><th>Dept</th><th>Catégorie</th><th class="text-right">Montant</th><th>ID</th></tr></thead><tbody>${rowsDiffExtra}</tbody></table>
@@ -687,38 +727,59 @@ const Audit = {
   },
 
   // ---------- Restauration de dépenses perdues depuis l'audit ----------
-  // Chaque création de dépense est historisée avec sa copie complète
-  // (meta.after) : on peut donc recréer à l'identique une dépense disparue.
-  // `csv` = ids d'entrées d'audit séparés par des virgules.
+  // `csv` = ids de dépenses (meta.id) séparés par des virgules. La copie
+  // restaurée est le DERNIER état connu dans l'audit (fusion des traces via
+  // _depStates), pas la copie d'origine : une dépense modifiée puis perdue
+  // revient donc avec ses dernières valeurs (date, montant, paiement…).
+  // Une ligne qui n'avait jamais été validée est restaurée dans la liste
+  // « En attente de validation », pas directement en base.
   restoreDeps(csv) {
     const ids = String(csv).split(',').filter(Boolean);
     if (!ids.length) return;
     if (ids.length > 1 && !confirm(`Restaurer ${ids.length} dépense(s) à partir de leur copie dans l'historique ?`)) return;
 
-    let done = 0, skipped = [];
-    ids.forEach(eid => {
-      const e = (Data.activityLog || []).find(x => String(x.id) === String(eid));
-      const payload = e?.meta?.after || e?.meta?.before;
-      const uid = e?.meta?.id;
-      if (!e || !payload || uid == null || !payload.date) { skipped.push('copie introuvable'); return; }
-      if ((Data.histDep || []).some(d => String(d.userId) === String(uid))) { skipped.push(`${payload.label || '?'} : déjà présente`); return; }
-      if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(payload.date)) {
-        skipped.push(`${payload.label || '?'} : mois clôturé`); return;
+    const states = this._depStates();
+    let done = 0, doneAttente = 0, skipped = [];
+    ids.forEach(k => {
+      const st = states.get(String(k));
+      const p = st ? st.payload : null;
+      if (!st || !p || !p.date || p.montant == null) { skipped.push(`#${k} : copie introuvable`); return; }
+      const uid = st.id;
+      if ((Data.histDep || []).some(d => String(d.userId) === String(uid))
+          || (Data.depAttente || []).some(d => String(d.id) === String(uid))) {
+        skipped.push(`${p.label || '?'} : déjà présente`); return;
       }
-      Data.histDep.push({ ...payload, userId: uid });
-      done++;
-      this.log('create', 'depenses',
-        `Dépense ${payload.dept || ''} · ${payload.label || ''} (restaurée depuis l'historique)`,
-        `${Data.fmt(payload.montant || 0)} · ${payload.paiement || 'esp'}`,
-        { id: uid, after: payload, restored: true });
+      if (typeof Clotures !== 'undefined' && Clotures.isMonthClosed && Clotures.isMonthClosed(p.date)) {
+        skipped.push(`${p.label || '?'} : mois clôturé`); return;
+      }
+      const { soumisPar, soumisLe, ...payload } = p;
+      if (st.status === 'attente') {
+        // Jamais validée : elle repart en attente de validation par la DG.
+        if (!Array.isArray(Data.depAttente)) Data.depAttente = [];
+        Data.depAttente.push({ ...payload, id: uid, soumisPar: soumisPar || '—', soumisLe: soumisLe || new Date().toISOString() });
+        doneAttente++;
+        this.log('create', 'depenses',
+          `Dépense ${payload.dept || ''} · ${payload.label || ''} (restaurée en attente de validation)`,
+          `${Data.fmt(payload.montant || 0)} · ${payload.paiement || 'esp'}`,
+          { id: uid, after: payload, restored: true, attente: true });
+      } else {
+        Data.histDep.push({ ...payload, userId: uid });
+        done++;
+        this.log('create', 'depenses',
+          `Dépense ${payload.dept || ''} · ${payload.label || ''} (restaurée depuis l'historique)`,
+          `${Data.fmt(payload.montant || 0)} · ${payload.paiement || 'esp'}`,
+          { id: uid, after: payload, restored: true });
+      }
     });
 
-    if (done) {
+    if (done || doneAttente) {
       Data.bumpNextIdFromAllData();
       if (typeof Depenses !== 'undefined' && Depenses.persist) Depenses.persist();
+      if (doneAttente && typeof Depenses !== 'undefined' && Depenses.persistAttente) Depenses.persistAttente();
       App.renderAll();
     }
-    let msg = done ? `✅ ${done} dépense(s) restaurée(s) et sauvegardée(s).` : 'Aucune dépense restaurée.';
+    let msg = (done + doneAttente) ? `✅ ${done + doneAttente} dépense(s) restaurée(s) et sauvegardée(s).` : 'Aucune dépense restaurée.';
+    if (doneAttente) msg += `\n(dont ${doneAttente} renvoyée(s) en attente de validation par la direction)`;
     if (skipped.length) msg += '\n\nIgnorée(s) :\n· ' + skipped.join('\n· ');
     alert(msg);
     App.closeModal();
